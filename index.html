@@ -1037,15 +1037,6 @@
               <section class="settingsSection" id="settingsSection-plugins" role="tabpanel" aria-labelledby="settingsTab-plugins" data-section="plugins" hidden>
                 <h2 class="settingsSectionTitle" data-i18n="settings.plugins.title">Plugins</h2>
                 <div class="settingsGroupBody">
-                  <div class="settingsRow pluginActionsRow">
-                    <div class="settingsInfo">
-                      <div class="settingsHint" data-i18n="settings.plugins.intro">Reviewed plugins add features beside the meter. Each one gets only what it asks for when you install it.</div>
-                      <div class="settingsHint pluginStatus" role="status"></div>
-                    </div>
-                    <div class="settingsRowEnd">
-                      <button class="settingsAction pluginUpdateBtn" type="button" data-i18n="settings.plugins.checkUpdates">Check for updates</button>
-                    </div>
-                  </div>
                   <label class="settingsToggle showMeterToggle">
                     <span class="settingsToggleLabel settingsLabel" data-i18n="settings.plugins.showMeter" title="Off: only your plugins show. The meter keeps reading combat and uploading in the background. Bring it back here, with the show/hide hotkey, or with the meter button on a plugin window." data-i18n-title="settings.tips.showMeter">Show the DPS meter</span>
                     <span class="settingsToggleControl">
@@ -1053,12 +1044,28 @@
                       <span class="settingsToggleTrack" aria-hidden="true"></span>
                     </span>
                   </label>
-                  <h3 class="pluginListTitle" data-i18n="settings.plugins.installed">Installed</h3>
-                  <div class="pluginList"></div>
-                  <div class="settingsHint pluginListEmpty" data-i18n="settings.plugins.none">No plugins installed yet.</div>
-                  <h3 class="pluginListTitle" data-i18n="settings.plugins.available">Available</h3>
-                  <div class="pluginCatalog"></div>
-                  <div class="settingsHint pluginCatalogStatus"></div>
+                  <div class="pluginBar">
+                    <div class="pluginTabs" role="tablist">
+                      <button class="pluginTab isActive" type="button" role="tab" aria-selected="true" data-tab="installed"><span data-i18n="settings.plugins.installed">Installed</span><span class="pluginTabCount pluginInstalledCount"></span></button>
+                      <button class="pluginTab" type="button" role="tab" aria-selected="false" data-tab="browse"><span data-i18n="settings.plugins.available">Available</span><span class="pluginTabCount pluginAvailableCount"></span></button>
+                    </div>
+                    <label class="pluginSearch" hidden>
+                      <i data-lucide="search" aria-hidden="true"></i>
+                      <input class="pluginSearchInput" type="search" spellcheck="false" autocomplete="off" placeholder="Search" data-i18n-placeholder="settings.plugins.search" data-i18n-aria-label="settings.plugins.search" aria-label="Search" />
+                    </label>
+                    <button class="pluginIconBtn pluginUpdateBtn" type="button" data-i18n-title="settings.plugins.checkUpdates" title="Check for updates" data-i18n-aria-label="settings.plugins.checkUpdates" aria-label="Check for updates"><i data-lucide="refresh-cw" aria-hidden="true"></i></button>
+                  </div>
+                  <div class="settingsHint pluginStatus" role="status"></div>
+                  <div class="pluginPane" data-pane="installed">
+                    <div class="pluginList"></div>
+                    <div class="settingsHint pluginListEmpty" data-i18n="settings.plugins.none">No plugins installed yet.</div>
+                  </div>
+                  <div class="pluginPane" data-pane="browse" hidden>
+                    <div class="settingsHint pluginIntro" data-i18n="settings.plugins.intro">Reviewed plugins add features beside the meter. Each one gets only what it asks for when you install it.</div>
+                    <div class="pluginCatalog"></div>
+                    <div class="settingsHint pluginCatalogStatus"></div>
+                  </div>
+                  <div class="settingsHint pluginNoMatch" data-i18n="settings.plugins.noMatch" hidden>No plugins match.</div>
                   <label class="settingsToggle pluginDevToggle">
                     <span class="settingsToggleLabel settingsLabel" data-i18n="settings.plugins.devMode" title="Loads plugins from folders on this computer, for building and testing them. They are not reviewed, so only load plugins you trust." data-i18n-title="settings.tips.pluginDevMode">Plugin developer mode</span>
                     <span class="settingsToggleControl">

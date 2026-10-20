@@ -573,7 +573,10 @@
       "enabledTip": "On: starts with the meter. Off: stays installed but doesn't run.",
       "showMeter": "Show the DPS meter",
       "hideClosed": "Hide while AION2 is closed",
-      "hideUnfocused": "Hide when AION2 isn't focused"
+      "hideUnfocused": "Hide when AION2 isn't focused",
+      "search": "Search",
+      "noMatch": "No plugins match.",
+      "permsTitle": "It can:"
     },
     "clearOnZone": {
       "label": "Clear the meter",

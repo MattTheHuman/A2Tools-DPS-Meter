@@ -561,7 +561,10 @@
       "enabledTip": "Activé : démarre avec le compteur. Désactivé : reste installé mais ne s'exécute pas.",
       "showMeter": "Afficher le DPS meter",
       "hideClosed": "Masquer quand AION2 est fermé",
-      "hideUnfocused": "Masquer quand AION2 n'est pas au premier plan"
+      "hideUnfocused": "Masquer quand AION2 n'est pas au premier plan",
+      "search": "Rechercher",
+      "noMatch": "Aucun plugin ne correspond.",
+      "permsTitle": "Il peut :"
     },
     "clearOnZone": {
       "label": "Vider le compteur",

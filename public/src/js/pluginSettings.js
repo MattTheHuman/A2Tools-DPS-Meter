@@ -100,24 +100,124 @@
       return b;
     };
 
-    // A list row: a title (text and elements), a line under it, and buttons.
-    const pluginRow = (title, subtitle, isError, buttons) => {
-      const item = document.createElement("div");
-      item.className = "settingsRow pluginItem";
-      const info = document.createElement("div");
-      info.className = "settingsInfo";
-      const name = document.createElement("div");
-      name.className = "settingsLabel";
-      name.append(...title);
-      const sub = document.createElement("div");
-      sub.className = isError ? "settingsHint pluginError" : "settingsHint";
-      sub.textContent = subtitle;
-      info.append(name, sub);
-      const end = document.createElement("div");
-      end.className = "settingsRowEnd";
-      end.append(...buttons);
-      item.append(info, end);
+    const el = (tag, className, text) => {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text != null) node.textContent = text;
+      return node;
+    };
+
+    const icon = (name) => {
+      const i = document.createElement("i");
+      i.setAttribute("data-lucide", name);
+      i.setAttribute("aria-hidden", "true");
+      return i;
+    };
+
+    // A square with the plugin's first letter, its colour from its id, so
+    // a long list scans by shape and colour before reading.
+    const mark = (id, name) => {
+      let hash = 0;
+      for (const ch of String(id)) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+      const m = el("span", "pluginMark", (String(name || id).trim()[0] || "?").toUpperCase());
+      m.style.setProperty("--mark-hue", String(hash % 360));
+      m.setAttribute("aria-hidden", "true");
+      return m;
+    };
+
+    // The plugin whose details are open (one at a time), kept across renders.
+    let openId = null;
+
+    // A plugin's row: one line (mark, name and version, description cut to
+    // fit, then its controls), and its details folded under it until the
+    // row is clicked.
+    const pluginRow = ({ id, name, version, tags = [], description, isError, controls, details }) => {
+      const item = el("div", "pluginItem");
+      item.dataset.id = id;
+      const head = el("div", "pluginHead");
+      head.tabIndex = 0;
+      head.setAttribute("role", "button");
+      const main = el("span", "pluginMain");
+      const title = el("span", "pluginName");
+      title.append(el("span", "pluginNameText", name));
+      if (version) title.append(el("span", "pluginVersion", version));
+      title.append(...tags);
+      const desc = el("span", isError ? "pluginDesc pluginError" : "pluginDesc", description || "");
+      if (description) desc.title = description;
+      main.append(title, desc);
+      const end = el("span", "pluginEnd");
+      end.append(...controls);
+      const chevron = el("span", "pluginChevron");
+      chevron.append(icon("chevron-down"));
+      head.append(mark(id, name), main, end, chevron);
+      const body = el("div", "pluginDetails");
+      body.append(...details);
+      const setOpen = (open) => {
+        item.classList.toggle("isOpen", open);
+        body.hidden = !open;
+        head.setAttribute("aria-expanded", String(open));
+      };
+      setOpen(openId === id);
+      const flip = () => {
+        const open = !item.classList.contains("isOpen");
+        // Close the one open before.
+        for (const other of document.querySelectorAll(".settingsPanel .pluginItem.isOpen")) {
+          if (other !== item) {
+            other.classList.remove("isOpen");
+            other.querySelector(".pluginDetails").hidden = true;
+            other.querySelector(".pluginHead").setAttribute("aria-expanded", "false");
+          }
+        }
+        openId = open ? id : null;
+        setOpen(open);
+      };
+      head.addEventListener("click", (e) => {
+        if (e.target.closest(".pluginEnd")) return;
+        flip();
+      });
+      head.addEventListener("keydown", (e) => {
+        if (e.target !== head || (e.key !== "Enter" && e.key !== " ")) return;
+        e.preventDefault();
+        flip();
+      });
+      item.append(head, body);
       return item;
+    };
+
+    // What it may do, in its details.
+    const permissionList = (permissions, installed) => {
+      const box = el("div", "pluginPerms");
+      box.append(el("div", "pluginDetailTitle", installed
+        ? t("settings.plugins.permsTitle", "It can:")
+        : t("settings.plugins.consentIntro", "It will be able to:")));
+      const ul = el("ul");
+      const items = permissions.length ? permissions.map(describe) : [t("settings.plugins.permNone", "Nothing beyond showing its window")];
+      ul.append(...items.map((text) => el("li", "", text)));
+      box.append(ul);
+      return box;
+    };
+
+    // A small switch with its label, for a plugin's options.
+    const option = (text, checked, onChange) => {
+      const row = el("label", "pluginOption");
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = checked;
+      input.addEventListener("change", () => onChange(input.checked));
+      const control = el("span", "settingsToggleControl");
+      control.append(input, Object.assign(el("span", "settingsToggleTrack"), { ariaHidden: "true" }));
+      row.append(el("span", "pluginOptionText", text), control);
+      return row;
+    };
+
+    const iconButton = (name, label, onClick, extra = "") => {
+      const b = el("button", `pluginIconBtn ${extra}`.trim());
+      b.type = "button";
+      b.title = label;
+      b.setAttribute("aria-label", label);
+      b.append(icon(name));
+      b.addEventListener("click", onClick);
+      return b;
     };
 
     // On: the plugin starts with the meter. Off: installed, but not running.
@@ -141,6 +241,52 @@
       return control;
     };
 
+    // Installed or Available, and the search over both (shown once there are
+    // enough plugins to need it).
+    let tab = null;
+    let query = "";
+    const tabs = [...document.querySelectorAll(".settingsPanel .pluginTab")];
+    const panes = [...document.querySelectorAll(".settingsPanel .pluginPane")];
+    const search = document.querySelector(".pluginSearch");
+    const searchInput = document.querySelector(".pluginSearchInput");
+    const noMatch = document.querySelector(".pluginNoMatch");
+    const SEARCH_FROM = 6;
+
+    const matches = (...texts) => !query || texts.some((x) => String(x || "").toLowerCase().includes(query));
+
+    const showTab = (name) => {
+      tab = name;
+      for (const b of tabs) {
+        const on = b.dataset.tab === name;
+        b.classList.toggle("isActive", on);
+        b.setAttribute("aria-selected", String(on));
+      }
+      for (const pane of panes) pane.hidden = pane.dataset.pane !== name;
+      refreshNoMatch();
+    };
+    for (const b of tabs) b.addEventListener("click", () => showTab(b.dataset.tab));
+
+    const refreshNoMatch = () => {
+      const shown = tab === "browse" ? catalogList.childElementCount : list.childElementCount;
+      noMatch.hidden = !query || shown > 0;
+    };
+
+    const refreshBar = () => {
+      const installed = (view.plugins || []).length;
+      const offered = catalog ? catalog.filter((e) => !e.installed).length : 0;
+      document.querySelector(".pluginInstalledCount").textContent = installed ? String(installed) : "";
+      document.querySelector(".pluginAvailableCount").textContent = offered ? String(offered) : "";
+      search.hidden = installed + offered < SEARCH_FROM && !query;
+      if (!tab) showTab(installed ? "installed" : "browse");
+      refreshNoMatch();
+    };
+
+    searchInput?.addEventListener("input", () => {
+      query = searchInput.value.trim().toLowerCase();
+      render();
+      renderCatalog();
+    });
+
     const run = (promise) => promise.then(render).catch((e) => say(String(e)));
 
     const renderCatalog = () => {
@@ -148,19 +294,30 @@
       catalogStatus.classList.remove("pluginError");
       if (!view.online) {
         catalogStatus.textContent = t("settings.plugins.offline", "The offline build does not download plugins.");
+        refreshBar();
         return;
       }
-      if (!catalog) return;
+      if (!catalog) return refreshBar();
       const offered = catalog.filter((e) => !e.installed);
       for (const entry of offered) {
-        const by = entry.author ? t("settings.plugins.by", "by {author}", { author: entry.author }) : "";
+        if (!matches(entry.name, entry.description, entry.id, entry.author)) continue;
+        const details = [el("p", "pluginDescFull", entry.description || "")];
+        if (entry.author) details.push(el("div", "pluginAuthor", t("settings.plugins.by", "by {author}", { author: entry.author })));
+        details.push(permissionList(entry.permissions || []));
         catalogList.append(
-          pluginRow([`${entry.name} ${entry.version}`], [entry.description, by].filter(Boolean).join(" · "), false, [
-            button(t("settings.plugins.install", "Install"), () => install(entry, null)),
-          ]),
+          pluginRow({
+            id: entry.id,
+            name: entry.name,
+            version: entry.version,
+            description: entry.description,
+            controls: [button(t("settings.plugins.install", "Install"), () => install(entry, null), "pluginInstallBtn")],
+            details,
+          }),
         );
       }
       catalogStatus.textContent = offered.length ? "" : t("settings.plugins.catalogEmpty", "Every reviewed plugin is installed.");
+      window.lucide?.createIcons?.({ root: catalogList });
+      refreshBar();
     };
 
     const loadCatalog = async () => {
@@ -216,74 +373,85 @@
       devRow.hidden = !view.devMode;
       list.replaceChildren();
       for (const p of view.plugins || []) {
-        const title = [p.error ? p.name : `${p.name} ${p.version}`];
+        if (!matches(p.name, p.description, p.id)) continue;
+        const tags = [];
         const wasUpdated = !p.error && updatedFrom.has(p.id);
         if (wasUpdated) {
           const from = updatedFrom.get(p.id);
-          const badge = document.createElement("i");
+          const badge = icon("circle-arrow-up");
           badge.className = "pluginUpdatedIcon";
-          badge.setAttribute("data-lucide", "circle-arrow-up");
           badge.setAttribute("role", "img");
+          badge.removeAttribute("aria-hidden");
           const label = from
             ? t("settings.plugins.updatedFrom", "Updated from {version}", { version: from })
             : t("settings.plugins.added", "Newly loaded");
           badge.setAttribute("aria-label", label);
           badge.title = label;
-          title.push(" ", badge);
+          tags.push(badge);
         }
         if (!p.reviewed) {
-          const tag = document.createElement("span");
-          tag.className = "pluginUnreviewedTag";
-          tag.textContent = t("settings.plugins.unreviewed", "Dev");
+          const tag = el("span", "pluginUnreviewedTag", t("settings.plugins.unreviewed", "Dev"));
           tag.title = t("settings.plugins.hint", "Plugins loaded here are not reviewed. Only load plugins you trust.");
-          title.push(" ", tag);
+          tags.push(tag);
         }
-        const buttons = [];
         const on = !(view.disabled || []).includes(p.id);
-        if (!p.error) buttons.push(enabledSwitch(p, on));
-        if (!p.error && on) {
-          buttons.push(button(t("settings.plugins.open", "Open"), () => invoke("plugin_open", { id: p.id }).catch((e) => say(String(e)))));
-        }
+        const controls = [];
         const newer = p.reviewed && available.get(p.id);
         if (newer) {
-          buttons.push(button(
+          controls.push(button(
             t("settings.plugins.updateTo", "Update to {version}", { version: newer.to }),
             () => install({ id: p.id, name: p.name, version: newer.to }, p.version),
-            "hotkeyConsentConfirm",
+            "hotkeyConsentConfirm pluginInstallBtn",
           ));
         }
-        buttons.push(button(t("settings.plugins.remove", "Remove"), () => {
-          say("");
-          if (p.reviewed) run(invoke("plugin_uninstall", { id: p.id })).then(loadCatalog);
-          else run(invoke("plugin_remove_folder", { path: p.path }));
-        }));
-        const item = pluginRow(title, p.error || p.description || p.path, !!p.error, buttons);
-        // Its windows and widgets hidden while AION2 is closed, or with the
-        // meter while AION2 isn't in front (off: an alert's icon stays up).
         if (!p.error && on) {
-          const options = document.createElement("div");
-          options.className = "pluginHideOptions";
-          for (const [when, list, key, text] of [
+          controls.push(iconButton("app-window", t("settings.plugins.open", "Open"), () => invoke("plugin_open", { id: p.id }).catch((e) => say(String(e)))));
+        }
+        if (!p.error) controls.push(enabledSwitch(p, on));
+
+        // Its details: the whole description, when it hides, what it may
+        // do, and Remove.
+        const details = [];
+        if (p.error) details.push(el("p", "pluginDescFull pluginError", p.error));
+        else if (p.description) details.push(el("p", "pluginDescFull", p.description));
+        if (!p.reviewed && p.path) details.push(el("div", "pluginAuthor", p.path));
+        if (!p.error) {
+          // Its windows and widgets hidden while AION2 is closed, or with the
+          // meter while AION2 isn't in front (off: an alert's icon stays up).
+          const options = el("div", "pluginOptions");
+          for (const [when, ids, key, text] of [
             ["closed", view.hideClosed, "settings.plugins.hideClosed", "Hide while AION2 is closed"],
             ["unfocused", view.hideUnfocused, "settings.plugins.hideUnfocused", "Hide when AION2 isn't focused"],
           ]) {
-            const hide = document.createElement("label");
-            hide.className = "pluginHideClosed";
-            const box = document.createElement("input");
-            box.type = "checkbox";
-            box.checked = (list || []).includes(p.id);
-            box.addEventListener("change", () => run(invoke("plugin_set_hide", { id: p.id, when, hide: box.checked })));
-            hide.append(box, " ", t(key, text));
-            options.append(hide);
+            options.append(option(t(key, text), (ids || []).includes(p.id), (hide) => run(invoke("plugin_set_hide", { id: p.id, when, hide }))));
           }
-          item.querySelector(".settingsInfo")?.append(options);
+          details.push(options, permissionList(p.permissions || [], true));
         }
+        const actions = el("div", "pluginDetailActions");
+        actions.append(button(t("settings.plugins.remove", "Remove"), () => {
+          say("");
+          if (p.reviewed) run(invoke("plugin_uninstall", { id: p.id })).then(loadCatalog);
+          else run(invoke("plugin_remove_folder", { path: p.path }));
+        }, "pluginRemoveBtn"));
+        details.push(actions);
+
+        const item = pluginRow({
+          id: p.id,
+          name: p.name,
+          version: p.error ? "" : p.version,
+          tags,
+          description: p.error || p.description || p.path,
+          isError: !!p.error,
+          controls,
+          details,
+        });
         if (wasUpdated) item.classList.add("pluginUpdated");
         if (!p.error && !on) item.classList.add("pluginOff");
         list.append(item);
       }
-      empty.hidden = list.childElementCount > 0;
+      empty.hidden = list.childElementCount > 0 || !!query;
       window.lucide?.createIcons?.({ root: list });
+      refreshBar();
     };
 
     // The list comes with whether developer mode is on.

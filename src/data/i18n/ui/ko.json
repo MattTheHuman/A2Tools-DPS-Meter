@@ -568,7 +568,10 @@
       "enabledTip": "켜짐: 미터와 함께 시작됩니다. 꺼짐: 설치된 상태로 남지만 실행되지 않습니다.",
       "showMeter": "DPS 미터 표시",
       "hideClosed": "AION2가 꺼져 있으면 숨기기",
-      "hideUnfocused": "AION2가 활성 창이 아닐 때 숨기기"
+      "hideUnfocused": "AION2가 활성 창이 아닐 때 숨기기",
+      "search": "검색",
+      "noMatch": "일치하는 플러그인이 없습니다.",
+      "permsTitle": "할 수 있는 일:"
     },
     "clearOnZone": {
       "label": "미터 초기화",

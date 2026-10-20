@@ -561,7 +561,10 @@
       "enabledTip": "オン：メーターと一緒に起動します。オフ：インストールされたままですが、動作しません。",
       "showMeter": "DPSメーターを表示",
       "hideClosed": "AION2が閉じているときは隠す",
-      "hideUnfocused": "AION2が非アクティブのとき隠す"
+      "hideUnfocused": "AION2が非アクティブのとき隠す",
+      "search": "検索",
+      "noMatch": "一致するプラグインはありません。",
+      "permsTitle": "できること:"
     },
     "clearOnZone": {
       "label": "メーターをクリア",

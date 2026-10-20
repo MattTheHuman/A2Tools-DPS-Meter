@@ -7856,13 +7856,6 @@ html.a2-offline .historyUploadBtn {
 #settingsSection-plugins .settingsHint[hidden] {
   display: none;
 }
-/* "Installed" and "Available" above their lists. */
-.settingsPanel .pluginListTitle {
-  margin: 14px 0 2px;
-  font-size: 12px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.6);
-}
 .settingsPanel .pluginListEmpty,
 .settingsPanel .pluginCatalogStatus {
   padding: 6px 0;
@@ -7889,7 +7882,6 @@ html.a2-offline .historyUploadBtn {
 /* A plugin the last update check changed: a green arrow by its version. */
 .settingsPanel .pluginUpdated {
   box-shadow: inset 2px 0 0 #4ade80;
-  padding-left: 8px;
 }
 .settingsPanel .pluginUpdatedIcon,
 .settingsPanel .pluginUpdated svg {
@@ -7904,9 +7896,10 @@ html.a2-offline .historyUploadBtn {
 /* The switch that turns a plugin on or off, before its buttons; a plugin
    turned off is dimmed (its switch stays clear to turn it back on). */
 .settingsPanel .pluginEnabledToggle {
-  margin-right: 4px;
+  margin-left: 2px;
 }
-.settingsPanel .pluginOff .settingsInfo {
+.settingsPanel .pluginOff .pluginMain,
+.settingsPanel .pluginOff .pluginMark {
   opacity: 0.5;
 }
 
@@ -8150,23 +8143,238 @@ html.a2-offline .historyUploadBtn {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
-/* Settings → Plugins: a plugin's "Hide while AION2 is closed" and "Hide
-   when AION2 isn't focused", under its description. */
-.settingsPanel .pluginHideOptions {
+/* Settings → Plugins: tabs (Installed, Available), a search once the list
+   is long, and the update check, on one line. */
+.settingsPanel .pluginBar {
   display: flex;
-  flex-wrap: wrap;
-  column-gap: 14px;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
-.settingsPanel .pluginHideClosed {
+.settingsPanel .pluginTabs {
+  display: flex;
+  gap: 2px;
+  margin-right: auto;
+}
+.settingsPanel .pluginTab {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 4px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.72);
+  padding: 6px 10px 7px;
+  margin-bottom: -1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: rgba(255, 255, 255, 0.55);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
 }
-.settingsPanel .pluginHideClosed input {
-  margin: 0;
-  accent-color: #5fbf87;
+.settingsPanel .pluginTab:hover { color: rgba(255, 255, 255, 0.85); }
+.settingsPanel .pluginTab.isActive {
+  color: #fff;
+  border-bottom-color: var(--isUser-fill);
+}
+.settingsPanel .pluginTab:focus-visible {
+  outline: 2px solid var(--isUser-fill);
+  outline-offset: -2px;
+}
+.settingsPanel .pluginTabCount {
+  min-width: 16px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.75);
+}
+.settingsPanel .pluginTabCount:empty { display: none; }
+.settingsPanel .pluginSearch {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 7px;
+  margin-bottom: 4px;
+  border: 1px solid var(--set-field-border);
+  border-radius: 3px;
+  background: var(--set-field-bg);
+  color: rgba(255, 255, 255, 0.5);
+}
+.settingsPanel .pluginSearch[hidden] { display: none; }
+.settingsPanel .pluginSearch:focus-within { border-color: var(--set-field-border-hover); }
+.settingsPanel .pluginSearch svg { width: 13px; height: 13px; flex: none; }
+.settingsPanel .pluginSearchInput {
+  width: 120px;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+}
+.settingsPanel .pluginIconBtn {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+}
+.settingsPanel .pluginBar .pluginIconBtn { margin-bottom: 4px; }
+.settingsPanel .pluginIconBtn:hover {
+  color: #fff;
+  background: var(--set-field-bg-hover);
+  border-color: var(--set-field-border);
+}
+.settingsPanel .pluginIconBtn:focus-visible {
+  outline: 2px solid var(--isUser-fill);
+  outline-offset: 1px;
+}
+.settingsPanel .pluginIconBtn svg { width: 15px; height: 15px; }
+.settingsPanel .pluginUpdateBtn:disabled svg { animation: pluginSpin 900ms linear infinite; }
+@keyframes pluginSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .settingsPanel .pluginUpdateBtn:disabled svg { animation: none; }
+}
+.settingsPanel .pluginPane[hidden],
+.settingsPanel .pluginNoMatch[hidden] { display: none; }
+#settingsSection-plugins .pluginIntro { margin: 2px 0 6px; }
+
+/* One plugin: a single line until clicked, then its details under it. */
+.settingsPanel .pluginItem {
+  border-radius: 4px;
+}
+.settingsPanel .pluginItem + .pluginItem { margin-top: 1px; }
+.settingsPanel .pluginItem.isOpen { background: rgba(255, 255, 255, 0.035); }
+.settingsPanel .pluginHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.settingsPanel .pluginHead:hover { background: rgba(255, 255, 255, 0.04); }
+.settingsPanel .pluginHead:focus-visible {
+  outline: 2px solid var(--isUser-fill);
+  outline-offset: -2px;
+}
+.settingsPanel .pluginMark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: hsl(var(--mark-hue, 210) 45% 32%);
+  color: hsl(var(--mark-hue, 210) 80% 88%);
+  font-weight: 700;
+  font-size: 14px;
+}
+.settingsPanel .pluginMain {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.settingsPanel .pluginName {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  font-weight: 600;
+}
+.settingsPanel .pluginNameText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.settingsPanel .pluginVersion {
+  flex: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.settingsPanel .pluginDesc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+}
+.settingsPanel .pluginItem.isOpen .pluginDesc { visibility: hidden; height: 0; }
+.settingsPanel .pluginEnd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  cursor: default;
+}
+.settingsPanel .pluginInstallBtn { height: 24px; padding: 0 10px; font-size: 12px; }
+.settingsPanel .pluginChevron {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 16px;
+  color: rgba(255, 255, 255, 0.35);
+  transition: transform 150ms ease;
+}
+.settingsPanel .pluginChevron svg { width: 14px; height: 14px; }
+.settingsPanel .pluginItem.isOpen .pluginChevron { transform: rotate(180deg); }
+.settingsPanel .pluginDetails {
+  padding: 0 12px 12px 44px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+.settingsPanel .pluginDetails[hidden] { display: none; }
+.settingsPanel .pluginDescFull {
+  margin: 0 0 10px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.78);
+}
+.settingsPanel .pluginAuthor {
+  margin: -6px 0 10px;
+  color: rgba(255, 255, 255, 0.45);
+  word-break: break-all;
+}
+.settingsPanel .pluginOptions {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.settingsPanel .pluginOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 340px;
+  cursor: pointer;
+}
+.settingsPanel .pluginOptionText { color: rgba(255, 255, 255, 0.82); }
+.settingsPanel .pluginDetailTitle {
+  margin-bottom: 3px;
+  color: rgba(255, 255, 255, 0.5);
+}
+.settingsPanel .pluginPerms ul {
+  margin: 0 0 12px;
+  padding-left: 16px;
+  line-height: 1.5;
+}
+.settingsPanel .pluginDetailActions { display: flex; gap: 8px; }
+.settingsPanel .pluginRemoveBtn { height: 24px; padding: 0 10px; font-size: 12px; }
+.settingsPanel .pluginRemoveBtn:hover {
+  color: #ffb4b4;
+  border-color: rgba(229, 72, 77, 0.6);
 }

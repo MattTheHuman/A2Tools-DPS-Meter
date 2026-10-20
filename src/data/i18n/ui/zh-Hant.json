@@ -568,7 +568,10 @@
       "enabledTip": "開啟：隨計量器啟動。關閉：保持安裝，但不執行。",
       "showMeter": "顯示 DPS 統計",
       "hideClosed": "AION2 關閉時隱藏",
-      "hideUnfocused": "AION2 不在前景時隱藏"
+      "hideUnfocused": "AION2 不在前景時隱藏",
+      "search": "搜尋",
+      "noMatch": "沒有符合的外掛。",
+      "permsTitle": "可以:"
     },
     "clearOnZone": {
       "label": "清空統計",
