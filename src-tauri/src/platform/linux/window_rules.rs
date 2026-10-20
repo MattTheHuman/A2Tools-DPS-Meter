@@ -141,10 +141,17 @@ fn add_rule(group: &str, entries: &[(&str, &str)], done: bool, what: &str) -> Re
         return Err("kwriteconfig is not installed".into());
     };
     let added = read(reader, group, "wmclass").is_empty();
-    if added {
+    // A rule an earlier version wrote, with settings that have changed since
+    // (the overlay's rule once matched every window, #90): written again.
+    let outdated = !added && entries.iter().any(|(key, value)| read(reader, group, key) != *value);
+    if added || outdated {
         for (key, value) in entries {
             write(writer, group, key, value)?;
         }
+    }
+    if outdated {
+        reconfigure();
+        tracing::info!("KWin rule updated: {what}");
     }
     // KWin 6.8: Order alone; a rules list makes it delete the rules not in
     // it, and it drops the list when it saves (see reads_order_only).

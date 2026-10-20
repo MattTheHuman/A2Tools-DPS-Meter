@@ -17,13 +17,19 @@ pub const GROUP: &str = "a2tools-dps-meter-overlay";
 /// The window class the meter's windows carry.
 pub const WINDOW_CLASS: &str = "a2tools-dps-meter";
 
-/// The rule, as (key, value) pairs in its group.
+/// The rule, as (key, value) pairs in its group: the overlay only (class and
+/// exact title). It matched every window of the meter's by class, and a
+/// forced Keep Above can't be unticked, so Settings, Battle History and
+/// plugin windows were stuck above everything (#90). Plugins' icons get the
+/// same through their own rule (`icons_rule_entries`).
 pub fn rule_entries() -> Vec<(&'static str, &'static str)> {
     vec![
         ("Description", "A2Tools DPS Meter above fullscreen games (added by the meter)"),
         ("wmclass", WINDOW_CLASS),
         ("wmclassmatch", "1"),
         ("wmclasscomplete", "false"),
+        ("title", OVERLAY_TITLE),
+        ("titlematch", "1"),
         ("layer", "overlay"),
         ("layerrule", "2"),
         // Plasma 5 has no layer rule; keep-above is what it can do.
@@ -68,7 +74,8 @@ pub const ICONS_GROUP: &str = "a2tools-dps-meter-icons";
 pub const ICON_TITLE_MARK: &str = " · ";
 
 /// The icons' rule: the meter's windows whose title contains
-/// `ICON_TITLE_MARK` (`titlematch` 2), `acceptfocus` false, forced.
+/// `ICON_TITLE_MARK` (`titlematch` 2), `acceptfocus` false, forced, and
+/// above a fullscreen game like the overlay (they are overlays too).
 pub fn icons_rule_entries() -> Vec<(&'static str, &'static str)> {
     vec![
         ("Description", "A2Tools DPS Meter plugin icons keep focus on the game (added by the meter)"),
@@ -79,6 +86,10 @@ pub fn icons_rule_entries() -> Vec<(&'static str, &'static str)> {
         ("titlematch", "2"),
         ("acceptfocus", "false"),
         ("acceptfocusrule", "2"),
+        ("layer", "overlay"),
+        ("layerrule", "2"),
+        ("above", "true"),
+        ("aboverule", "2"),
     ]
 }
 
