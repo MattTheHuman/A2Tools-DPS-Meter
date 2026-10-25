@@ -10,9 +10,15 @@
 //                                              when the meter read it (unix ms), or null on meters
 //                                              that don't say
 //   a2.on("character", (c) => ...)             your character (name, serverId, class, level), at start and
-//                                              whenever it changes (meter 2.0.65 on); from meter 2.0.75
-//                                              also combatPower, gearScore and odyleEnergy ({ basic,
-//                                              charged }), each null until the game has said
+//                                              whenever it changes (meter 2.0.65 on); meter 2.0.78 on
+//                                              also combatPower, gearScore, odyleEnergy ({ basic,
+//                                              charged }) and contentCounts ({ "<entry id>": [first,
+//                                              second] }: 1 Shugo keys, 4 Nightmare, 8 Invasion,
+//                                              101 Daily Dungeon, 80000001 Ascension Trial; other ids
+//                                              may change meaning or go: don't rely on them), each
+//                                              null until the game has said. A meter started
+//                                              mid-session has only the counts that changed since,
+//                                              until the next login or server transfer
 //   a2.on("bossMap", ({ map, bosses }) => ...) a map the player just opened, its field bosses as
 //                                              a2.bossTimers gives them (permission
 //                                              "feed:boss-timers", meter 2.0.65 on)

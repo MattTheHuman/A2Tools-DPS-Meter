@@ -346,12 +346,11 @@ impl StreamProcessor {
 
     // ===== ODYLE ENERGY (0B 61, 0C 61) =====
 
-    /// Odyle energy, the first entry of the game's list of entry counts. An
-    /// entry is `<kind> <slot> <key varint> <value varint>...`: kind `04` has
-    /// one value (a dungeon's entries left), `0c` two; Odyle energy is
-    /// `0c 01 <key> <basic> <charged>`. `0b 61` holds the whole list, at
-    /// login and after a server transfer, among other things before it;
-    /// `0c 61 <count> <entries>` the entries that changed.
+    /// The game's entry counts (see `content_entry_at`), Odyle energy among
+    /// them: entry id 60000001, `0c 01 87 93 03 <basic> <charged>`. `0b 61`
+    /// holds the whole list, at login and after a server transfer, among
+    /// other things before it; `0c 61 <count> <entries>` the entries that
+    /// changed.
     ///
     /// Seen on 2026-10-14: the list at 03:18:42 (15 basic, 605 charged, after
     /// a raid) and at 21:16:50 (30, 840, at login; the game's tooltip said
@@ -363,11 +362,21 @@ impl StreamProcessor {
             return;
         }
         let offset = length_info.length as usize;
-        let (energy, whole_list) = match packet.get(offset..offset + 2) {
-            Some([0x0B, 0x61]) => (odyle_energy_in_list(&packet[offset + 2..]), true),
-            Some([0x0C, 0x61]) => (odyle_energy_in_update(&packet[offset + 2..]), false),
+        let whole_list = match packet.get(offset..offset + 2) {
+            Some([0x0B, 0x61]) => true,
+            Some([0x0C, 0x61]) => false,
             _ => return,
         };
+        let body = &packet[offset + 2..];
+        let counts = if whole_list { content_counts_in_list(body) } else { content_counts_in_update(body) };
+        let energy = counts.as_deref().and_then(odyle_energy_in).or_else(|| if whole_list { odyle_energy_in_list(body) } else { None });
+        // A whole list that doesn't read still says a character logged in:
+        // the last one's counts go, with nothing in their place.
+        match counts {
+            Some(counts) => self.data_storage.set_content_counts(counts, whole_list),
+            None if whole_list => self.data_storage.set_content_counts(Vec::new(), true),
+            None => {}
+        }
         if let Some((basic, charged)) = energy {
             self.data_storage.set_odyle_energy(basic, charged, whole_list);
         }
@@ -2157,88 +2166,107 @@ pub fn read_varint(bytes: &[u8], offset: usize) -> VarIntResult {
     }
 }
 
-/// One entry of the game's entry counts (see
-/// `StreamProcessor::parse_odyle_energy_packet`) at `at`: its kind, slot, key
-/// and values, and where the next begins.
-fn entry_count_at(body: &[u8], at: usize) -> Option<(u8, u8, i32, [i32; 2], usize)> {
-    let kind = *body.get(at)?;
-    // The kind says which values follow: 04 the first, 08 the second, 0c
-    // both (a zero is left out).
-    let values = match kind {
-        0x04 | 0x08 => 1,
-        0x0C => 2,
-        _ => return None,
-    };
-    let slot = *body.get(at + 1)?;
-    let mut o = at + 2;
-    let key = try_read_varint(body, &mut o)?;
-    let mut v = [0; 2];
-    for value in v.iter_mut().take(values) {
-        *value = try_read_varint(body, &mut o)?;
-    }
-    Some((kind, slot, key, v, o))
-}
+/// Odyle energy's entry id (`01 87 93 03`), in every list and update seen,
+/// from several players.
+const ODYLE_ID: u32 = 60_000_001;
 
-/// Odyle energy as `(basic, charged)` from an entry, when it is that entry.
+/// Odyle energy as `(basic, charged)`, when among the entries.
 ///
 /// The kind is which of basic and charged are sent, a zero being left out:
 /// `0c` both, `04` basic only (`04 01 87 93 03 c8 06`, 840 and 0, at a login
 /// on 2026-10-16), `08` charged only (`08 01 87 93 03 ab 0e`, 0 and 1835, in
-/// a player's log of 2026-10-15). The meter read only `0c`, so it missed the
-/// energy of anyone with either at 0.
-fn odyle_energy_of(kind: u8, slot: u8, v: [i32; 2]) -> Option<(u32, u32)> {
-    // Generous bounds (the game's are 840, or 560 without a membership, and 2000): only to turn away bytes
-    // that merely look like the entry.
-    let ok = |n: i32| (0..=100_000).contains(&n);
-    match kind {
-        0x0C if slot == 1 && ok(v[0]) && ok(v[1]) => Some((v[0] as u32, v[1] as u32)),
-        0x04 if slot == 1 && ok(v[0]) => Some((v[0] as u32, 0)),
-        0x08 if slot == 1 && ok(v[0]) => Some((0, v[0] as u32)),
-        _ => None,
-    }
+/// a player's log of 2026-10-15). Only the entry with the energy's id:
+/// another (`0c 61 00 0c 01 00 00 00 04 01 03`, id 1) was once read as 0
+/// basic, 0 charged.
+fn odyle_energy_in(entries: &[ContentEntry]) -> Option<(u32, u32)> {
+    // Generous bounds (the game's are 840, or 560 without a membership, and
+    // 2000): only to turn away bytes that merely look like the entry.
+    let ok = |n: u32| n <= 100_000;
+    let (_, v) = entries.iter().find(|(id, _)| *id == ODYLE_ID)?;
+    (ok(v[0]) && ok(v[1])).then_some((v[0], v[1]))
 }
 
-/// Odyle energy in a `0b 61` list: the `0c 01` entry that the list's second
-/// entry follows with the same key.
+/// Odyle energy in a `0b 61` whose list doesn't read whole: its entry found
+/// by the id.
 fn odyle_energy_in_list(body: &[u8]) -> Option<(u32, u32)> {
-    (0..body.len().saturating_sub(1))
-        .filter(|&i| matches!(body[i], 0x0C | 0x04 | 0x08) && body[i + 1] == 0x01)
-        .find_map(|i| {
-            let (kind, slot, key, v, next) = entry_count_at(body, i)?;
-            let (_, next_slot, next_key, _, _) = entry_count_at(body, next)?;
-            if next_slot != 2 || next_key != key {
-                return None;
-            }
-            odyle_energy_of(kind, slot, v)
-        })
+    let id = ODYLE_ID.to_le_bytes();
+    (0..body.len())
+        .filter(|&i| matches!(body[i], 0x04 | 0x08 | 0x0C) && body.get(i + 1..i + 5) == Some(&id[..]))
+        .find_map(|i| odyle_energy_in(&[content_entry_at(body, i)?.0?]))
 }
 
-/// The key of the Odyle energy entry (`87 93 03`), in every list and
-/// update seen, from several players.
-const ODYLE_KEY: i32 = 51_591;
+/// One entry count: its id and `[first, second]` value.
+pub type ContentEntry = (u32, [u32; 2]);
+/// The game's entry counts, by entry id.
+pub type ContentCounts = Vec<ContentEntry>;
 
-/// Odyle energy in a `0c 61` update, if among the entries that changed.
-///
-/// The first byte is not a count: updates with `00` there carry an entry too
-/// (`0c 61 00 08 01 87 93 03 ab 0e 03`, 2026-10-15), and the meter skipped
-/// them. The entries are read from after it, at least one. Only the entry
-/// with the energy's key: another in slot 1 (`0c 61 00 0c 01 00 00 00 04 01
-/// 03`, key 0) was read as 0 basic, 0 charged.
-fn odyle_energy_in_update(body: &[u8]) -> Option<(u32, u32)> {
-    let count = (*body.first()?).max(1);
-    let mut at = 1;
+/// One entry of the entry counts read as the game lays it out, `<kind> <id
+/// u32 LE> <values>`: kind `00` no value (both 0), `01` a u64 (a time, not a
+/// count: `None`), `04` the first value, `08` the second, `0c` both
+/// (varints). Odyle energy is id 60000001 (`01 87 93 03`), Shugo Festival
+/// keys id 1. Returns the entry, if a count, and where the next begins.
+fn content_entry_at(body: &[u8], at: usize) -> Option<(Option<ContentEntry>, usize)> {
+    let kind = *body.get(at)?;
+    let id = u32::from_le_bytes(body.get(at + 1..at + 5)?.try_into().ok()?);
+    let mut o = at + 5;
+    let mut v = [0u32; 2];
+    let value = |o: &mut usize| try_read_varint(body, o).map(|n| n as u32);
+    match kind {
+        0x00 => {}
+        0x01 => {
+            body.get(o..o + 8)?;
+            return Some((None, o + 8));
+        }
+        0x04 => v[0] = value(&mut o)?,
+        0x08 => v[1] = value(&mut o)?,
+        0x0C => {
+            v[0] = value(&mut o)?;
+            v[1] = value(&mut o)?;
+        }
+        _ => return None,
+    }
+    Some((Some((id, v)), o))
+}
+
+/// `count` entries from `at`, and where they end.
+fn content_entries(body: &[u8], mut at: usize, count: usize) -> Option<(ContentCounts, usize)> {
+    let mut out = Vec::new();
     for _ in 0..count {
-        let (kind, slot, key, v, next) = entry_count_at(body, at)?;
-        if key != ODYLE_KEY {
-            at = next;
-            continue;
-        }
-        if let Some(energy) = odyle_energy_of(kind, slot, v) {
-            return Some(energy);
-        }
+        let (entry, next) = content_entry_at(body, at)?;
+        out.extend(entry);
         at = next;
     }
-    None
+    Some((out, at))
+}
+
+/// The whole list in a `0b 61`: `<count varint> <entries>`, the list being
+/// the rest of the record. Where other things come first, the list is found
+/// as the place from which a count of entries ends right at the end.
+fn content_counts_in_list(body: &[u8]) -> Option<ContentCounts> {
+    (0..body.len()).find_map(|start| {
+        let mut o = start;
+        let count = try_read_varint(body, &mut o)? as usize;
+        if count == 0 || count > 1000 {
+            return None;
+        }
+        let (entries, end) = content_entries(body, o, count)?;
+        (end == body.len() && entries.iter().any(|(id, _)| *id == ODYLE_ID)).then_some(entries)
+    })
+}
+
+/// The entries that changed, in a `0c 61`: as many as read, at least one.
+/// The first byte is not quite a count: updates with `00` there carry an
+/// entry too (`0c 61 00 08 01 87 93 03 ab 0e 03`, 2026-10-15).
+fn content_counts_in_update(body: &[u8]) -> Option<ContentCounts> {
+    let count = (*body.first()?).max(1) as usize;
+    let mut out = Vec::new();
+    let mut at = 1;
+    for _ in 0..count {
+        let Some((entry, next)) = content_entry_at(body, at) else { break };
+        out.extend(entry);
+        at = next;
+    }
+    (!out.is_empty()).then_some(out)
 }
 
 fn try_read_varint(bytes: &[u8], offset: &mut usize) -> Option<i32> {
@@ -4005,6 +4033,39 @@ mod tests {
         assert_eq!(storage.odyle_energy(), Some((30, 880)));
     }
 
+    /// The whole entry-count list, by id, and its updates (Nullception's
+    /// login, 2026-10-22 00:59:21; updates from 2026-10-17 and -19).
+    #[test]
+    fn content_counts_from_the_login_list_and_its_updates() {
+        let (storage, mut p) = processor();
+        let list = "fa030b61490c0100000006090103000000f89b7901000000000004000000000600000004070000002004080000000701090000008085800100000000040a0000000e040b00000002040c0000000e010d0000008085800100000000040e0000000e040f0000000e04650000000e04660000000704670000000701c9000000808580010000000001ca000000808580010000000001cb000000808580010000000001cc000000808580010000000001cd000000808580010000000001ce00000080858001000000000181969800d0fb01000000000000829698000083969800008496980000859698000086969800008796980000889698000089969800008a969800008b969800008c9698000c018793039601ff0b04028793030e04038793030e04048793030e04058793030e04068793031504078793032304088793031c04098793030a040a8793030704658793030e04c987930307044d8b93030704b18b93030e04358f93030704998f93030e041d9393030704819393030e04059793030704699793030704b59b930304049d9f93030404bda29303070421a393030e048daa93030704f1aa93030e0445b693030704a9b6930307042dba9303070415be93030704fdc193030704811d2c04030401b4c4040304814a5d050404824a5d050104834a5d050404844a5d050204854a5d050404864a5d0502";
+        p.parse_perfect_packet(&hex(list));
+        let counts = storage.content_counts();
+        assert_eq!(counts.get(&1), Some(&[6, 9]));
+        assert_eq!(counts.get(&60_000_001), Some(&[150, 1535]));
+        assert_eq!(counts.get(&4), Some(&[0, 0]));
+        assert_eq!(counts.get(&70_000_001), Some(&[3, 0]));
+        assert_eq!(counts.get(&90_000_006), Some(&[2, 0]));
+        // u64 entries (times) are not counts.
+        assert_eq!(counts.get(&3), None);
+        assert_eq!(storage.odyle_energy(), Some((150, 1535)));
+
+        p.parse_perfect_packet(&hex("0f0c61000c010000000b0103"));
+        assert_eq!(storage.content_counts().get(&1), Some(&[11, 1]));
+        p.parse_perfect_packet(&hex("0e0c6100040c0000000e02"));
+        assert_eq!(storage.content_counts().get(&12), Some(&[14, 0]));
+        // An update with Odyle energy only: the rest are kept.
+        p.parse_perfect_packet(&hex("140c61010c018793031ef0060128000000"));
+        assert_eq!(storage.content_counts().get(&60_000_001), Some(&[30, 880]));
+        assert_eq!(storage.content_counts().get(&1), Some(&[11, 1]));
+        // A login's list that doesn't read: the counts before it aren't the
+        // new character's, so they go, and the owner waits for the self record.
+        storage.set_local_identity_from_game(1030, Some("Nullception".into()));
+        p.parse_perfect_packet(&hex("0a0b61ffeeddccbb"));
+        assert!(storage.content_counts().is_empty());
+        assert_eq!(storage.odyle_owner(), None);
+    }
+
     /// With no charged energy the entry has one value (`04`, the zero
     /// dropped): the list at a login on 2026-10-16 (its energy entry and the
     /// one after it, as the game sent them) is 840 basic, 0 charged. The
@@ -4074,6 +4135,18 @@ mod tests {
         assert_eq!(storage.odyle_owner(), None);
         storage.set_local_identity_from_game(1030, Some("Nullception".into()));
         assert_eq!(storage.odyle_owner().as_deref(), Some("Nullception"));
+
+        // Content counts the same way, with no energy yet: a meter started
+        // mid-session.
+        let storage = DataStorage::new();
+        storage.set_local_identity_from_game(1030, Some("Nullception".into()));
+        storage.set_content_counts(vec![(4, [5, 2])], false);
+        assert_eq!(storage.odyle_owner().as_deref(), Some("Nullception"));
+        // A whole list without the energy waits for the self record too.
+        storage.set_content_counts(vec![(4, [5, 2])], true);
+        assert_eq!(storage.odyle_owner(), None);
+        storage.set_local_identity_from_game(4294, Some("Alt".into()));
+        assert_eq!(storage.odyle_owner().as_deref(), Some("Alt"));
     }
 
     /// Leaving an open-world party (2026-10-13, 23:43:42): `1f 92 03`, then

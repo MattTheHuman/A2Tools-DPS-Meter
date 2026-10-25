@@ -682,12 +682,17 @@ struct Inner {
     /// `StreamProcessor::parse_odyle_energy_packet`.
     odyle_energy: Option<(u32, u32)>,
     /// The character that energy is, for the window to remember it by
-    /// across a meter restart. A login's list comes some seconds before the
-    /// self record naming who logged in, so until that record it has no
-    /// owner (`odyle_awaits_self_record`): the name still known then can be
-    /// the character before a switch.
+    /// across a meter restart, and the content counts with it. A login's
+    /// list comes some seconds before the self record naming who logged in,
+    /// so until that record it has no owner (`odyle_awaits_self_record`): the
+    /// name still known then can be the character before a switch. An update
+    /// in a session the game has named (a meter started mid-session) is
+    /// theirs.
     odyle_owner: Option<String>,
     odyle_awaits_self_record: bool,
+    /// The game's entry counts by entry id (`0b 61` / `0c 61`), whose owner
+    /// is Odyle energy's (they come in the same list).
+    content_counts: std::collections::BTreeMap<u32, [u32; 2]>,
 
     // Local player
     local_player_id: Option<i64>,
@@ -815,6 +820,7 @@ impl DataStorage {
                 odyle_energy: None,
                 odyle_owner: None,
                 odyle_awaits_self_record: false,
+                content_counts: Default::default(),
                 local_player_id: None,
                 supporters: std::sync::Arc::new(crate::supporters::Roster::default()),
                 local_character_name: None,
@@ -1066,7 +1072,8 @@ impl DataStorage {
             || inner.local_character_name != name
             || inner.loot_identity.applied;
         inner.loot_identity.applied = false;
-        if inner.odyle_energy.is_some() && (inner.odyle_awaits_self_record || inner.odyle_owner.is_none()) {
+        let known = inner.odyle_energy.is_some() || !inner.content_counts.is_empty();
+        if known && (inner.odyle_awaits_self_record || inner.odyle_owner.is_none()) {
             inner.odyle_owner = name.clone();
             inner.odyle_awaits_self_record = false;
         }
@@ -1457,17 +1464,36 @@ impl DataStorage {
     /// and after a server transfer, whose owner the next self record names.
     pub fn set_odyle_energy(&self, basic: u32, charged: u32, whole_list: bool) {
         let mut inner = self.inner.write();
-        if whole_list {
-            inner.odyle_owner = None;
-            inner.odyle_awaits_self_record = true;
-        } else if inner.odyle_owner.is_none() && !inner.odyle_awaits_self_record && inner.local_identity_from_game {
-            // A meter started mid-session: the game named you already.
-            inner.odyle_owner = inner.local_character_name.clone();
-        }
+        own_list(&mut inner, whole_list);
         if inner.odyle_energy != Some((basic, charged)) {
             tracing::info!("Odyle energy: {basic} basic, {charged} charged");
             inner.odyle_energy = Some((basic, charged));
         }
+    }
+
+    /// The game's entry counts: the whole list (`whole_list`, at login and
+    /// after a server transfer) or the entries that changed. A whole list
+    /// that didn't read (`counts` empty) still clears the last character's.
+    /// Logged, so the ids not yet known can be matched to what the game shows.
+    pub fn set_content_counts(&self, counts: crate::capture::stream_processor::ContentCounts, whole_list: bool) {
+        let mut inner = self.inner.write();
+        own_list(&mut inner, whole_list);
+        if whole_list {
+            inner.content_counts.clear();
+            let list: Vec<String> = counts.iter().map(|(id, v)| format!("{id}={}+{}", v[0], v[1])).collect();
+            tracing::debug!("Content counts: {}", list.join(" "));
+        }
+        for (id, v) in counts {
+            if !whole_list && inner.content_counts.get(&id) != Some(&v) {
+                tracing::debug!("Content count {id}: {} (+{})", v[0], v[1]);
+            }
+            inner.content_counts.insert(id, v);
+        }
+    }
+
+    /// The entry counts by entry id.
+    pub fn content_counts(&self) -> std::collections::BTreeMap<u32, [u32; 2]> {
+        self.inner.read().content_counts.clone()
     }
 
     pub fn odyle_energy(&self) -> Option<(u32, u32)> {
@@ -2807,6 +2833,18 @@ fn forget_entity(inner: &mut Inner, id: i32) {
             t.set_actor_id(owner);
         }
         inner.held_dot_ticks.entry((key.0, owner)).or_default().extend(ticks);
+    }
+}
+
+/// Who the entry-count list is (`odyle_owner`): a whole list waits for the
+/// next self record; anything else, in a session the game has named
+/// already (a meter started mid-session), is theirs.
+fn own_list(inner: &mut Inner, whole_list: bool) {
+    if whole_list {
+        inner.odyle_owner = None;
+        inner.odyle_awaits_self_record = true;
+    } else if inner.odyle_owner.is_none() && !inner.odyle_awaits_self_record && inner.local_identity_from_game {
+        inner.odyle_owner = inner.local_character_name.clone();
     }
 }
 
