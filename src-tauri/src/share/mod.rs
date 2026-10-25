@@ -908,6 +908,7 @@ pub async fn upload_detailed(
     record: &FightRecord,
     settings: &crate::config::settings::Settings,
 ) -> Result<UploadResult, UploadFailure> {
+    let mut as_guest = false;
     let token = match crate::account::secret::load_stored(app_data_dir) {
         crate::account::secret::Stored::Token(token) => token,
         crate::account::secret::Stored::Locked => {
@@ -920,6 +921,7 @@ pub async fn upload_detailed(
         crate::account::secret::Stored::Missing
             if settings.get(crate::account::guest::GUEST_UPLOAD_KEY).as_deref() == Some("true") =>
         {
+            as_guest = true;
             crate::account::guest::token(client, app_data_dir).await.map_err(|e| UploadFailure {
                 message: e.message,
                 retryable: e.retryable,
@@ -990,6 +992,15 @@ pub async fn upload_detailed(
         return Ok(result);
     }
     let code = status.as_u16();
+    // The guest key no longer works: its fights were claimed by an account
+    // (from another device, with a claim code). Forgotten; the next upload
+    // goes as a new guest.
+    if code == 401 && as_guest {
+        crate::account::secret::clear_guest(app_data_dir);
+        return Err(UploadFailure::retry(
+            "This PC's earlier fights were claimed by an account. The next upload starts afresh without an account.",
+        ));
+    }
     let message = match (code, reply.get("error").and_then(|e| e.as_str())) {
         (401, _) => "Your sign-in has expired. Connect your account again in Settings.".into(),
         (403, Some("insufficient_scope")) => {
