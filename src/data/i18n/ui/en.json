@@ -325,6 +325,14 @@
     "playerLimit": {
       "label": "Max players shown"
     },
+    "meterAnchor": {
+      "label": "Meter growth anchor",
+      "options": {
+        "top": "Top",
+        "middle": "Middle",
+        "bottom": "Bottom"
+      }
+    },
     "partyPresence": "Show A2Tools users in my party",
     "shareBossTimers": "Share field boss timers",
     "shareSupplyRequests": "Share Supply Requests",
@@ -562,6 +570,7 @@
       "lockedPort": "The adapter and port the game was found on.",
       "defaultMeterMode": "The target mode the meter opens in: Boss, Target, Train or All.",
       "playerLimit": "How many player rows the meter shows; the rest are left out.",
+      "meterAnchor": "Where the meter stays fixed while it auto-resizes as rows appear or disappear.",
       "pinMeToTop": "Your row stays first, whatever your damage.",
       "autoHideMeter": "The meter disappears while another window is in front of the game, and comes back with it.",
       "detailsMonitor": "Opens the Details window on the chosen display and keeps it there.",

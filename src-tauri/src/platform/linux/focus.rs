@@ -84,6 +84,11 @@ function onScreen(r) {
 // centre where it was, so the overlay, 300 px tall at first, came down
 // 120 px once it shrank to its rows (a CachyOS player, 2026-10-19).
 var HOLD_MS = 4000;
+function anchor(caption, then) {
+    callDBus(SERVICE, PATH, IFACE, "Anchor", String(caption), function (answer) {
+        then(String(answer || "middle"));
+    });
+}
 function place(w) {
     callDBus(SERVICE, PATH, IFACE, "Placement", String(w.caption), function (answer) {
         var p = String(answer).split(",").map(Number);
@@ -97,15 +102,58 @@ function place(w) {
         // Never against the player's own move or resize.
         var until = Date.now() + HOLD_MS;
         var held = false;
-        if (w.interactiveMoveResizeStarted) w.interactiveMoveResizeStarted.connect(function () { until = 0; });
-        else if (w.clientStartUserMovedResized) w.clientStartUserMovedResized.connect(function () { until = 0; });
+        var userMove = false;
+        var seq = 0;
+        // The meter's main overlay keeps its top/middle/bottom anchor while
+        // its own auto-resize changes its height.
+        var main = String(w.caption) === "A2Tools DPS Meter";
+        var base = { x: r.x, top: r.y, bottom: r.y + r.height };
+        var start = w.interactiveMoveResizeStarted || w.clientStartUserMovedResized;
+        if (start) {
+            start.connect(function () {
+                userMove = true;
+                until = 0;
+            });
+        }
+        var done = w.interactiveMoveResizeFinished || w.clientFinishUserMovedResized;
+        if (done) {
+            done.connect(function () {
+                userMove = false;
+                var now = w.frameGeometry;
+                base.x = Math.round(now.x);
+                base.top = Math.round(now.y);
+                base.bottom = base.top + Math.round(now.height);
+            });
+        }
         w.frameGeometryChanged.connect(function () {
-            if (held || Date.now() > until || w.move || w.resize) return;
+            if (held || userMove || w.move || w.resize) return;
             var now = w.frameGeometry;
-            if (Math.round(now.x) === r.x && Math.round(now.y) === r.y) return;
-            held = true;
-            w.frameGeometry = { x: r.x, y: r.y, width: now.width, height: now.height };
-            held = false;
+            if (!main) {
+                if (Date.now() > until) return;
+                if (Math.round(now.x) === r.x && Math.round(now.y) === r.y) return;
+                held = true;
+                w.frameGeometry = { x: r.x, y: r.y, width: now.width, height: now.height };
+                held = false;
+                return;
+            }
+            var ticket = ++seq;
+            anchor(w.caption, function (mode) {
+                if (ticket !== seq || held || userMove || w.move || w.resize) return;
+                var live = w.frameGeometry;
+                var x = Math.round(live.x), y = Math.round(live.y), h = Math.round(live.height);
+                var wantX = base.x, wantY = base.top;
+                if (mode === "bottom") wantY = base.bottom - h;
+                else if (mode === "middle") {
+                    if (Date.now() > until) return;
+                    wantX = r.x;
+                    wantY = r.y;
+                }
+                // Scale rounding can report +/- 1 px between events.
+                if (Math.abs(x - wantX) <= 1 && Math.abs(y - wantY) <= 1) return;
+                held = true;
+                w.frameGeometry = { x: wantX, y: wantY, width: live.width, height: live.height };
+                held = false;
+            });
         });
     });
 }
@@ -183,6 +231,8 @@ static X11_IN_WAYLAND: AtomicBool = AtomicBool::new(false);
 /// The script is running, so KWin puts each of the meter's windows back where
 /// it was each time it appears (`place` in the script).
 static PLACING: AtomicBool = AtomicBool::new(false);
+/// 0 top, 1 middle (default), 2 bottom.
+static MAIN_ANCHOR: AtomicU8 = AtomicU8::new(1);
 
 /// Keep the meter's windows where they were left, through KWin (#76). Only
 /// in a Wayland session: under X11 the meter places its own windows, as on
@@ -206,6 +256,15 @@ pub fn places_own_windows() -> bool {
 /// then be hidden for good and shown again at its place.
 pub fn kwin_places_windows() -> bool {
     PLACING.load(Ordering::Relaxed) && PLACES.get().is_some() && !X11_IN_WAYLAND.load(Ordering::Relaxed)
+}
+
+pub fn set_main_anchor(anchor: &str) {
+    let v = match anchor.trim().to_ascii_lowercase().as_str() {
+        "top" => 0,
+        "bottom" => 2,
+        _ => 1,
+    };
+    MAIN_ANCHOR.store(v, Ordering::Relaxed);
 }
 
 /// 0: not known (no report yet, or not KDE). 1: the game or one of the
@@ -326,6 +385,18 @@ impl Focus {
             .and_then(|places| (places.load)(&caption))
             .map(|(x, y, w, h)| format!("{x},{y},{w},{h}"))
             .unwrap_or_default()
+    }
+
+    /// The configured growth anchor for the main overlay.
+    fn anchor(&self, caption: String) -> String {
+        if caption.trim() != "A2Tools DPS Meter" {
+            return "middle".into();
+        }
+        match MAIN_ANCHOR.load(Ordering::Relaxed) {
+            0 => "top".into(),
+            2 => "bottom".into(),
+            _ => "middle".into(),
+        }
     }
 }
 

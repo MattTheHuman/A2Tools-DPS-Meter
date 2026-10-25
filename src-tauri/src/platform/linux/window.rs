@@ -377,6 +377,12 @@ pub fn places_own_windows() -> bool {
     super::focus::places_own_windows()
 }
 
+/// The meter growth anchor the KWin placement script keeps while the window
+/// auto-resizes on native Wayland.
+pub fn set_main_anchor(anchor: &str) {
+    super::focus::set_main_anchor(anchor);
+}
+
 /// Whether `hide_in_place` has this window hidden.
 pub fn is_hidden_in_place(window: &tauri::WebviewWindow) -> bool {
     hidden_in_place().lock().unwrap_or_else(|p| p.into_inner()).contains(window.label())

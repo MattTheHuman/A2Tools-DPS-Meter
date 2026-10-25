@@ -144,6 +144,9 @@ pub fn set_size(window: &tauri::WebviewWindow, size: tauri::Size) {
     let _ = window.set_size(size);
 }
 
+/// Linux/KWin-specific placement hint. No-op on Windows.
+pub fn set_main_anchor(_anchor: &str) {}
+
 pub fn release_size(_window: &tauri::WebviewWindow, _min: tauri::LogicalSize<f64>) {}
 
 pub fn primary_button_down() -> Option<bool> {

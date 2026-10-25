@@ -93,7 +93,7 @@ async function pair({ holdLanguage = null } = {}) {
     nodes.set(".meter", meter);
     nodes.set(".settingsPanel", settingsPanel);
     nodes.set(".container", element());
-    for (const name of ["meterLayout", "theme", "language", "defaultMeterMode", "trainSelectionMode", "allTargetsWindow", "targetWindow", "playerLimit"]) {
+    for (const name of ["meterLayout", "meterAnchor", "theme", "language", "defaultMeterMode", "trainSelectionMode", "allTargetsWindow", "targetWindow", "playerLimit"]) {
       const button = element("button");
       const text = element("span");
       text.className = "settingsDropdownText";
@@ -280,6 +280,21 @@ test("both layout dropdown choices (Standard, Slim) round-trip to main classes a
   assert.equal(fixture.writes().length, sequence.length * 2, "only the two originating settings writes per choice");
   assert.ok(fixture.writes().every((call) => call.view === "settings"));
   assert.equal(fixture.settings.bossMeasures, 0, "Settings never measures removed combat markup");
+});
+
+test("meter anchor dropdown syncs across windows and persists only once", async () => {
+  const fixture = await pair();
+  fixture.settings.pick("meterAnchor", "top");
+  await settle();
+  for (const surface of [fixture.main, fixture.settings]) {
+    assert.equal(surface.app.settingsSelections.meterAnchor, "top");
+    assertSelected(surface, "meterAnchor", "top");
+    surface.assertCombatIntact();
+  }
+  const writes = fixture.writes().filter((call) => call.args.key === "dpsMeter.meterAnchor");
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].view, "settings");
+  assert.equal(fixture.values.get("dpsMeter.meterAnchor"), "top");
 });
 
 test("a slim layout refits a long boss name after applying the new density", async () => {

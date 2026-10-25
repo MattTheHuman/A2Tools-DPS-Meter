@@ -67,6 +67,9 @@ pub fn places_own_windows() -> bool {
     true
 }
 
+/// Linux/KWin-specific placement hint. No-op here.
+pub fn set_main_anchor(_anchor: &str) {}
+
 /// Windows are placed by the meter itself here (Linux on Wayland asks KWin).
 pub fn keep_places(
     _save: impl Fn(&str, (i32, i32, i32, i32)) + Send + Sync + 'static,

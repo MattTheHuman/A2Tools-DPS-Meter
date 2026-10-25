@@ -1,6 +1,7 @@
 const SETTING_CHOICES = {
   defaultMeterMode: { allowed: ["bossTargets", "lastHitByMe", "allTargets", "trainTargets"], fallback: "bossTargets" },
   allTargetsWindowMs: { allowed: ["30000", "60000", "120000", "180000", "300000"], fallback: "120000" },
+  meterAnchor: { allowed: ["top", "middle", "bottom"], fallback: "middle" },
   // How often the backend sends DPS (app.rs DPS_RATES_MS).
   updateRateMs: { allowed: ["100", "200", "250", "500"], fallback: "200" },
   trainSelectionMode: { allowed: ["all", "highestDamage"], fallback: "all" },
@@ -86,6 +87,7 @@ class DpsApp {
       clearOnZone: "dpsMeter.clearOnZone",
       barTexture: "dpsMeter.barTexture",
       barTextureOffset: "dpsMeter.barTextureOffset",
+      meterAnchor: "dpsMeter.meterAnchor",
       meterFillOpacity: "dpsMeter.meterFillOpacity",
       meterFillSaturation: "dpsMeter.meterFillSaturation",
       barGap: "dpsMeter.barGap",
@@ -2764,6 +2766,8 @@ class DpsApp {
     this.discordStatDropdownBtn = document.querySelector(".discordStatDropdownBtn");
     this.discordStatDropdownMenu = document.querySelector(".discordStatDropdownMenu");
     this.trainSelectionModeDropdownMenu = document.querySelector(".trainSelectionModeDropdownMenu");
+    this.meterAnchorDropdownBtn = document.querySelector(".meterAnchorDropdownBtn");
+    this.meterAnchorDropdownMenu = document.querySelector(".meterAnchorDropdownMenu");
     this.defaultMeterModeDropdownBtn = document.querySelector(".defaultMeterModeDropdownBtn");
     this.defaultMeterModeDropdownMenu = document.querySelector(".defaultMeterModeDropdownMenu");
     this.resetDetectBtn = document.querySelector(".resetDetectBtn");
@@ -2840,6 +2844,7 @@ class DpsApp {
       defaultMeterMode: "bossTargets",
       allTargetsWindowMs: "120000",
       trainSelectionMode: "all",
+      meterAnchor: "middle",
       partyStat: "combatPower",
       discordStat: "off",
       barTexture: "none",
@@ -2992,6 +2997,7 @@ class DpsApp {
     this.syncPreviewPartyStat();
     this.settingsSelections.discordStat = pickSettingChoice("discordStat", this.safeGetSetting(this.storageKeys.discordStat));
     this.settingsSelections.clearOnZone = pickSettingChoice("clearOnZone", this.safeGetSetting(this.storageKeys.clearOnZone));
+    this.settingsSelections.meterAnchor = pickSettingChoice("meterAnchor", this.safeGetSetting(this.storageKeys.meterAnchor));
     this.barTexture = pickSettingChoice("barTexture", this.safeGetSetting(this.storageKeys.barTexture));
     this.settingsSelections.barTexture = this.barTexture;
     this.applyBarTexture(this.barTexture);
@@ -4003,6 +4009,11 @@ class DpsApp {
         label: this.i18n?.t("settings.trainingMode.options.highestDamage", "Highest Damage"),
       },
     ];
+    const meterAnchorOptions = [
+      { value: "top", label: this.i18n?.t("settings.meterAnchor.options.top", "Top") },
+      { value: "middle", label: this.i18n?.t("settings.meterAnchor.options.middle", "Middle") },
+      { value: "bottom", label: this.i18n?.t("settings.meterAnchor.options.bottom", "Bottom") },
+    ];
 
     setupDropdown(
       this.languageDropdownBtn,
@@ -4223,6 +4234,17 @@ class DpsApp {
         this.safeSetSetting(this.storageKeys.trainSelectionMode, value);
         window.javaBridge?.setTrainSelectionMode?.(value);
         if (!this.isCollapse) this.fetchDps();
+      }
+    );
+    setupDropdown(
+      this.meterAnchorDropdownBtn,
+      this.meterAnchorDropdownMenu,
+      meterAnchorOptions,
+      this.settingsSelections.meterAnchor,
+      (value) => {
+        if (!value) return;
+        this.settingsSelections.meterAnchor = value;
+        this.safeSetSetting(this.storageKeys.meterAnchor, value);
       }
     );
 
@@ -5900,6 +5922,7 @@ class DpsApp {
       trainSelectionMode: "trainSelectionMode",
       allTargetsWindowMs: "allTargetsWindow",
       updateRateMs: "updateRate",
+      meterAnchor: "meterAnchor",
       partyStat: "partyStat",
       discordStat: "discordStat",
       barTexture: "barTexture",
