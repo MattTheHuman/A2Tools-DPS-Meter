@@ -422,14 +422,14 @@ impl StreamProcessor {
                     tracing::info!("Daily Duty: unreadable board ({} bytes): {hex}", body.len());
                 }
             }
-            Some([0x20, 0x8D]) if body.len() >= 15 && body[0] == 0x01 => {
+            Some([0x20, 0x8D]) if body.len() >= 15 && body[..3] == [0x01, 0x00, 0x00] => {
                 let offer = u32::from_le_bytes(body[3..7].try_into().unwrap());
                 let quest = u32::from_le_bytes(body[7..11].try_into().unwrap());
                 let number = u32::from_le_bytes(body[11..15].try_into().unwrap());
                 let now = self.override_timestamp.unwrap_or_else(crate::clock::now_ms);
                 self.data_storage.daily_duty_taken(offer, quest, number, now);
             }
-            Some([0x0D, 0x8D]) if body.len() >= 6 => {
+            Some([0x0D, 0x8D]) if body.len() >= 6 && body[..2] == [0x00, 0x00] => {
                 let number = u32::from_le_bytes(body[2..6].try_into().unwrap());
                 self.data_storage.daily_duty_given_up(number);
             }
@@ -4246,6 +4246,14 @@ mod tests {
         p.parse_perfect_packet(&hex("15208d0100006100000041420f000c010000"));
         assert_eq!(storage.daily_duty_at(next_day), Some((0, 1)));
         p.parse_perfect_packet(&hex("15208d01000060000000b02023000b010000"));
+        assert_eq!(storage.daily_duty_at(next_day), Some((0, 2)));
+        // 2301990 is in the board's hex block (`23 20 xx`) but not its
+        // thousand: not counted.
+        p.parse_perfect_packet(&hex("15208d01000062000000262023000d010000"));
+        assert_eq!(storage.daily_duty_at(next_day), Some((0, 2)));
+        // Records that only start the same, without the `00 00`: nothing.
+        p.parse_perfect_packet(&hex("15208d01ffff63000000b12023000e010000"));
+        p.parse_perfect_packet(&hex("0c0d8dffff0b010000"));
         assert_eq!(storage.daily_duty_at(next_day), Some((0, 2)));
 
         // Another character's login (its list): that board isn't theirs.

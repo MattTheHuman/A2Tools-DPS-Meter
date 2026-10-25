@@ -62,7 +62,8 @@ const ABNORMAL_RETENTION_MS: i64 = 30 * 60 * 1000;
 /// How often, in capture time, the timeline drops what is past retention.
 const ABNORMAL_PRUNE_EVERY_MS: i64 = 60 * 1000;
 
-/// Daily Duty's count among the content counts (`content_counts`).
+/// Daily Duty's count among the content counts (`content_counts`): an id
+/// the game's entries never have (the entry parser turns away id 0).
 pub const DAILY_DUTY_ID: u32 = 0;
 
 /// A Daily Duty offer of the board (see
@@ -1596,7 +1597,12 @@ impl DataStorage {
         let like = looks_like_duty(&board.offers, &duty);
         match board.offers.iter_mut().find(|o| o.offer == offer && o.quest == quest) {
             Some(o) => *o = duty,
-            None if stale && like => board.offers.push(duty),
+            None if stale && like => {
+                // Counted by the rule alone: logged, to check it against
+                // the board the game sends next.
+                tracing::info!("Daily Duty: quest {quest} counted as like the board's, before the new board");
+                board.offers.push(duty);
+            }
             None => return,
         }
         own_list(&mut inner, false);
@@ -2982,11 +2988,11 @@ pub struct EntryList {
 }
 
 /// Whether a quest taken that isn't on the board looks like a new day's duty
-/// offer: a quest from the same block of 256 as one of the board's. Every
-/// board quest seen was 2302xxx (`23 20 xx`: 35 offers over two boards,
-/// 2026-10-24).
+/// offer: a quest from the same thousand as one of the board's. Every board
+/// quest seen was 2302xxx in decimal (49 quests, 2302010 to 2302172, on the
+/// boards of 2026-10-24 and -25).
 fn looks_like_duty(offers: &[DutyOffer], taken: &DutyOffer) -> bool {
-    offers.iter().any(|o| o.quest >> 8 == taken.quest >> 8)
+    offers.iter().any(|o| o.quest / 1000 == taken.quest / 1000)
 }
 
 /// Who the entry-count list is (`odyle_owner`): a whole list waits for the
