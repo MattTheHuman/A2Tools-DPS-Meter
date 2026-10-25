@@ -225,7 +225,8 @@ const createHistoryUI = ({ onOpenFight } = {}) => {
 
   // Status line for the dry run. Created lazily so the panel markup does not
   // have to carry an element that is empty almost always.
-  const showNote = (text, isError) => {
+  // `link`: a site URL in the text, made clickable (opens in the browser).
+  const showNote = (text, isError, link) => {
     const panel = document.querySelector(".historyPanel");
     if (!panel) return;
     let note = panel.querySelector(".historyPreviewNote");
@@ -240,6 +241,18 @@ const createHistoryUI = ({ onOpenFight } = {}) => {
       }
     }
     note.textContent = text;
+    const at = link && isSiteUrl(link) ? text.indexOf(link) : -1;
+    if (at >= 0) {
+      const a = document.createElement("a");
+      a.href = link;
+      a.textContent = link;
+      a.className = "historyNoteLink";
+      a.addEventListener("click", (event) => {
+        event.preventDefault();
+        window.javaBridge?.openBrowser?.(link);
+      });
+      note.replaceChildren(text.slice(0, at), a, text.slice(at + link.length));
+    }
     note.classList.toggle("isError", !!isError);
     note.style.display = text ? "block" : "none";
   };
@@ -298,7 +311,8 @@ const createHistoryUI = ({ onOpenFight } = {}) => {
             ? `Uploaded as private. Link copied: ${r.url}`
             : `Uploaded. Link copied: ${r.url}`
         ),
-        false
+        false,
+        r.url
       );
     } catch (err) {
       const msg = typeof err === "string" ? err : err?.message || String(err);

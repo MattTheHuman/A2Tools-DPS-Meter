@@ -2921,6 +2921,13 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
     background: rgba(224, 107, 107, 0.1);
     border-color: rgba(224, 107, 107, 0.3);
   }
+
+  .historyNoteLink {
+    color: #8fc8ff;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .historyNoteLink:hover { color: #b8dcff; }
 }
 
 .historyDeleteBtn {
