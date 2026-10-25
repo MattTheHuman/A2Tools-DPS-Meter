@@ -3776,10 +3776,15 @@ pub fn run() {
                         }
 
                         // --- Auto-hide when AION2 loses focus (every tick) ---
-                        let auto_hide = tick_count > 20
-                            && !hidden_closed
+                        // The meter's own hiding waits while it is hidden
+                        // anyway (by the player, AION2 closed, or solo); the
+                        // rest below doesn't: Ping's icon stayed over the
+                        // browser with the meter hidden while solo (Hirai).
+                        let others_auto_hide = tick_count > 20
                             && state.settings.get("dpsMeter.autoHideMeter")
-                                .unwrap_or_default() == "true"
+                                .unwrap_or_default() == "true";
+                        let auto_hide = others_auto_hide
+                            && !hidden_closed
                             && meter_wanted(&handle);
                         if auto_hide {
                             if let Some(window) = handle.get_webview_window("main") {
@@ -3808,6 +3813,8 @@ pub fn run() {
                                     }
                                 }
                             }
+                        }
+                        if others_auto_hide {
                             // The rest go and come back with it: gone while
                             // another program is in front, back with the game
                             // or any of the meter's windows (Settings in use
