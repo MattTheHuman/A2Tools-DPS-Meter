@@ -102,8 +102,7 @@ class DpsApp {
       displayMode: "dpsMeter.displayMode",
       language: "dpsMeter.language",
       debugLogging: "dpsMeter.debugLoggingEnabled",
-      shareBossTimers: "dpsMeter.shareBossTimers",
-      shareSupplyRequests: "dpsMeter.shareSupplyRequests",
+      shareData: "dpsMeter.shareData",
       pinMeToTop: "dpsMeter.pinMeToTop",
       mainPlayerNamesBold: "dpsMeter.mainPlayerNamesBold",
       showSupporterColors: "dpsMeter.showSupporterColors",
@@ -2775,8 +2774,7 @@ class DpsApp {
     this.bossLogsCheckbox = document.querySelector(".bossLogsCheckbox");
     this.debugLoggingCheckbox = document.querySelector(".debugLoggingCheckbox");
     this.runAsAdminCheckbox = document.querySelector(".runAsAdminCheckbox");
-    this.shareBossTimersCheckbox = document.querySelector(".shareBossTimersCheckbox");
-    this.shareSupplyRequestsCheckbox = document.querySelector(".shareSupplyRequestsCheckbox");
+    this.shareDataCheckbox = document.querySelector(".shareDataCheckbox");
     this.partyPresenceCheckbox = document.querySelector(".partyPresenceCheckbox");
     this.showPingCheckbox = document.querySelector(".showPingCheckbox");
     this.showOdyleCheckbox = document.querySelector(".showOdyleCheckbox");
@@ -3022,21 +3020,16 @@ class DpsApp {
         this.safeSetSetting(this.storageKeys.partyPresence, event.target?.checked ? "true" : "false");
       });
     }
-    // Field boss timers from the player's map, shared through a2tools.app
-    // (boss_report.rs): on unless turned off.
-    if (this.shareBossTimersCheckbox) {
-      this.shareBossTimersCheckbox.checked = this.safeGetSetting(this.storageKeys.shareBossTimers) !== "false";
-      this.shareBossTimersCheckbox.addEventListener("change", (event) => {
-        this.safeSetSetting(this.storageKeys.shareBossTimers, event.target?.checked ? "true" : "false");
-      });
-    }
-    // The Supply Requests boards, shared with Profiteer (supply_report.rs):
-    // on unless turned off.
-    if (this.shareSupplyRequestsCheckbox) {
-      // Off unless turned on.
-      this.shareSupplyRequestsCheckbox.checked = this.safeGetSetting(this.storageKeys.shareSupplyRequests) === "true";
-      this.shareSupplyRequestsCheckbox.addEventListener("change", (event) => {
-        this.safeSetSetting(this.storageKeys.shareSupplyRequests, event.target?.checked ? "true" : "false");
+    // Field boss timers and Supply Requests, shared with a2tools.app
+    // (boss_report.rs shares_data): on unless turned off, here or, before
+    // 2.0.78, with either of the two switches this one replaced.
+    if (this.shareDataCheckbox) {
+      const set = this.safeGetSetting(this.storageKeys.shareData);
+      this.shareDataCheckbox.checked = set != null && set !== ""
+        ? set !== "false"
+        : ["dpsMeter.shareBossTimers", "dpsMeter.shareSupplyRequests"].every((k) => this.safeGetSetting(k) !== "false");
+      this.shareDataCheckbox.addEventListener("change", (event) => {
+        this.safeSetSetting(this.storageKeys.shareData, event.target?.checked ? "true" : "false");
       });
     }
     // Run as administrator (Windows only: the game's frame rate needs it).

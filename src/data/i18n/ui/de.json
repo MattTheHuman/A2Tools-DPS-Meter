@@ -316,8 +316,6 @@
       "label": "Max. angezeigte Spieler"
     },
     "partyPresence": "A2Tools-Nutzer in meiner Gruppe zeigen",
-    "shareBossTimers": "Feldboss-Timer teilen",
-    "shareSupplyRequests": "Versorgungsaufträge teilen",
     "debugLogging": "Debug-Protokoll",
     "quit": "Beenden",
     "discord": {
@@ -572,8 +570,6 @@
       "allTargetsWindow": "Im Modus „Alle Ziele“ zählt das Meter alle Ziele, die innerhalb dieser Zeit vor dem letzten Treffer getroffen wurden.",
       "updateRate": "Wie oft sich die Zahlen des Meters aktualisieren. Schneller zeigt Treffer früher, braucht aber mehr CPU.",
       "partyPresence": "Gruppenmitglieder, die auch A2Tools nutzen, sehen ein kleines A2 neben deinem Namen und du ihres. Jeder in deiner Gruppe mit A2Tools sieht es und weiß damit, dass du ein Drittanbieter-Meter nutzt. Gesendet werden nur Hashes von Charakternamen und Servern.",
-      "shareBossTimers": "Teilt Feldboss-Timer über a2tools.app (und seinen Partner Aion 2 Timers) mit anderen Spielern: die Bosse auf deiner Karte, wenn du sie öffnest, und Feldbosse, die du sterben siehst, und ihre HP, während du gegen sie kämpfst. Gesendet werden nur Server, Bosse, Zeiten und HP.",
-      "shareSupplyRequests": "Teilt die Versorgungsaufträge deines Servers mit dem Profiteer von a2tools.app, wenn sie sich ändern (nach jedem Reset): den Server, die Tafeln und ihre Aufträge. Nichts über deinen Charakter oder seinen Fortschritt wird gesendet.",
       "debugLogging": "Schreibt ein Diagnoseprotokoll, mit dem der Entwickler Probleme finden kann.",
       "saveRawPackets": "Zeichnet rohen Spielverkehr für Fehlerberichte auf. Das Debug-Protokoll wird mit eingeschaltet.",
       "globalHotkeys": "Die Tasten unten funktionieren überall, auch wenn das Spiel im Vordergrund ist. Aus: Sie werden für andere Programme freigegeben. Unter Linux registriert der Desktop sie und fragt eventuell, ob du sie erlaubst.",
@@ -582,7 +578,8 @@
       "clearOnZone": "Wann der letzte Kampf nach einem Zonenwechsel aus dem Meter verschwindet. Jeder Kampf bleibt so oder so im Verlauf.",
       "hideWhenGameClosed": "Das Meter wird ausgeblendet, solange das Spiel nicht läuft, und erscheint wieder, wenn es startet.",
       "hideWhenSolo": "Das Meter wird ausgeblendet, solange du in keiner Gruppe bist, und erscheint wieder, wenn du einer beitrittst. Die Tastenkombination zum Ein-/Ausblenden holt es trotzdem hervor.",
-      "runAsAdmin": "Nötig, um die Bildrate des Spiels anzuzeigen. Windows fragt bei jedem Start des Meters nach."
+      "runAsAdmin": "Nötig, um die Bildrate des Spiels anzuzeigen. Windows fragt bei jedem Start des Meters nach.",
+      "shareData": "Teilt die Feldboss-Timer und Versorgungsaufträge deines Servers mit a2tools.app, damit A2Tools für alle aktuell bleibt: die Bosse auf deiner Karte, die du besiegt siehst, und ihre HP, sowie die Auftragstafeln nach jedem Reset. Nichts über deinen Charakter wird gesendet."
     },
     "globalHotkeys": "Tastenkürzel verwenden",
     "hotkeyConsent": {
@@ -659,7 +656,8 @@
     },
     "runAsAdmin": "Als Administrator ausführen",
     "runAsAdminTitle": "A2Tools - Als Administrator ausführen",
-    "runAsAdminAsk": "Um die Bildrate des Spiels anzuzeigen, muss das Meter als Administrator laufen.\n\nDas Meter jetzt als Administrator neu starten? Windows fragt bei jedem Start des Meters nach. Du kannst das in den Einstellungen wieder ausschalten."
+    "runAsAdminAsk": "Um die Bildrate des Spiels anzuzeigen, muss das Meter als Administrator laufen.\n\nDas Meter jetzt als Administrator neu starten? Windows fragt bei jedem Start des Meters nach. Du kannst das in den Einstellungen wieder ausschalten.",
+    "shareData": "Nützliche Daten mit A2Tools synchronisieren"
   },
   "support": {
     "button": "Unterstütze mich",

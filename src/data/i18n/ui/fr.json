@@ -316,8 +316,6 @@
       "label": "Joueurs affichés max."
     },
     "partyPresence": "Afficher les utilisateurs d'A2Tools de mon groupe",
-    "shareBossTimers": "Partager les minuteurs des boss de terrain",
-    "shareSupplyRequests": "Partager les demandes de ravitaillement",
     "debugLogging": "Journal de débogage",
     "quit": "Quitter",
     "discord": {
@@ -572,8 +570,6 @@
       "allTargetsWindow": "En mode Toutes les cibles, le compteur additionne chaque cible touchée dans ce délai avant le dernier coup.",
       "updateRate": "À quelle fréquence les chiffres du compteur se rafraîchissent. Plus rapide affiche les coups plus tôt mais utilise plus de CPU.",
       "partyPresence": "Les membres du groupe qui utilisent aussi A2Tools voient une petite étiquette A2 à côté de votre nom, et vous voyez la leur. Tout membre du groupe utilisant A2Tools peut la voir et saura donc que vous utilisez un meter tiers. Seuls des hachages des noms de personnages et des serveurs sont envoyés.",
-      "shareBossTimers": "Partage les minuteurs des boss de terrain avec les autres joueurs via a2tools.app (et son partenaire Aion 2 Timers) : les boss de votre carte quand vous l'ouvrez, et les boss de terrain que vous voyez tués, et leurs PV pendant que vous les combattez. Seuls le serveur, les boss, leurs heures et PV sont envoyés.",
-      "shareSupplyRequests": "Partage les tableaux de demandes de ravitaillement de votre serveur avec le Profiteer d'a2tools.app quand ils changent (après chaque réinitialisation) : le serveur, les tableaux et leurs demandes. Rien sur votre personnage ni sa progression n'est envoyé.",
       "debugLogging": "Écrit un journal de diagnostic que le développeur peut utiliser pour trouver les problèmes.",
       "saveRawPackets": "Enregistre le trafic brut du jeu pour les rapports de bug. Le journal de débogage s'active avec.",
       "globalHotkeys": "Les touches ci-dessous fonctionnent partout, même quand le jeu est au premier plan. Désactivé, elles sont libérées pour d'autres programmes. Sous Linux, le bureau les enregistre et peut vous demander de les approuver.",
@@ -582,7 +578,8 @@
       "clearOnZone": "Quand le dernier combat quitte le compteur après un changement de zone. Chaque combat reste dans l'Historique dans tous les cas.",
       "hideWhenGameClosed": "Le compteur se masque quand le jeu n'est pas lancé et réapparaît à son démarrage.",
       "hideWhenSolo": "Le compteur se masque tant que vous n'êtes pas en groupe et réapparaît quand vous en rejoignez un. Le raccourci Afficher/Masquer le fait toujours apparaître.",
-      "runAsAdmin": "Nécessaire pour afficher les FPS du jeu. Windows le demande à chaque démarrage du compteur."
+      "runAsAdmin": "Nécessaire pour afficher les FPS du jeu. Windows le demande à chaque démarrage du compteur.",
+      "shareData": "Partage les minuteurs des boss de terrain et les Demandes de ravitaillement de ton serveur avec a2tools.app, pour garder A2Tools à jour pour tout le monde : les boss sur ta carte, ceux que tu vois tomber et leurs PV, et les tableaux de demandes après chaque réinitialisation. Rien sur ton personnage n'est envoyé."
     },
     "globalHotkeys": "Utiliser les raccourcis",
     "hotkeyConsent": {
@@ -659,7 +656,8 @@
     },
     "runAsAdmin": "Exécuter en tant qu'administrateur",
     "runAsAdminTitle": "A2Tools - Exécuter en tant qu'administrateur",
-    "runAsAdminAsk": "Pour afficher les FPS du jeu, le compteur doit s'exécuter en tant qu'administrateur.\n\nRedémarrer le compteur en tant qu'administrateur maintenant ? Windows le demandera à chaque démarrage du compteur. Tu peux le désactiver dans les Paramètres."
+    "runAsAdminAsk": "Pour afficher les FPS du jeu, le compteur doit s'exécuter en tant qu'administrateur.\n\nRedémarrer le compteur en tant qu'administrateur maintenant ? Windows le demandera à chaque démarrage du compteur. Tu peux le désactiver dans les Paramètres.",
+    "shareData": "Synchroniser les données utiles avec A2Tools"
   },
   "support": {
     "button": "Me soutenir",

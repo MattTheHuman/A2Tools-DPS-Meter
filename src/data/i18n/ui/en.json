@@ -326,8 +326,6 @@
       "label": "Max players shown"
     },
     "partyPresence": "Show A2Tools users in my party",
-    "shareBossTimers": "Share field boss timers",
-    "shareSupplyRequests": "Share Supply Requests",
     "debugLogging": "Debug logging",
     "quit": "Quit",
     "discord": {
@@ -584,8 +582,6 @@
       "allTargetsWindow": "In All Targets mode, the meter adds up every target hit within this time of the latest hit.",
       "updateRate": "How often the meter's numbers refresh. Faster shows hits sooner but uses more CPU.",
       "partyPresence": "Party members who also use A2Tools see a small A2 tag beside your name, and you see theirs. Anyone in your party using A2Tools can see it, so they'll know you use a third-party meter. Only hashes of character names and servers are sent.",
-      "shareBossTimers": "Shares field boss timers with other players through a2tools.app (and its partner Aion 2 Timers): the bosses on your map when you open it, and the field bosses you see killed, and their HP while you fight them. Only the server, the bosses, their times and HP are sent.",
-      "shareSupplyRequests": "Shares your server's Supply Requests boards with a2tools.app's Profiteer when they change (after each reset): the server, the boards and their requests. Nothing about your character or its progress is sent.",
       "debugLogging": "Writes a diagnostic log the developer can use to track down problems.",
       "saveRawPackets": "Records raw game traffic for bug reports. Debug logging turns on with it.",
       "globalHotkeys": "The keys below work anywhere, even while the game is in front. Off, they are released for other programs. On Linux your desktop registers them and may ask you to approve them.",
@@ -594,7 +590,8 @@
       "clearOnZone": "When the last fight leaves the meter after the zone changes. Every fight stays in History either way.",
       "hideWhenGameClosed": "The meter hides while the game isn't running, and comes back when it starts.",
       "hideWhenSolo": "The meter hides while you're not in a party, and comes back when you join one. The Show/Hide keybind still brings it up.",
-      "runAsAdmin": "Needed to show the game's frame rate. Windows asks each time the meter starts."
+      "runAsAdmin": "Needed to show the game's frame rate. Windows asks each time the meter starts.",
+      "shareData": "Shares your server's field boss timers and Supply Requests with a2tools.app, to help keep A2Tools in sync for everyone: the bosses on your map, the ones you see killed and their HP, and the request boards after each reset. Nothing about your character is sent."
     },
     "globalHotkeys": "Use keybinds",
     "hotkeyConsent": {
@@ -671,7 +668,8 @@
     },
     "runAsAdmin": "Run as administrator",
     "runAsAdminTitle": "A2Tools - Run as administrator",
-    "runAsAdminAsk": "Showing the game's frame rate needs the meter to run as administrator.\n\nRestart the meter as administrator now? Windows will ask each time the meter starts. You can turn this off in Settings."
+    "runAsAdminAsk": "Showing the game's frame rate needs the meter to run as administrator.\n\nRestart the meter as administrator now? Windows will ask each time the meter starts. You can turn this off in Settings.",
+    "shareData": "Sync useful data to A2Tools"
   },
   "support": {
     "button": "Support Me",

@@ -316,8 +316,6 @@
       "label": "Máx. jugadores mostrados"
     },
     "partyPresence": "Mostrar usuarios de A2Tools en mi grupo",
-    "shareBossTimers": "Compartir temporizadores de jefes de campo",
-    "shareSupplyRequests": "Compartir solicitudes de suministros",
     "debugLogging": "Registro de depuración",
     "quit": "Salir",
     "discord": {
@@ -572,8 +570,6 @@
       "allTargetsWindow": "En el modo Todos los objetivos, el medidor suma cada objetivo golpeado dentro de este tiempo antes del último golpe.",
       "updateRate": "Cada cuánto se actualizan los números del medidor. Más rápido muestra los golpes antes pero usa más CPU.",
       "partyPresence": "Los miembros del grupo que también usan A2Tools ven una pequeña etiqueta A2 junto a tu nombre, y tú ves la suya. Cualquiera del grupo que use A2Tools puede verla, así que sabrá que usas un medidor de terceros. Solo se envían hashes de nombres de personaje y servidores.",
-      "shareBossTimers": "Comparte los temporizadores de jefes de campo con otros jugadores a través de a2tools.app (y su socio Aion 2 Timers): los jefes de tu mapa al abrirlo y los jefes de campo que ves morir, y sus PV mientras luchas contra ellos. Solo se envían el servidor, los jefes, sus horas y PV.",
-      "shareSupplyRequests": "Comparte los tablones de solicitudes de suministros de tu servidor con el Profiteer de a2tools.app cuando cambian (tras cada reinicio): el servidor, los tablones y sus solicitudes. No se envía nada de tu personaje ni de su progreso.",
       "debugLogging": "Escribe un registro de diagnóstico que el desarrollador puede usar para encontrar problemas.",
       "saveRawPackets": "Graba el tráfico bruto del juego para informes de errores. El registro de depuración se activa con él.",
       "globalHotkeys": "Las teclas de abajo funcionan en cualquier momento, incluso con el juego en primer plano. Desactivado, quedan libres para otros programas. En Linux las registra el escritorio, que puede pedirte que las apruebes.",
@@ -582,7 +578,8 @@
       "clearOnZone": "Cuándo desaparece el último combate del medidor tras un cambio de zona. Todos los combates quedan en el Historial igualmente.",
       "hideWhenGameClosed": "El medidor se oculta mientras el juego no está abierto y vuelve cuando se inicia.",
       "hideWhenSolo": "El medidor se oculta mientras no estás en un grupo y vuelve cuando te unes a uno. El atajo de mostrar/ocultar lo sigue mostrando.",
-      "runAsAdmin": "Necesario para mostrar los FPS del juego. Windows lo pedirá cada vez que se inicie el medidor."
+      "runAsAdmin": "Necesario para mostrar los FPS del juego. Windows lo pedirá cada vez que se inicie el medidor.",
+      "shareData": "Comparte los temporizadores de jefes de campo y las Solicitudes de suministros de tu servidor con a2tools.app, para mantener A2Tools al día para todos: los jefes de tu mapa, los que ves morir y su vida, y los tablones de solicitudes tras cada reinicio. No se envía nada sobre tu personaje."
     },
     "globalHotkeys": "Usar atajos de teclado",
     "hotkeyConsent": {
@@ -659,7 +656,8 @@
     },
     "runAsAdmin": "Ejecutar como administrador",
     "runAsAdminTitle": "A2Tools - Ejecutar como administrador",
-    "runAsAdminAsk": "Para mostrar los FPS del juego, el medidor debe ejecutarse como administrador.\n\n¿Reiniciar el medidor como administrador ahora? Windows lo pedirá cada vez que se inicie el medidor. Puedes desactivarlo en Ajustes."
+    "runAsAdminAsk": "Para mostrar los FPS del juego, el medidor debe ejecutarse como administrador.\n\n¿Reiniciar el medidor como administrador ahora? Windows lo pedirá cada vez que se inicie el medidor. Puedes desactivarlo en Ajustes.",
+    "shareData": "Sincronizar datos útiles con A2Tools"
   },
   "support": {
     "button": "Apóyame",

@@ -321,8 +321,6 @@
       "label": "最大显示人数"
     },
     "partyPresence": "显示队伍中的 A2Tools 用户",
-    "shareBossTimers": "分享野外首领计时",
-    "shareSupplyRequests": "分享补给委托",
     "debugLogging": "调试日志",
     "quit": "退出",
     "discord": {
@@ -579,8 +577,6 @@
       "allTargetsWindow": "全部目标模式下，计量器汇总最后一次命中前这段时间内命中的所有目标。",
       "updateRate": "统计数字多久刷新一次。越快越早显示伤害，但占用更多 CPU。",
       "partyPresence": "同样使用 A2Tools 的队友会在你的名字旁看到小小的 A2 标记，你也会看到他们的。队伍中任何使用 A2Tools 的人都看得到，因此会知道你使用第三方计量器。只会发送角色名称与服务器的哈希值。",
-      "shareBossTimers": "通过 a2tools.app（及合作伙伴 Aion 2 Timers）与其他玩家分享野外首领计时：打开地图时图上的首领，以及你看到被击杀的野外首领，以及战斗中首领的 HP。只会发送服务器、首领、时间与 HP。",
-      "shareSupplyRequests": "当服务器的补给委托看板变化时（每次重置后），与 a2tools.app 的 Profiteer 分享：只发送服务器、看板和委托内容，不发送你的角色或进度。",
       "debugLogging": "写入开发者用于排查问题的诊断日志。",
       "saveRawPackets": "记录原始游戏流量以便提交错误报告。调试日志会随之开启。",
       "globalHotkeys": "下面的按键在游戏处于前台时也能使用。关闭后，这些按键会释放给其他程序。在 Linux 上由桌面注册这些按键，桌面可能会请你批准。",
@@ -589,7 +585,8 @@
       "clearOnZone": "切换区域后，何时从统计中清除上一场战斗。所有战斗都会保留在历史记录中。",
       "hideWhenGameClosed": "游戏未运行时隐藏计量器，游戏启动后再次显示。",
       "hideWhenSolo": "不在队伍中时隐藏计量器，加入队伍后再次显示。显示/隐藏快捷键仍可随时打开它。",
-      "runAsAdmin": "显示游戏帧率需要此项。每次启动计量器时 Windows 都会询问。"
+      "runAsAdmin": "显示游戏帧率需要此项。每次启动计量器时 Windows 都会询问。",
+      "shareData": "将你所在服务器的野外首领计时和补给委托分享给 a2tools.app，让大家的 A2Tools 保持同步：你地图上的首领、你看到被击杀的首领及其血量，以及每次重置后的委托板。不会发送任何关于你角色的信息。"
     },
     "globalHotkeys": "使用快捷键",
     "hotkeyConsent": {
@@ -666,7 +663,8 @@
     },
     "runAsAdmin": "以管理员身份运行",
     "runAsAdminTitle": "A2Tools - 以管理员身份运行",
-    "runAsAdminAsk": "显示游戏帧率需要计量器以管理员身份运行。\n\n现在以管理员身份重启计量器吗？每次启动计量器时 Windows 都会询问。你可以在设置中关闭此项。"
+    "runAsAdminAsk": "显示游戏帧率需要计量器以管理员身份运行。\n\n现在以管理员身份重启计量器吗？每次启动计量器时 Windows 都会询问。你可以在设置中关闭此项。",
+    "shareData": "将有用的数据同步到 A2Tools"
   },
   "support": {
     "button": "支持我一下",
