@@ -581,7 +581,8 @@
       "showMeter": "Désactivé : seuls vos plugins s'affichent. Le meter continue d'enregistrer les combats et de les envoyer en arrière-plan. Réaffichez-le ici, avec le raccourci afficher/masquer, ou avec le bouton meter d'une fenêtre de plugin.",
       "clearOnZone": "Quand le dernier combat quitte le compteur après un changement de zone. Chaque combat reste dans l'Historique dans tous les cas.",
       "hideWhenGameClosed": "Le compteur se masque quand le jeu n'est pas lancé et réapparaît à son démarrage.",
-      "hideWhenSolo": "Le compteur se masque tant que vous n'êtes pas en groupe et réapparaît quand vous en rejoignez un. Le raccourci Afficher/Masquer le fait toujours apparaître."
+      "hideWhenSolo": "Le compteur se masque tant que vous n'êtes pas en groupe et réapparaît quand vous en rejoignez un. Le raccourci Afficher/Masquer le fait toujours apparaître.",
+      "runAsAdmin": "Nécessaire pour afficher les FPS du jeu. Windows le demande à chaque démarrage du compteur."
     },
     "globalHotkeys": "Utiliser les raccourcis",
     "hotkeyConsent": {
@@ -645,7 +646,8 @@
       "inDock": "Dans le dock des plugins (désactivé : sa propre fenêtre)",
       "search": "Rechercher",
       "noMatch": "Aucun plugin ne correspond.",
-      "permsTitle": "Il peut :"
+      "permsTitle": "Il peut :",
+      "permFps": "Afficher les FPS du jeu (sous Windows, le compteur demande à s'exécuter en tant qu'administrateur pour cela)"
     },
     "clearOnZone": {
       "label": "Vider le compteur",
@@ -654,7 +656,10 @@
         "any": "À chaque changement de zone",
         "never": "Jamais (garder le dernier combat)"
       }
-    }
+    },
+    "runAsAdmin": "Exécuter en tant qu'administrateur",
+    "runAsAdminTitle": "A2Tools - Exécuter en tant qu'administrateur",
+    "runAsAdminAsk": "Pour afficher les FPS du jeu, le compteur doit s'exécuter en tant qu'administrateur.\n\nRedémarrer le compteur en tant qu'administrateur maintenant ? Windows le demandera à chaque démarrage du compteur. Tu peux le désactiver dans les Paramètres."
   },
   "support": {
     "button": "Me soutenir",

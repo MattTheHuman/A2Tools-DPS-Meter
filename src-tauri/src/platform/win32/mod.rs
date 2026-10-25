@@ -9,6 +9,7 @@ pub mod atomic_file;
 pub mod clock;
 pub mod dialog;
 pub mod discord_ipc;
+pub mod fps;
 pub mod hotkeys;
 pub mod pcap;
 pub mod process;

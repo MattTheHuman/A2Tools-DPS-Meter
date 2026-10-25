@@ -857,6 +857,12 @@
     sendLogsToDev() {
       return invoke("send_logs_to_dev");
     },
+    // Run as administrator from now on (for the game's frame rate): on
+    // restarts the meter elevated, Windows asking; resolves false when the
+    // prompt was refused. Off takes effect at the next start.
+    setRunAsAdmin(enabled) {
+      return invoke("set_run_as_admin", { enabled: !!enabled });
+    },
     setDebugLoggingEnabled(enabled) {
       invoke("set_debug_logging", { enabled: !!enabled }).catch(() => {});
     },

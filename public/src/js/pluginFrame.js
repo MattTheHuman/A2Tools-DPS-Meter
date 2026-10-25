@@ -88,6 +88,16 @@
         if (!allowed("feed:boss-timers")) throw new Error('the plugin lacks the "feed:boss-timers" permission');
         return call("plugin_boss_follow", { server: Number(server), bosses: (Array.isArray(bosses) ? bosses : []).map(String) });
       },
+      // The game's frame rate (meter 2.0.78): "fps" events while asked.
+      "fps.watch": ([on]) => {
+        if (!allowed("fps")) throw new Error('the plugin lacks the "fps" permission');
+        return call("plugin_fps_watch", { on: !!on });
+      },
+      // Run the meter as administrator, for the frame rate: the meter asks.
+      "fps.admin": () => {
+        if (!allowed("fps")) throw new Error('the plugin lacks the "fps" permission');
+        return call("plugin_fps_admin");
+      },
       "storage.set": ([key, value]) => call("plugin_storage_set", { key: String(key), value: String(value) }),
       "window.show": () => {
         if (!allowed("window")) throw new Error('the plugin lacks the "window" permission');

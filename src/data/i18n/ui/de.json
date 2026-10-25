@@ -581,7 +581,8 @@
       "showMeter": "Aus: Nur deine Plugins sind zu sehen. Das Meter liest im Hintergrund weiter Kämpfe mit und lädt hoch. Zurückholen kannst du es hier, mit dem Ein-/Ausblenden-Hotkey oder mit dem Meter-Knopf an einem Plugin-Fenster.",
       "clearOnZone": "Wann der letzte Kampf nach einem Zonenwechsel aus dem Meter verschwindet. Jeder Kampf bleibt so oder so im Verlauf.",
       "hideWhenGameClosed": "Das Meter wird ausgeblendet, solange das Spiel nicht läuft, und erscheint wieder, wenn es startet.",
-      "hideWhenSolo": "Das Meter wird ausgeblendet, solange du in keiner Gruppe bist, und erscheint wieder, wenn du einer beitrittst. Die Tastenkombination zum Ein-/Ausblenden holt es trotzdem hervor."
+      "hideWhenSolo": "Das Meter wird ausgeblendet, solange du in keiner Gruppe bist, und erscheint wieder, wenn du einer beitrittst. Die Tastenkombination zum Ein-/Ausblenden holt es trotzdem hervor.",
+      "runAsAdmin": "Nötig, um die Bildrate des Spiels anzuzeigen. Windows fragt bei jedem Start des Meters nach."
     },
     "globalHotkeys": "Tastenkürzel verwenden",
     "hotkeyConsent": {
@@ -645,7 +646,8 @@
       "inDock": "Im Plugin-Dock (aus: eigenes Fenster)",
       "search": "Suchen",
       "noMatch": "Keine passenden Plugins.",
-      "permsTitle": "Es darf:"
+      "permsTitle": "Es darf:",
+      "permFps": "Die Bildrate des Spiels anzeigen (unter Windows bittet das Meter dafür, als Administrator zu laufen)"
     },
     "clearOnZone": {
       "label": "Meter leeren",
@@ -654,7 +656,10 @@
         "any": "Bei jedem Zonenwechsel",
         "never": "Nie (letzten Kampf behalten)"
       }
-    }
+    },
+    "runAsAdmin": "Als Administrator ausführen",
+    "runAsAdminTitle": "A2Tools - Als Administrator ausführen",
+    "runAsAdminAsk": "Um die Bildrate des Spiels anzuzeigen, muss das Meter als Administrator laufen.\n\nDas Meter jetzt als Administrator neu starten? Windows fragt bei jedem Start des Meters nach. Du kannst das in den Einstellungen wieder ausschalten."
   },
   "support": {
     "button": "Unterstütze mich",

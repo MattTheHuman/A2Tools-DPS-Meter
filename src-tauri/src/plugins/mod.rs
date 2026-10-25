@@ -15,6 +15,7 @@
 pub mod catalog;
 pub mod decoder;
 pub mod dock;
+pub mod fps;
 pub mod widgets;
 #[cfg(feature = "online")]
 pub mod boss_live;
@@ -555,6 +556,7 @@ impl PluginHost {
                 sync_game_hiding(&app);
                 let mut game_checked = Instant::now();
                 let mut ping: Option<i32> = None;
+                let mut fps_told: Option<Value> = None;
                 let mut map_seq = 0u64;
                 let mut abyss_seq = 0u64;
                 loop {
@@ -604,6 +606,16 @@ impl PluginHost {
                     if now_ping != ping {
                         ping = now_ping;
                         host.tell_all(&app, "ping", serde_json::json!({ "ms": now_ping }));
+                    }
+                    // The game's frame rate, while a plugin asks (fps.rs), to
+                    // plugins with "fps" when it changes.
+                    match fps::poll().map(fps::reading_json) {
+                        Some(now) if fps_told.as_ref() != Some(&now) => {
+                            host.tell_permitted(&app, "fps", "fps", now.clone());
+                            fps_told = Some(now);
+                        }
+                        Some(_) => {}
+                        None => fps_told = None,
                     }
                     // Whether AION2 is open, looked at every few seconds.
                     if game_checked.elapsed() >= GAME_CHECK {
@@ -977,6 +989,24 @@ struct PromptTexts {
     perm_widgets: String,
     perm_character: String,
     perm_decoder: String,
+    perm_fps: String,
+}
+
+/// One text of the meter's interface in its language (English failing that),
+/// for a prompt the meter shows itself.
+pub(crate) fn ui_text(app: &tauri::AppHandle, section: &[&str], key: &str, fallback: &str) -> String {
+    let Some(state) = app.try_state::<AppState>() else { return fallback.to_string() };
+    let lang = state.settings.get("dpsMeter.language").unwrap_or_else(|| "en".into());
+    let lang = LANGUAGES.iter().find(|known| known.eq_ignore_ascii_case(&lang)).copied().unwrap_or("en");
+    let load = |lang: &str| -> Option<Value> {
+        let path = state.i18n_data_dir.as_ref()?.join("i18n").join("ui").join(format!("{lang}.json"));
+        serde_json::from_str(&std::fs::read_to_string(path).ok()?).ok()
+    };
+    [load(lang), load("en")]
+        .iter()
+        .flatten()
+        .find_map(|v| section.iter().fold(v, |v, s| &v[s])[key].as_str().map(str::to_string))
+        .unwrap_or_else(|| fallback.to_string())
 }
 
 #[cfg_attr(not(feature = "online"), allow(dead_code))]
@@ -1009,6 +1039,7 @@ fn prompt_texts(data_dir: Option<&Path>, lang: &str) -> PromptTexts {
         perm_widgets: perm("permWidgets", "Show small windows of its own, which you can move anywhere and lock in place"),
         perm_character: perm("permCharacter", "See your character's name, server, class and level"),
         perm_decoder: perm("permDecoder", "Read your own game data: {name}"),
+        perm_fps: perm("permFps", "Show the game's frame rate (on Windows, the meter asks to run as administrator for it)"),
     }
 }
 
@@ -1021,6 +1052,7 @@ fn describe_permission(t: &PromptTexts, permission: &str) -> String {
         "window" => t.perm_window.clone(),
         "widgets" => t.perm_widgets.clone(),
         "events:character" => t.perm_character.clone(),
+        "fps" => t.perm_fps.clone(),
         p => match p.strip_prefix("decoder:") {
             Some(name) => t.perm_decoder.replace("{name}", name),
             None => p.to_string(),

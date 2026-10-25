@@ -88,6 +88,8 @@ A small `a2` object the plugin loads (`plugin://sdk/a2.js`), wrapping postMessag
 | `a2.notify(text, {sound})` | `notify` | A toast in the meter (and a sound if the user allows) |
 | `a2.now()` | none | Server-aligned time, for timers |
 | `a2.on("language", fn)` | none | The meter's language code, at start and whenever the user changes it |
+| `a2.watchFps(on)`, `a2.on("fps", fn)` | `fps` | The game's frame rate about every second, `{ fps, state }` (meter 2.0.78; Windows, counted from DXGI's Present events while the meter runs as administrator) |
+| `a2.fpsAdmin()` | `fps` | Ask the player to restart the meter as administrator (the meter's prompt, then Windows'); it stays so until turned off in Settings |
 
 Everything is asynchronous; nothing blocks the meter. A plugin that floods messages is rate-limited and then paused.
 

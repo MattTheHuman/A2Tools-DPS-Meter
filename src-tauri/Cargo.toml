@@ -159,6 +159,9 @@ windows = { version = "0.59", features = [
     "Win32_System_Com",
     "Win32_UI_Shell",
     "Win32_UI_Shell_Common",
+    # The game's frame rate, from DXGI's Present events (platform/win32/fps.rs).
+    "Win32_System_Diagnostics_Etw",
+    "Win32_System_Time",
 ] }
 
 # Desktop-only, so optional and enabled by `desktop`: the log service builds

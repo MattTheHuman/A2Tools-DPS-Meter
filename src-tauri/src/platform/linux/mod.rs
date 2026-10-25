@@ -13,6 +13,9 @@ pub mod atomic_file;
 pub mod clock;
 pub mod dialog;
 pub mod discord_ipc;
+/// No frame record to read: under Proton the frames go through Vulkan.
+#[path = "../unsupported/fps.rs"]
+pub mod fps;
 mod file_permissions;
 mod focus;
 pub mod pcap;

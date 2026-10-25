@@ -581,7 +581,8 @@
       "showMeter": "Desactivado: solo se ven tus plugins. El medidor sigue registrando combates y subiéndolos en segundo plano. Vuelve a mostrarlo aquí, con el atajo de mostrar/ocultar o con el botón del medidor en una ventana de plugin.",
       "clearOnZone": "Cuándo desaparece el último combate del medidor tras un cambio de zona. Todos los combates quedan en el Historial igualmente.",
       "hideWhenGameClosed": "El medidor se oculta mientras el juego no está abierto y vuelve cuando se inicia.",
-      "hideWhenSolo": "El medidor se oculta mientras no estás en un grupo y vuelve cuando te unes a uno. El atajo de mostrar/ocultar lo sigue mostrando."
+      "hideWhenSolo": "El medidor se oculta mientras no estás en un grupo y vuelve cuando te unes a uno. El atajo de mostrar/ocultar lo sigue mostrando.",
+      "runAsAdmin": "Necesario para mostrar los FPS del juego. Windows lo pedirá cada vez que se inicie el medidor."
     },
     "globalHotkeys": "Usar atajos de teclado",
     "hotkeyConsent": {
@@ -645,7 +646,8 @@
       "inDock": "En el dock de plugins (desactivado: su propia ventana)",
       "search": "Buscar",
       "noMatch": "Ningún plugin coincide.",
-      "permsTitle": "Puede:"
+      "permsTitle": "Puede:",
+      "permFps": "Mostrar los FPS del juego (en Windows, el medidor pide ejecutarse como administrador para ello)"
     },
     "clearOnZone": {
       "label": "Vaciar el medidor",
@@ -654,7 +656,10 @@
         "any": "En cualquier cambio de zona",
         "never": "Nunca (mantener el último combate)"
       }
-    }
+    },
+    "runAsAdmin": "Ejecutar como administrador",
+    "runAsAdminTitle": "A2Tools - Ejecutar como administrador",
+    "runAsAdminAsk": "Para mostrar los FPS del juego, el medidor debe ejecutarse como administrador.\n\n¿Reiniciar el medidor como administrador ahora? Windows lo pedirá cada vez que se inicie el medidor. Puedes desactivarlo en Ajustes."
   },
   "support": {
     "button": "Apóyame",

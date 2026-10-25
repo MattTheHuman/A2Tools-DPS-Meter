@@ -42,6 +42,14 @@
 //                                              { type: "boss", server, boss, entry } on each change (an
 //                                              entry as a2.bossTimers gives it), or
 //                                              { type: "status", server, connected }; [] stops
+//   await a2.watchFps(true)                    the game's frame rate (permission "fps", meter 2.0.78 on):
+//                                              comes about every second as a2.on("fps", (f) => ...), f
+//                                              being { fps, state }: state "ok" (fps a number), "noGame",
+//                                              "needsAdmin" (Windows: the meter must run as administrator)
+//                                              or "unsupported"; resolves to the reading now; false stops
+//   await a2.fpsAdmin()                        ask the player to run the meter as administrator for the
+//                                              frame rate (permission "fps"): the meter's prompt, then
+//                                              Windows'; yes restarts the meter elevated (and it stays so)
 //   a2.window.show() / a2.window.hide()        its own window, shown on top without taking focus
 //   a2.window.fit(height) / a2.window.fit()    the window fitted to that much content (an alert),
 //                                              its title bar hidden; then back to its size and
@@ -170,6 +178,9 @@
     // Meter 2.0.72 on: the server's Abyss siege (artifact holders, cores).
     abyssSiege: (server) => call("abyssSiege", [Number(server)]),
     followBosses: (server, bosses) => call("bossTimers.follow", [Number(server), (bosses || []).map(String)]),
+    // Meter 2.0.78 on: the game's frame rate.
+    watchFps: (on) => call("fps.watch", [on !== false]),
+    fpsAdmin: () => call("fps.admin", []),
     window: Object.freeze({
       show: () => call("window.show", []),
       hide: () => call("window.hide", []),

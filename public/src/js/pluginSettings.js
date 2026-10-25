@@ -54,6 +54,9 @@
       if (permission === "feed:boss-timers") {
         return t("settings.plugins.permBossTimers", "Read the field boss timers players share through a2tools.app");
       }
+      if (permission === "fps") {
+        return t("settings.plugins.permFps", "Show the game's frame rate (on Windows, the meter asks to run as administrator for it)");
+      }
       if (permission.startsWith("decoder:")) {
         return t("settings.plugins.permDecoder", "Read your own game data: {name}", { name: permission.slice(8) });
       }

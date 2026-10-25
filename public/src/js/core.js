@@ -2774,6 +2774,7 @@ class DpsApp {
     this.showSuspendBtnCheckbox = document.querySelector(".showSuspendBtnCheckbox");
     this.bossLogsCheckbox = document.querySelector(".bossLogsCheckbox");
     this.debugLoggingCheckbox = document.querySelector(".debugLoggingCheckbox");
+    this.runAsAdminCheckbox = document.querySelector(".runAsAdminCheckbox");
     this.shareBossTimersCheckbox = document.querySelector(".shareBossTimersCheckbox");
     this.shareSupplyRequestsCheckbox = document.querySelector(".shareSupplyRequestsCheckbox");
     this.partyPresenceCheckbox = document.querySelector(".partyPresenceCheckbox");
@@ -3036,6 +3037,25 @@ class DpsApp {
       this.shareSupplyRequestsCheckbox.checked = this.safeGetSetting(this.storageKeys.shareSupplyRequests) === "true";
       this.shareSupplyRequestsCheckbox.addEventListener("change", (event) => {
         this.safeSetSetting(this.storageKeys.shareSupplyRequests, event.target?.checked ? "true" : "false");
+      });
+    }
+    // Run as administrator (Windows only: the game's frame rate needs it).
+    // On restarts the meter elevated; off counts from the next start.
+    if (this.runAsAdminCheckbox && /Windows/i.test(navigator.userAgent || "")) {
+      const box = this.runAsAdminCheckbox;
+      box.closest(".runAsAdminRow")?.removeAttribute("hidden");
+      box.checked = this.safeGetSetting("dpsMeter.runAsAdmin") === "true";
+      box.addEventListener("change", async () => {
+        const on = box.checked;
+        box.disabled = true;
+        try {
+          const done = await window.javaBridge?.setRunAsAdmin?.(on);
+          if (on && done === false) box.checked = false;
+        } catch {
+          box.checked = !on;
+        } finally {
+          box.disabled = false;
+        }
       });
     }
     if (this.debugLoggingCheckbox) {

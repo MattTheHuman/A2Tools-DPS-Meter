@@ -38,10 +38,23 @@ pub mod procfs;
 pub mod screenshot;
 
 pub use os::{
-    admin, clock, dialog, discord_ipc, pcap, process, secret, shell, updater, window, window_detector, window_rules, window_startup,
+    admin, clock, dialog, discord_ipc, fps, pcap, process, secret, shell, updater, window, window_detector, window_rules, window_startup,
 };
 
 pub use os::atomic_file;
+
+/// The game's frame rate, as `fps::game_fps` reads it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FpsReading {
+    /// Frames per second (0 while the game presents none, minimised say).
+    Fps(u32),
+    /// The game isn't open.
+    NoGame,
+    /// Counting needs the meter to run as administrator.
+    NeedsAdmin,
+    /// Not on this OS.
+    Unsupported,
+}
 
 /// Why `secret::unprotect` could not give a stored secret back.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

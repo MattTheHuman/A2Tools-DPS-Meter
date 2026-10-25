@@ -1239,6 +1239,19 @@ fn set_debug_logging(state: tauri::State<'_, AppState>, enabled: bool) {
     state.settings.set("dpsMeter.debugLoggingEnabled", if enabled { "true" } else { "false" });
 }
 
+/// Settings' "Run as administrator": on restarts the meter elevated (false
+/// when Windows' prompt was refused); off takes effect at the next start.
+#[tauri::command]
+async fn set_run_as_admin(app: tauri::AppHandle, enabled: bool) -> Result<bool, String> {
+    if !enabled {
+        if let Some(state) = app.try_state::<AppState>() {
+            state.settings.set("dpsMeter.runAsAdmin", "false");
+        }
+        return Ok(true);
+    }
+    tokio::task::spawn_blocking(move || restart_as_admin(&app)).await.map_err(|e| e.to_string())?
+}
+
 #[tauri::command]
 fn set_packet_logging(state: tauri::State<'_, AppState>, enabled: bool) {
     logging::logger::set_packet_log_enabled(enabled, &state.app_data_dir);
@@ -3126,6 +3139,59 @@ fn decode_replay_hex(hex: &str) -> Option<Vec<u8>> {
 // ===== APP SETUP =====
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// The identifier the settings live under (tauri.conf.json), for reading
+/// `dpsMeter.runAsAdmin` before Tauri starts.
+const IDENTIFIER: &str = "com.a2tools.dps-meter";
+/// The argument a meter restarting itself as administrator passes: its own
+/// process id, to wait for (it holds the one-meter lock until it has closed).
+const AFTER_ARG: &str = "--after";
+
+/// Before anything starts: a meter started by one restarting itself as
+/// administrator waits for that one to close; one set to run as
+/// administrator (for the game's frame rate) and not yet starts itself again
+/// elevated and ends. Refused, it runs on as it is.
+fn elevate_at_start() {
+    let args: Vec<String> = std::env::args().collect();
+    if let Some(pid) = args.iter().position(|a| a == AFTER_ARG).and_then(|i| args.get(i + 1)?.parse::<u32>().ok()) {
+        tracing::info!("Started as administrator: waiting for the meter before to close");
+        platform::admin::wait_for_exit(pid, std::time::Duration::from_secs(20));
+        return;
+    }
+    if !platform::admin::wants_admin(IDENTIFIER) || platform::admin::is_admin() {
+        return;
+    }
+    match platform::admin::relaunch_elevated(&[]) {
+        Ok(true) => {
+            tracing::info!("Set to run as administrator: started again elevated");
+            std::process::exit(0);
+        }
+        Ok(false) => tracing::info!("Set to run as administrator, but the prompt was refused: running as is"),
+        Err(e) => tracing::info!("Set to run as administrator, but could not start elevated: {e}"),
+    }
+}
+
+/// Run as administrator from now on (`dpsMeter.runAsAdmin`), and restart so
+/// now: the new meter is started elevated, then this one closes. Ok(false)
+/// when Windows' prompt was refused (nothing changes then).
+pub(crate) fn restart_as_admin(app: &tauri::AppHandle) -> Result<bool, String> {
+    if platform::admin::is_admin() {
+        if let Some(state) = app.try_state::<AppState>() {
+            state.settings.set("dpsMeter.runAsAdmin", "true");
+        }
+        return Ok(true);
+    }
+    let pid = std::process::id().to_string();
+    if !platform::admin::relaunch_elevated(&[AFTER_ARG.to_string(), pid])? {
+        return Ok(false);
+    }
+    if let Some(state) = app.try_state::<AppState>() {
+        state.settings.set("dpsMeter.runAsAdmin", "true");
+    }
+    tracing::info!("Restarting as administrator");
+    app.exit(0);
+    Ok(true)
+}
+
 pub fn run() {
     // Before anything starts a thread: it may set environment variables.
     let process_note = platform::process::prepare();
@@ -3133,6 +3199,7 @@ pub fn run() {
     if let Some(note) = process_note {
         tracing::info!("{note}");
     }
+    elevate_at_start();
 
     let mut context = tauri::generate_context!();
     if platform::window_startup::loads_hidden()
@@ -3214,6 +3281,7 @@ pub fn run() {
                 for id in crate::plugins::dock::members(window.app_handle()) {
                     crate::plugins::widgets::close_all(window.app_handle(), &id);
                     crate::plugins::boss_live::forget_plugin(window.app_handle(), &id);
+                    crate::plugins::fps::forget_plugin(&id);
                 }
             }
             if let tauri::WindowEvent::Destroyed = event
@@ -3226,6 +3294,7 @@ pub fn run() {
                 if !crate::plugins::dock::members(window.app_handle()).iter().any(|m| m == id) {
                     crate::plugins::widgets::close_all(window.app_handle(), id);
                     crate::plugins::boss_live::forget_plugin(window.app_handle(), id);
+                    crate::plugins::fps::forget_plugin(id);
                 }
                 // The meter hidden and its last plugin window closed: nothing
                 // would be left on screen, so the meter comes back.
@@ -3891,6 +3960,9 @@ pub fn run() {
             crate::plugins::widgets::plugin_widget_post,
             crate::plugins::widgets::plugin_widget_drag,
             crate::plugins::boss_live::plugin_boss_follow,
+            crate::plugins::fps::plugin_fps_watch,
+            set_run_as_admin,
+            crate::plugins::fps::plugin_fps_admin,
             crate::plugins::widgets::plugin_widget_area,
             crate::plugins::widgets::plugin_widget_where,
             crate::plugins::widgets::plugin_widget_place,
