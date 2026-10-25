@@ -32,7 +32,7 @@ pub fn relaunch_elevated(args: &[String]) -> Result<bool, String> {
     use windows::core::{w, PCWSTR};
     use windows::Win32::Foundation::ERROR_CANCELLED;
     use windows::Win32::UI::Shell::{ShellExecuteExW, SHELLEXECUTEINFOW};
-    use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+    use windows::Win32::UI::WindowsAndMessaging::{SW_HIDE, SW_SHOWNORMAL};
 
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let file: Vec<u16> = exe.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
@@ -44,7 +44,10 @@ pub fn relaunch_elevated(args: &[String]) -> Result<bool, String> {
         lpVerb: w!("runas"),
         lpFile: PCWSTR(file.as_ptr()),
         lpParameters: PCWSTR(params.as_ptr()),
-        nShow: SW_SHOWNORMAL.0,
+        // A debug build is a console program: started this way it gets a
+        // console window of its own, and closing it closed the meter. Hidden.
+        // A release build has none; its windows show themselves.
+        nShow: if cfg!(debug_assertions) { SW_HIDE.0 } else { SW_SHOWNORMAL.0 },
         ..Default::default()
     };
     // SAFETY: `info` and the strings it points to live across the call.
