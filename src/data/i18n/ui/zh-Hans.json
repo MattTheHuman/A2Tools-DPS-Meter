@@ -534,7 +534,13 @@
       "failed": "登录失败：{error}",
       "supporter": "赞助者",
       "autoUpload": "自动上传首领战",
-      "autoUploadHint": "首领战结束时会以你在 a2tools.app 选择的公开设置上传到你的账号。其他玩家的名称会被遮蔽。木桩战斗不会上传。"
+      "autoUploadHint": "首领战结束时会以你在 a2tools.app 选择的公开设置上传到你的账号。其他玩家的名称会被遮蔽。木桩战斗不会上传。",
+      "guestUpload": "无需账号上传首领战",
+      "guestUploadHint": "首领战结束后，会以公开形式上传到 a2tools.app，无需账号。其他玩家仍会被隐藏。之后登录时，从这台电脑上传的战斗会归你所有。",
+      "guestClaimHint": "从这台电脑上传的战斗会为你保留。在这里登录即可归你所有，或获取代码在其他设备上认领。",
+      "guestClaimButton": "获取认领代码",
+      "guestClaimCode": "登录后在 {url} 输入 {code}。代码 15 分钟后失效。",
+      "claimed": "从这台电脑上传的 {count} 场战斗现在归你了。"
     },
     "sendLogs": {
       "hint": "将你的调试日志和最近的数据包日志（共 3 个文件）发送给开发者，用于错误报告。",
@@ -782,7 +788,9 @@
     "hint": "其他玩家的名称会被遮蔽，训练假人的战斗不会上传。可随时在设置中更改。",
     "signIn": "登录",
     "later": "以后再说",
-    "close": "关闭"
+    "close": "关闭",
+    "guest": "不使用账号",
+    "guestHint": "没有账号？战斗仍可上传，之后登录即归你所有。"
   },
   "npcapPrompt": {
     "ask": "A2Tools DPS Meter 需要 Npcap 来读取游戏的网络流量，但 Npcap 未安装或无法使用。\n\n现在安装吗？本工具会从 npcap.com 下载 Npcap 安装程序并打开它。Npcap 安装完成后，本工具会自动开始捕获。\n\n选择“否”可自行从 https://npcap.com/#download 安装。",

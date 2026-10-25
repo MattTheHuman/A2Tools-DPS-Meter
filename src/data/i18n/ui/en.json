@@ -539,7 +539,13 @@
       "failed": "Sign-in failed: {error}",
       "supporter": "Supporter",
       "autoUpload": "Upload boss fights automatically",
-      "autoUploadHint": "When a boss fight ends it is uploaded to your account, with the visibility you chose on a2tools.app. Other players stay masked. Training dummies are never uploaded."
+      "autoUploadHint": "When a boss fight ends it is uploaded to your account, with the visibility you chose on a2tools.app. Other players stay masked. Training dummies are never uploaded.",
+      "guestUpload": "Upload boss fights without an account",
+      "guestUploadHint": "When a boss fight ends it is uploaded to a2tools.app, public, without an account. Other players stay masked. Sign in later and the fights uploaded from this PC become yours.",
+      "guestClaimHint": "Fights uploaded from this PC are kept for you. Sign in here to make them yours, or get a code to claim them from another device.",
+      "guestClaimButton": "Get a claim code",
+      "guestClaimCode": "Enter {code} at {url} while signed in. The code expires in 15 minutes.",
+      "claimed": "{count} fights uploaded from this PC are now yours."
     },
     "sendLogs": {
       "hint": "Sends your debug log and your most recent packet logs (3 files in all) to the developer, for a bug report.",
@@ -787,7 +793,9 @@
     "hint": "Other players' names stay masked, and training dummies are never uploaded. You can change this any time in Settings.",
     "signIn": "Sign in",
     "later": "Not now",
-    "close": "Close"
+    "close": "Close",
+    "guest": "Without an account",
+    "guestHint": "No account? Your fights can still upload, and become yours if you sign in later."
   },
   "npcapPrompt": {
     "ask": "A2Tools DPS Meter needs Npcap to read the game's network traffic, and Npcap is missing or not working.\n\nInstall it now? The meter downloads Npcap's installer from npcap.com and opens it. Once Npcap is installed, the meter starts capturing by itself.\n\nChoose No to install it yourself from https://npcap.com/#download",

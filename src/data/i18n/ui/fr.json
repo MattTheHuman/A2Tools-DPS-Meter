@@ -527,7 +527,13 @@
       "codeHint": "La page devrait déjà être ouverte. Le code expire dans 10 minutes.",
       "working": "En attente de validation…",
       "failed": "Échec de la connexion : {error}",
-      "supporter": "Soutien"
+      "supporter": "Soutien",
+      "guestUpload": "Envoyer les combats de boss sans compte",
+      "guestUploadHint": "À la fin d'un combat de boss, il est envoyé sur a2tools.app, public, sans compte. Les autres joueurs restent masqués. Connecte-toi plus tard et les combats envoyés depuis ce PC deviennent les tiens.",
+      "guestClaimHint": "Les combats envoyés depuis ce PC sont gardés pour toi. Connecte-toi ici pour qu'ils deviennent les tiens, ou obtiens un code pour les récupérer depuis un autre appareil.",
+      "guestClaimButton": "Obtenir un code",
+      "guestClaimCode": "Saisis {code} sur {url} en étant connecté. Le code expire dans 15 minutes.",
+      "claimed": "{count} combats envoyés depuis ce PC sont maintenant à toi."
     },
     "sendLogs": {
       "hint": "Envoie ton journal de débogage et tes derniers journaux de paquets (3 fichiers en tout) au développeur, pour un rapport de bug.",
@@ -775,7 +781,9 @@
     "hint": "Les noms des autres joueurs restent masqués et les mannequins d'entraînement ne sont jamais envoyés. Vous pouvez changer cela à tout moment dans les Paramètres.",
     "signIn": "Se connecter",
     "later": "Plus tard",
-    "close": "Fermer"
+    "close": "Fermer",
+    "guest": "Sans compte",
+    "guestHint": "Pas de compte ? Tes combats peuvent quand même être envoyés, et deviennent les tiens si tu te connectes plus tard."
   },
   "npcapPrompt": {
     "ask": "A2Tools DPS Meter a besoin de Npcap pour lire le trafic réseau du jeu, et Npcap est absent ou ne fonctionne pas.\n\nL'installer maintenant ? Le meter télécharge l'installateur de Npcap depuis npcap.com et l'ouvre. Une fois Npcap installé, le meter commence la capture tout seul.\n\nChoisis Non pour l'installer toi-même depuis https://npcap.com/#download",

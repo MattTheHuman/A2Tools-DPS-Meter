@@ -527,7 +527,13 @@
       "codeHint": "La página ya debería haberse abierto. El código caduca en 10 minutos.",
       "working": "Esperando aprobación…",
       "failed": "Error al iniciar sesión: {error}",
-      "supporter": "Mecenas"
+      "supporter": "Mecenas",
+      "guestUpload": "Subir combates de jefe sin cuenta",
+      "guestUploadHint": "Al terminar un combate de jefe se sube a a2tools.app, público, sin cuenta. Los demás jugadores siguen ocultos. Si inicias sesión más tarde, los combates subidos desde este PC pasan a ser tuyos.",
+      "guestClaimHint": "Los combates subidos desde este PC se guardan para ti. Inicia sesión aquí para que sean tuyos, o consigue un código para reclamarlos desde otro dispositivo.",
+      "guestClaimButton": "Obtener un código",
+      "guestClaimCode": "Introduce {code} en {url} con la sesión iniciada. El código caduca en 15 minutos.",
+      "claimed": "{count} combates subidos desde este PC ahora son tuyos."
     },
     "sendLogs": {
       "hint": "Envía tu registro de depuración y tus registros de paquetes más recientes (3 archivos en total) al desarrollador, para un informe de errores.",
@@ -775,7 +781,9 @@
     "hint": "Los nombres de otros jugadores se ocultan y los muñecos de entrenamiento nunca se suben. Puedes cambiarlo cuando quieras en Ajustes.",
     "signIn": "Iniciar sesión",
     "later": "Ahora no",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "guest": "Sin cuenta",
+    "guestHint": "¿Sin cuenta? Tus combates pueden subirse igualmente y pasarán a ser tuyos si inicias sesión más tarde."
   },
   "npcapPrompt": {
     "ask": "A2Tools DPS Meter necesita Npcap para leer el tráfico de red del juego, y Npcap falta o no funciona.\n\n¿Instalarlo ahora? El medidor descarga el instalador de Npcap desde npcap.com y lo abre. Cuando Npcap esté instalado, el medidor empezará a capturar por sí solo.\n\nElige No para instalarlo tú mismo desde https://npcap.com/#download",

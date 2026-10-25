@@ -734,6 +734,15 @@ pub fn prune_slices(app_data_dir: &Path) {
 pub const AUTO_UPLOAD_KEY: &str = "dpsMeter.autoUpload";
 
 #[cfg(feature = "online")]
+/// Whether finished fights upload by themselves: the account's switch, or
+/// uploading without an account (`account::guest`); `upload_detailed` picks
+/// the key.
+pub fn auto_uploads(settings: &crate::config::settings::Settings) -> bool {
+    settings.get(AUTO_UPLOAD_KEY).as_deref() == Some("true")
+        || settings.get(crate::account::guest::GUEST_UPLOAD_KEY).as_deref() == Some("true")
+}
+
+#[cfg(feature = "online")]
 /// How long after the last hit a fight counts as over. The same rule the
 /// snapshot uses to stop re-saving a boss.
 const ENDED_AFTER_MS: i64 = 10_000;
@@ -905,6 +914,17 @@ pub async fn upload_detailed(
             return Err(UploadFailure::locked(
                 "The desktop keyring is locked. Unlock the keyring to upload fights.",
             ))
+        }
+        // Not signed in: as a guest, when the player chose to upload without
+        // an account (account::guest), claimable once they sign in.
+        crate::account::secret::Stored::Missing
+            if settings.get(crate::account::guest::GUEST_UPLOAD_KEY).as_deref() == Some("true") =>
+        {
+            crate::account::guest::token(client, app_data_dir).await.map_err(|e| UploadFailure {
+                message: e.message,
+                retryable: e.retryable,
+                keyring_locked: false,
+            })?
         }
         crate::account::secret::Stored::Missing => {
             return Err(UploadFailure::fatal("Sign in under Settings → A2 Tools Account to upload fights."))

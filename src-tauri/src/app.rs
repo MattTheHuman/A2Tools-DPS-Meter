@@ -583,7 +583,7 @@ fn save_fight_records(app: &tauri::AppHandle, state: &AppState, records: Vec<Fig
         share::prune_slices(&state.app_data_dir);
     }
     #[cfg(feature = "online")]
-    if state.settings.get(share::AUTO_UPLOAD_KEY).as_deref() == Some("true") {
+    if share::auto_uploads(&state.settings) {
         let now = crate::clock::now_ms();
         for record in records.into_iter()
             .filter(|r| share::wants_auto_upload(&state.app_data_dir, r, now))
@@ -733,8 +733,28 @@ async fn account_status(
         crate::account::AccountState::SignedOut => None,
         crate::account::AccountState::Unavailable(why) => return Err(why),
     };
+    // Signed in with fights still uploaded as a guest on this PC (the claim
+    // at sign-in didn't get through): claimed now.
+    if who.is_some() && crate::account::guest::has_guest(&state.app_data_dir) {
+        crate::account::guest::merge_into_account(&state.http, &state.app_data_dir).await;
+    }
     *state.account_seen.lock() = Some(who.clone());
     Ok(who)
+}
+
+#[cfg(feature = "online")]
+/// Whether this PC has fights uploaded without an account, not claimed yet.
+#[tauri::command]
+fn guest_status(state: tauri::State<'_, AppState>) -> serde_json::Value {
+    serde_json::json!({ "hasGuest": crate::account::guest::has_guest(&state.app_data_dir) })
+}
+
+#[cfg(feature = "online")]
+/// A code that claims this PC's guest fights at a2tools.app/claim.
+#[tauri::command]
+async fn guest_claim_code(state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
+    let (code, expires_at) = crate::account::guest::claim_code(&state.http, &state.app_data_dir).await?;
+    Ok(serde_json::json!({ "code": code, "expiresAt": expires_at, "url": format!("{}/claim", crate::account::base_url()) }))
 }
 
 #[cfg(feature = "online")]
@@ -782,8 +802,14 @@ async fn account_begin_link(
     let app_data_dir = state.app_data_dir.clone();
     tauri::async_runtime::spawn(async move {
         let outcome = crate::account::poll_until_decided(&http, &grant, &app_data_dir).await;
+        // Fights uploaded without an account on this PC become the account's.
+        let claimed = if outcome.is_ok() && crate::account::guest::has_guest(&app_data_dir) {
+            crate::account::guest::merge_into_account(&http, &app_data_dir).await.unwrap_or(0)
+        } else {
+            0
+        };
         let payload = match &outcome {
-            Ok(()) => serde_json::json!({ "connected": true }),
+            Ok(()) => serde_json::json!({ "connected": true, "claimed": claimed }),
             Err(why) => serde_json::json!({ "connected": false, "error": why }),
         };
         if let Err(e) = app.emit("account-changed", payload) {
@@ -1750,6 +1776,18 @@ async fn account_begin_link() -> Result<serde_json::Value, String> {
 #[cfg(not(feature = "online"))]
 #[tauri::command]
 fn account_sign_out() {}
+
+#[cfg(not(feature = "online"))]
+#[tauri::command]
+fn guest_status() -> serde_json::Value {
+    serde_json::json!({ "hasGuest": false })
+}
+
+#[cfg(not(feature = "online"))]
+#[tauri::command]
+async fn guest_claim_code() -> Result<serde_json::Value, String> {
+    Err(NOT_IN_THIS_BUILD.into())
+}
 
 #[cfg(not(feature = "online"))]
 #[tauri::command]
@@ -3379,7 +3417,17 @@ pub fn run() {
                 ping_tracker.clone(),
             );
 
+            // A new install (no settings yet): fights upload without an account
+            // unless the player signs in or says no (the account card asks once).
+            let new_install = !app_data_dir.join("settings.json").exists();
             let settings = Settings::new(app_data_dir.clone());
+            #[cfg(feature = "online")]
+            if new_install {
+                settings.set(crate::account::guest::GUEST_UPLOAD_KEY, "true");
+                settings.set("dpsMeter.newInstall", "true");
+            }
+            #[cfg(not(feature = "online"))]
+            let _ = new_install;
             if let Some(ms) = settings.get(ALL_TARGETS_WINDOW_KEY).and_then(|v| v.trim().parse::<i64>().ok()) {
                 dps_calculator.set_all_targets_window_ms(ms);
             }
@@ -3828,7 +3876,7 @@ pub fn run() {
                         // fighting or not: a meter left open after the
                         // connection came back catches up on its own.
                         #[cfg(feature = "online")]
-                        if state.settings.get(share::AUTO_UPLOAD_KEY).as_deref() == Some("true") {
+                        if share::auto_uploads(&state.settings) {
                             let now = crate::clock::now_ms();
                             for id in share::auto_upload_retries_due(&state.app_data_dir, now) {
                                 if let Ok(record) = state.fight_history.load_fight(&id) {
@@ -3992,6 +4040,8 @@ pub fn run() {
             stream_overlay_new_key,
             account_begin_link,
             account_sign_out,
+            guest_status,
+            guest_claim_code,
             get_settings,
             update_settings,
             get_ping,

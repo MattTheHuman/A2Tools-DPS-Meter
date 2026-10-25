@@ -568,13 +568,28 @@
                       <div class="settingsDropdownMenu discordStatDropdownMenu" role="menu"></div>
                     </div>
                   </div>
-                  <label class="settingsToggle" title="When a boss fight ends it is uploaded to your account, with the visibility you chose on a2tools.app. Other players stay masked. Training dummies are never uploaded." data-i18n-title="settings.account.autoUploadHint">
+                  <label class="settingsToggle autoUploadRow" title="When a boss fight ends it is uploaded to your account, with the visibility you chose on a2tools.app. Other players stay masked. Training dummies are never uploaded." data-i18n-title="settings.account.autoUploadHint">
                     <span class="settingsToggleLabel settingsLabel" data-i18n="settings.account.autoUpload">Upload boss fights automatically</span>
                     <span class="settingsToggleControl">
                       <input type="checkbox" class="autoUploadCheckbox" />
                       <span class="settingsToggleTrack" aria-hidden="true"></span>
                     </span>
                   </label>
+                  <label class="settingsToggle guestUploadRow" style="display:none" title="When a boss fight ends it is uploaded to a2tools.app, public, without an account. Other players stay masked. Sign in later and the fights uploaded from this PC become yours." data-i18n-title="settings.account.guestUploadHint">
+                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.account.guestUpload">Upload boss fights without an account</span>
+                    <span class="settingsToggleControl">
+                      <input type="checkbox" class="guestUploadCheckbox" />
+                      <span class="settingsToggleTrack" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                  <div class="settingsRow guestClaimRow" style="display:none">
+                    <div class="settingsInfo">
+                      <div class="settingsHint guestClaimText" data-i18n="settings.account.guestClaimHint">Fights uploaded from this PC are kept for you. Sign in here to make them yours, or get a code to claim them from another device.</div>
+                    </div>
+                    <div class="settingsRowEnd">
+                      <button class="settingsAction guestClaimBtn" type="button" data-i18n="settings.account.guestClaimButton">Get a claim code</button>
+                    </div>
+                  </div>
                   <label class="settingsToggle" title="Supporters' names render gold. Cosmetic only — it never changes any number." data-i18n-title="settings.showSupporterColorsHint">
                     <span class="settingsToggleLabel settingsLabel" data-i18n="settings.showSupporterColors">Show supporter colours</span>
                     <span class="settingsToggleControl">
@@ -1521,6 +1536,7 @@
           <span data-i18n="settings.account.autoUpload">Upload boss fights automatically</span>
         </label>
         <div class="discordPromoHint" data-i18n="accountPromo.hint">Other players' names stay masked, and training dummies are never uploaded. You can change this any time in Settings.</div>
+        <div class="discordPromoHint" data-i18n="accountPromo.guestHint">No account? Your fights can still upload, and become yours if you sign in later.</div>
         <div class="accountPromoCodeBox" style="display:none">
           <div class="discordPromoHint" data-i18n="settings.account.codePrompt">Approve this code in your browser:</div>
           <div class="accountPromoCode"></div>
@@ -1528,6 +1544,7 @@
         <div class="discordPromoHint accountPromoState"></div>
         <div class="accountPromoActions">
           <button class="accountPromoLater" type="button" data-i18n="accountPromo.later">Not now</button>
+          <button class="accountPromoLater accountPromoGuest" type="button" data-i18n="accountPromo.guest">Without an account</button>
           <button class="discordPromoDone accountPromoSignIn" type="button" data-i18n="accountPromo.signIn">Sign in</button>
         </div>
       </div>
