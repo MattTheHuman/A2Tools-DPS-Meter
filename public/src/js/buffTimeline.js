@@ -314,7 +314,13 @@ const createBuffTimeline = ({ root, describeActor = () => null }) => {
     const name = names[id];
     if (typeof name === "string" && name.trim()) return name;
     const skillName = track.skill ? i18n?.getSkillName?.(track.skill, "") : "";
-    return skillName || familyName(track.skill) || `#${id}`;
+    if (skillName || familyName(track.skill)) return skillName || familyName(track.skill);
+    // No buff name and no skill in the record: a nine-digit buff is mostly
+    // its skill's code and a digit (122400071 is Judgment's 12240007; 525 of
+    // the 759 named ones are their skill's name), so that skill's, or its
+    // family's, name.
+    const guess = /^\d{9}$/.test(id) ? Math.floor(Number(id) / 10) : 0;
+    return (guess && (i18n?.getSkillName?.(guess, "") || familyName(guess))) || `#${id}`;
   };
 
   // A skill code the table lacks (a summon's aura, 17150001) is one of a
