@@ -14,7 +14,8 @@
 //                                              also combatPower, gearScore, odyleEnergy ({ basic,
 //                                              charged }) and contentCounts ({ "<entry id>": [first,
 //                                              second] }: 1 Shugo keys, 4 Nightmare, 8 Invasion,
-//                                              101 Daily Dungeon, 80000001 Ascension Trial; other ids
+//                                              101 Daily Dungeon, 60000001 Odyle energy (as in
+//                                              odyleEnergy), 80000001 Ascension Trial; other ids
 //                                              may change meaning or go: don't rely on them), each
 //                                              null until the game has said. A meter started
 //                                              mid-session has only the counts that changed since,

@@ -437,11 +437,12 @@ fn boss_map_event(map: &crate::capture::boss_map::BossMap) -> Value {
 fn character(app: &tauri::AppHandle) -> Option<Value> {
     app.try_state::<AppState>().map(|s| {
         let p = s.data_storage.local_profile();
-        let owner = s.data_storage.odyle_owner();
-        let theirs = matches!((owner.as_deref(), p.name.as_deref()), (Some(o), Some(n)) if o.trim() == n.trim());
-        let odyle = s
-            .data_storage
-            .odyle_energy()
+        // Owner, energy and counts from one moment: a login's list replaces
+        // them all at once.
+        let list = s.data_storage.entry_list();
+        let theirs = matches!((list.owner.as_deref(), p.name.as_deref()), (Some(o), Some(n)) if o.trim() == n.trim());
+        let odyle = list
+            .odyle_energy
             .filter(|_| theirs)
             .map(|(basic, charged)| serde_json::json!({ "basic": basic, "charged": charged }));
         // The game's entry counts by id, as `[first, second]`, theirs the same
@@ -451,8 +452,7 @@ fn character(app: &tauri::AppHandle) -> Option<Value> {
         // game's other ids are passed on too, unnamed: a2.js documents only
         // the known ones. Started mid-session, the meter has only the entries
         // that changed since, until the next login or transfer.
-        let counts = s.data_storage.content_counts();
-        let content = (theirs && !counts.is_empty()).then(|| serde_json::json!(counts));
+        let content = (theirs && !list.counts.is_empty()).then(|| serde_json::json!(list.counts));
         serde_json::json!({
             "name": p.name,
             "serverId": p.server_id,

@@ -372,13 +372,8 @@ impl StreamProcessor {
         let energy = counts.as_deref().and_then(odyle_energy_in).or_else(|| if whole_list { odyle_energy_in_list(body) } else { None });
         // A whole list that doesn't read still says a character logged in:
         // the last one's counts go, with nothing in their place.
-        match counts {
-            Some(counts) => self.data_storage.set_content_counts(counts, whole_list),
-            None if whole_list => self.data_storage.set_content_counts(Vec::new(), true),
-            None => {}
-        }
-        if let Some((basic, charged)) = energy {
-            self.data_storage.set_odyle_energy(basic, charged, whole_list);
+        if counts.is_some() || whole_list {
+            self.data_storage.set_entry_list(counts.unwrap_or_default(), energy, whole_list);
         }
     }
 
@@ -2205,12 +2200,17 @@ pub type ContentCounts = Vec<ContentEntry>;
 /// count: `None`), `04` the first value, `08` the second, `0c` both
 /// (varints). Odyle energy is id 60000001 (`01 87 93 03`), Shugo Festival
 /// keys id 1. Returns the entry, if a count, and where the next begins.
+/// Ids seen run from 1 to 90000006 and counts stay in the thousands, so an
+/// id of 0 or past 99999999, or a count past a million, is not an entry.
 fn content_entry_at(body: &[u8], at: usize) -> Option<(Option<ContentEntry>, usize)> {
     let kind = *body.get(at)?;
     let id = u32::from_le_bytes(body.get(at + 1..at + 5)?.try_into().ok()?);
+    if id == 0 || id > 99_999_999 {
+        return None;
+    }
     let mut o = at + 5;
     let mut v = [0u32; 2];
-    let value = |o: &mut usize| try_read_varint(body, o).map(|n| n as u32);
+    let value = |o: &mut usize| try_read_varint(body, o).filter(|&n| n <= 1_000_000).map(|n| n as u32);
     match kind {
         0x00 => {}
         0x01 => {
@@ -2254,19 +2254,16 @@ fn content_counts_in_list(body: &[u8]) -> Option<ContentCounts> {
     })
 }
 
-/// The entries that changed, in a `0c 61`: as many as read, at least one.
+/// The entries that changed, in a `0c 61`: `<count u8> <entries> <tail>`.
 /// The first byte is not quite a count: updates with `00` there carry an
-/// entry too (`0c 61 00 08 01 87 93 03 ab 0e 03`, 2026-10-15).
+/// entry too (`0c 61 00 08 01 87 93 03 ab 0e 03`, 2026-10-15). The tail
+/// seen is one byte after a `00` count and five (`01 <u32>`) after `01`, so
+/// entries that don't all read, or leave more than five bytes, are not an
+/// update.
 fn content_counts_in_update(body: &[u8]) -> Option<ContentCounts> {
     let count = (*body.first()?).max(1) as usize;
-    let mut out = Vec::new();
-    let mut at = 1;
-    for _ in 0..count {
-        let Some((entry, next)) = content_entry_at(body, at) else { break };
-        out.extend(entry);
-        at = next;
-    }
-    (!out.is_empty()).then_some(out)
+    let (out, end) = content_entries(body, 1, count)?;
+    (!out.is_empty() && body.len() - end <= 5).then_some(out)
 }
 
 fn try_read_varint(bytes: &[u8], offset: &mut usize) -> Option<i32> {
@@ -4064,6 +4061,32 @@ mod tests {
         p.parse_perfect_packet(&hex("0a0b61ffeeddccbb"));
         assert!(storage.content_counts().is_empty());
         assert_eq!(storage.odyle_owner(), None);
+        // Its energy goes with them: the next self record must not take the
+        // last character's 30/880 as its own.
+        assert_eq!(storage.odyle_energy(), None);
+        storage.set_local_identity_from_game(4294, Some("Alt".into()));
+        assert_eq!(storage.odyle_energy(), None);
+        assert_eq!(storage.odyle_owner(), None);
+    }
+
+    /// Updates that don't read whole are turned away: trailing bytes that
+    /// would make up entries, an id of 0, a count past a million.
+    #[test]
+    fn content_count_updates_that_dont_read_whole_change_nothing() {
+        let (storage, mut p) = processor();
+        p.parse_perfect_packet(&hex("0f0c61000c010000000b0103"));
+        assert_eq!(storage.content_counts().get(&1), Some(&[11, 1]));
+        // Two entries claimed, one there.
+        p.parse_perfect_packet(&hex("0f0c61020c010000000c0103"));
+        // One entry, then more than a tail.
+        p.parse_perfect_packet(&hex("150c61000c010000000c0103aabbccddeeff"));
+        // Id 0.
+        p.parse_perfect_packet(&hex("0e0c610004000000000e02"));
+        // A count of 2^28.
+        p.parse_perfect_packet(&hex("120c6100040c00000080808080010203"));
+        let counts = storage.content_counts();
+        assert_eq!(counts.get(&1), Some(&[11, 1]));
+        assert_eq!(counts.len(), 1, "{counts:?}");
     }
 
     /// With no charged energy the entry has one value (`04`, the zero

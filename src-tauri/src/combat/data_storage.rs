@@ -1471,13 +1471,26 @@ impl DataStorage {
         }
     }
 
-    /// The game's entry counts: the whole list (`whole_list`, at login and
-    /// after a server transfer) or the entries that changed. A whole list
-    /// that didn't read (`counts` empty) still clears the last character's.
-    /// Logged, so the ids not yet known can be matched to what the game shows.
+    /// The game's entry counts, without the energy (see `set_entry_list`).
     pub fn set_content_counts(&self, counts: crate::capture::stream_processor::ContentCounts, whole_list: bool) {
+        self.set_entry_list(counts, None, whole_list);
+    }
+
+    /// The game's entry counts and the Odyle energy among them, at once: the
+    /// whole list (`whole_list`, at login and after a server transfer) or
+    /// the entries that changed. A whole list replaces the last character's
+    /// counts and energy, even one that didn't read (`counts` empty, no
+    /// `energy`). Logged, so the ids not yet known can be matched to what the
+    /// game shows.
+    pub fn set_entry_list(&self, counts: crate::capture::stream_processor::ContentCounts, energy: Option<(u32, u32)>, whole_list: bool) {
         let mut inner = self.inner.write();
         own_list(&mut inner, whole_list);
+        if let Some((basic, charged)) = energy.filter(|&e| inner.odyle_energy != Some(e)) {
+            tracing::info!("Odyle energy: {basic} basic, {charged} charged");
+        }
+        if whole_list || energy.is_some() {
+            inner.odyle_energy = energy;
+        }
         if whole_list {
             inner.content_counts.clear();
             let list: Vec<String> = counts.iter().map(|(id, v)| format!("{id}={}+{}", v[0], v[1])).collect();
@@ -1494,6 +1507,13 @@ impl DataStorage {
     /// The entry counts by entry id.
     pub fn content_counts(&self) -> std::collections::BTreeMap<u32, [u32; 2]> {
         self.inner.read().content_counts.clone()
+    }
+
+    /// The entry list as plugins see it, read at one moment: whose it is,
+    /// the Odyle energy and the counts.
+    pub fn entry_list(&self) -> EntryList {
+        let inner = self.inner.read();
+        EntryList { owner: inner.odyle_owner.clone(), odyle_energy: inner.odyle_energy, counts: inner.content_counts.clone() }
     }
 
     pub fn odyle_energy(&self) -> Option<(u32, u32)> {
@@ -2834,6 +2854,14 @@ fn forget_entity(inner: &mut Inner, id: i32) {
         }
         inner.held_dot_ticks.entry((key.0, owner)).or_default().extend(ticks);
     }
+}
+
+/// The entry list at one moment (`DataStorage::entry_list`).
+#[derive(Debug, Clone, Default)]
+pub struct EntryList {
+    pub owner: Option<String>,
+    pub odyle_energy: Option<(u32, u32)>,
+    pub counts: std::collections::BTreeMap<u32, [u32; 2]>,
 }
 
 /// Who the entry-count list is (`odyle_owner`): a whole list waits for the
