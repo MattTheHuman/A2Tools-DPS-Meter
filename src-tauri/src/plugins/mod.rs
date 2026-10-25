@@ -1656,6 +1656,23 @@ pub fn plugin_window(app: tauri::AppHandle, window: tauri::WebviewWindow, plugin
     // itself stays when its tab is the dock's last and the dock the last way
     // back, as a window would.
     if window.label() == dock::LABEL {
+        if visible {
+            dock::note_raised(&app, &id);
+        } else if let Some(before) = dock::take_raised(&id) {
+            // Hiding after it showed itself: the dock as it was then. Its tab
+            // goes if it wasn't open, the dock if it was hidden, and the page
+            // goes back to the tab it was on (Hidden Cubes' alert ending
+            // left the dock up, on its first tab).
+            if !before.tab_was_shown {
+                remember_window(&app, &id, Some("hidden"));
+            }
+            dock::sync(&app, None);
+            if !before.dock_was_up {
+                dock::hide_now(&app);
+            }
+            let _ = app.emit_to(dock::LABEL, "dock-return", id.as_str());
+            return Ok(());
+        }
         if !visible && dock::shown_members(&app) == [id.clone()] && !crate::app::way_back_without(&app, dock::LABEL) {
             return Ok(());
         }
@@ -1701,6 +1718,7 @@ pub fn plugin_window_fit(app: tauri::AppHandle, window: tauri::WebviewWindow, pl
     // plugin at the dock's top meanwhile (pluginDock.js).
     if window.label() == dock::LABEL {
         if height.is_some() {
+            dock::note_raised(&app, &id);
             remember_window(&app, &id, Some("shown"));
             dock::sync(&app, Some(&id));
         }

@@ -238,8 +238,19 @@
   };
 
   listen("dock-layout", (event) => applyLayout(event.payload));
+  // A plugin that showed itself (an alert) opens its tab; the tab open before
+  // is gone back to when it hides itself again ("dock-return").
+  const backTo = new Map();
   listen("dock-focus", (event) => {
-    if (docked.has(event.payload)) activate(event.payload);
+    const id = event.payload;
+    if (!docked.has(id)) return;
+    if (prefs.active && prefs.active !== id && !backTo.has(id)) backTo.set(id, prefs.active);
+    activate(id);
+  });
+  listen("dock-return", (event) => {
+    const back = backTo.get(event.payload);
+    backTo.delete(event.payload);
+    if (back && docked.has(back)) activate(back);
   });
 
   // Plugin events, each to its plugin's frame; one without a plugin to all.
