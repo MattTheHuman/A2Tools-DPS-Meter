@@ -25,6 +25,7 @@ The **[AION 2 DPS Meter website, a2tools.app](https://a2tools.app)** has the dow
 - Ten languages: English, Korean, Chinese (Traditional and Simplified), Japanese, German, French, Spanish, Portuguese and Russian
 - Always-on-top transparent overlay
 - Themes and customization
+- Meter growth anchor setting (Top, Middle, Bottom) to keep the overlay fixed where you want while rows appear or disappear
 - Stream overlay for OBS on another PC: add the meter as a Browser Source, and choose the name shown for you
 - Fight uploads to [a2tools.app](https://a2tools.app/logs): a link to share, leaderboards and class stats
 - Windows and Linux ([Linux guide](docs/linux.md))
@@ -114,6 +115,9 @@ Settings and History hide what is not there. Everything else works the same, off
 Two things still leave the computer, and only these: skill and buff icons, loaded from the game's own CDN (`assets.playnccdn.com`; the window's content security policy allows nothing else), and links you click yourself (Discord, Support), which open in your browser. `npm install` and the Rust build fetch their packages as usual. Run it without building with `npm run dev:offline`.
 
 ## FAQ
+
+**Q: Does Meter growth anchor work the same on Windows and Linux?**  
+A: The setting is the same on both (Top, Middle, Bottom), but the placement path is platform-specific by design. On Windows, the app repositions the window directly. On Linux native Wayland with KDE Plasma, KWin placement keeps the anchor during auto-resize. This keeps behavior consistent for users while using each platform's safe window-management path.
 
 **Q: The meter shows "Connecting..."**
 A: Make sure AION 2 is running and the app has administrator privileges. If using a VPN or ping reducer, the app will detect the loopback adapter automatically.
