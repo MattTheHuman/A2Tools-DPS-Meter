@@ -4801,8 +4801,17 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
 /* The account offer borrows the Discord card, in the site's own blue. */
 .accountPromo .accountPromoActions {
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: center;
+}
+/* Three buttons in a row: each on one line, the row wrapping only when a
+   language's words are too long for it. */
+.accountPromo .accountPromoActions button {
+  white-space: nowrap;
+}
+.accountPromo .accountPromoActions .accountPromoSignIn {
+  padding: 8px 20px;
 }
 .accountPromo .accountPromoSignIn {
   background: #2f7cf6;

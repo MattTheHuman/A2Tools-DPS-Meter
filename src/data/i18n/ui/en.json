@@ -794,8 +794,8 @@
     "signIn": "Sign in",
     "later": "Not now",
     "close": "Close",
-    "guest": "Without an account",
-    "guestHint": "No account? Your fights can still upload, and become yours if you sign in later."
+    "guest": "No account",
+    "guestHint": "No account? Fights still upload, and become yours when you sign in."
   },
   "npcapPrompt": {
     "ask": "A2Tools DPS Meter needs Npcap to read the game's network traffic, and Npcap is missing or not working.\n\nInstall it now? The meter downloads Npcap's installer from npcap.com and opens it. Once Npcap is installed, the meter starts capturing by itself.\n\nChoose No to install it yourself from https://npcap.com/#download",
