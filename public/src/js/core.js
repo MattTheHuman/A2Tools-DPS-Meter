@@ -2847,6 +2847,13 @@ class DpsApp {
     this.supportPrimaryButton = document.querySelector(".supportPrimaryButton");
     this.supportCopyStatus = document.querySelector(".supportCopyStatus");
     this.supportActionButtons = Array.from(document.querySelectorAll(".supportIconButton"));
+    // The Donate page and the sponsor's link: in the browser, not the meter.
+    for (const link of document.querySelectorAll(".supportModal [data-open-url]")) {
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        window.javaBridge?.openBrowser?.(link.href);
+      });
+    }
     this.kofiButton = document.querySelector(".kofiButton");
     this.kofiWidget = document.querySelector(".kofiWidget");
     this.quitButton = document.querySelector(".quitButton");

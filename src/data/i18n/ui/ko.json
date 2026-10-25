@@ -696,7 +696,12 @@
       "btc": "BTC 주소 복사",
       "eth": "ETH 주소 복사",
       "usdc": "USDC 주소 복사"
-    }
+    },
+    "sponsorLabel": "제휴 광고",
+    "sponsorShort": "ExitLag로 핑 줄이기",
+    "sponsorCode": "코드",
+    "sponsorDisclosure": "제휴 링크입니다. 구독 시 A2 Tools가 수수료를 받으며, 이는 도구를 무료로 유지하는 데 사용됩니다.",
+    "more": "a2tools.app에서 다른 후원 방법 보기"
   },
   "battleTime": {
     "analysing": "모니터링 중",

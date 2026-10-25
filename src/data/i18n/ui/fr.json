@@ -689,7 +689,12 @@
       "btc": "Copier l'adresse BTC",
       "eth": "Copier l'adresse ETH",
       "usdc": "Copier l'adresse USDC"
-    }
+    },
+    "sponsorLabel": "Sponsorisé",
+    "sponsorShort": "Réduisez votre ping avec ExitLag",
+    "sponsorCode": "Code",
+    "sponsorDisclosure": "Lien affilié. A2 Tools touche une commission si vous vous abonnez, ce qui aide à garder ces outils gratuits.",
+    "more": "Plus de façons de faire un don sur a2tools.app"
   },
   "battleTime": {
     "analysing": "Surveillance",

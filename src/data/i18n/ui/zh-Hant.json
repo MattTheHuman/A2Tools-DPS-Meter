@@ -696,7 +696,12 @@
       "btc": "複製 BTC 地址",
       "eth": "複製 ETH 地址",
       "usdc": "複製 USDC 地址"
-    }
+    },
+    "sponsorLabel": "贊助",
+    "sponsorShort": "用 ExitLag 降低延遲",
+    "sponsorCode": "使用代碼",
+    "sponsorDisclosure": "聯盟連結。若你訂閱，A2 Tools 會獲得佣金，這有助於讓這些工具保持免費。",
+    "more": "在 a2tools.app 查看更多贊助方式"
   },
   "battleTime": {
     "analysing": "監控中",

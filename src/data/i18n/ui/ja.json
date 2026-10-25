@@ -689,7 +689,12 @@
       "btc": "BTCアドレスをコピー",
       "eth": "ETHアドレスをコピー",
       "usdc": "USDCアドレスをコピー"
-    }
+    },
+    "sponsorLabel": "広告",
+    "sponsorShort": "ExitLagでPingを下げる",
+    "sponsorCode": "コード",
+    "sponsorDisclosure": "アフィリエイトリンクです。ご登録いただくとA2 Toolsに手数料が入り、ツールの無料提供に役立ちます。",
+    "more": "a2tools.appでほかの寄付方法を見る"
   },
   "battleTime": {
     "analysing": "監視中",

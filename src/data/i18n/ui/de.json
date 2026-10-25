@@ -689,7 +689,12 @@
       "btc": "BTC-Adresse kopieren",
       "eth": "ETH-Adresse kopieren",
       "usdc": "USDC-Adresse kopieren"
-    }
+    },
+    "sponsorLabel": "Anzeige",
+    "sponsorShort": "Ping senken mit ExitLag",
+    "sponsorCode": "Code",
+    "sponsorDisclosure": "Affiliate-Link. A2 Tools erhält bei einem Abschluss eine Provision, was hilft, die Tools kostenlos zu halten.",
+    "more": "Weitere Spendenmöglichkeiten auf a2tools.app"
   },
   "battleTime": {
     "analysing": "Überwache",
