@@ -448,8 +448,9 @@ fn character(app: &tauri::AppHandle) -> Option<Value> {
         // The game's entry counts by id, as `[first, second]`, theirs the same
         // way (they come in Odyle energy's list). Known ids: 1 Shugo
         // Festival keys, 4 Nightmare, 8 Dimensional Invasion, 101 Daily
-        // Dungeon, 60000001 Odyle energy, 80000001 Ascension Trial. The
-        // game's other ids are passed on too, unnamed: a2.js documents only
+        // Dungeon, 60000001 Odyle energy, 80000001 Ascension Trial; 0 the
+        // character's Daily Duty today, [completed, taken] (data_storage).
+        // The game's other ids are passed on too, unnamed: a2.js documents only
         // the known ones. Started mid-session, the meter has only the entries
         // that changed since, until the next login or transfer.
         let content = (theirs && !list.counts.is_empty()).then(|| serde_json::json!(list.counts));
