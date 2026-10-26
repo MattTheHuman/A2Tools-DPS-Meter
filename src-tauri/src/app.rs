@@ -197,19 +197,20 @@ fn show_meter_again(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
     let _ = window.emit("force-resize", ());
 }
 
-/// The windows that hide with the meter when AION2 isn't in front ("Hide
-/// when AION2 isn't focused"): Settings, Battle History and Details, and the
-/// windows and icons of plugins set to (Settings → Plugins; an alert's icon
-/// is often wanted most then). Only the meter hid, and the rest stayed over
-/// the browser (Hirai, 2026-10-19).
-fn hides_with_meter(app: &tauri::AppHandle, label: &str) -> bool {
-    TOOL_WINDOWS.contains(&label) || label.starts_with("details-") || crate::plugins::hides_unfocused(app, label)
+/// The windows that hide when AION2 isn't in front: with the meter's "Hide
+/// when AION2 isn't focused" (`meter`), Settings, Battle History and Details
+/// (only the meter hid, and the rest stayed over the browser: Hirai,
+/// 2026-10-19); and, whether or not that is on, the windows and icons of
+/// plugins set to (Settings → Plugins). A plugin's own option did nothing
+/// while the meter's was off (2026-10-27).
+fn hides_with_meter(app: &tauri::AppHandle, label: &str, meter: bool) -> bool {
+    (meter && (TOOL_WINDOWS.contains(&label) || label.starts_with("details-"))) || crate::plugins::hides_unfocused(app, label)
 }
 
 /// Hide those of `hides_with_meter` that are up, noting each.
-fn hide_with_meter(app: &tauri::AppHandle, hidden: &mut std::collections::HashSet<String>) {
+fn hide_with_meter(app: &tauri::AppHandle, meter: bool, hidden: &mut std::collections::HashSet<String>) {
     for (label, window) in app.webview_windows() {
-        if !hides_with_meter(app, &label) || hidden.contains(&label) {
+        if !hides_with_meter(app, &label, meter) || hidden.contains(&label) {
             continue;
         }
         if window.is_visible().unwrap_or(false) && !platform::window::is_hidden_in_place(&window) {
@@ -3870,10 +3871,13 @@ pub fn run() {
                         // of combat); the rest below doesn't: Ping's icon
                         // stayed over the browser with the meter hidden while
                         // solo (Hirai).
-                        let others_auto_hide = tick_count > 20
+                        let meter_auto_hide = tick_count > 20
                             && state.settings.get("dpsMeter.autoHideMeter")
                                 .unwrap_or_default() == "true";
-                        let auto_hide = others_auto_hide
+                        // Plugins set to hide go too, with or without the meter.
+                        let others_auto_hide = meter_auto_hide
+                            || (tick_count > 20 && crate::plugins::any_hide_unfocused(&handle));
+                        let auto_hide = meter_auto_hide
                             && !hidden_closed
                             && meter_wanted(&handle);
                         if auto_hide {
@@ -3917,7 +3921,7 @@ pub fn run() {
                             } else {
                                 others_delay += 1;
                                 if others_delay >= 3 {
-                                    hide_with_meter(&handle, &mut hidden_with_meter);
+                                    hide_with_meter(&handle, meter_auto_hide, &mut hidden_with_meter);
                                 }
                             }
                         } else if !hidden_with_meter.is_empty() {

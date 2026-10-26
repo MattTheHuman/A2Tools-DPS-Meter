@@ -68,10 +68,9 @@ pub const DISABLED_KEY: &str = "dpsMeter.pluginsDisabled";
 /// Plugins whose windows and widgets hide while AION2 is closed, a JSON
 /// array of ids (Settings → Plugins).
 pub const HIDE_CLOSED_KEY: &str = "dpsMeter.pluginsHideClosed";
-/// Plugins whose windows and widgets hide with the meter when AION2 isn't
-/// in front (the meter's "Hide when AION2 isn't focused"), a JSON array of
-/// ids. Off by default: an alert's icon is most use while the game isn't in
-/// front.
+/// Plugins whose windows and widgets hide when AION2 isn't in front, a JSON
+/// array of ids, whether or not the meter itself hides then. Off by default:
+/// an alert's icon is most use while the game isn't in front.
 pub const HIDE_UNFOCUSED_KEY: &str = "dpsMeter.pluginsHideUnfocused";
 /// Whether AION2 is open, as the plugin event loop last looked.
 static GAME_OPEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
@@ -89,6 +88,11 @@ fn listed(app: &tauri::AppHandle, key: &str) -> Vec<String> {
         .and_then(|s| s.settings.get(key))
         .and_then(|s| serde_json::from_str(&s).ok())
         .unwrap_or_default()
+}
+
+/// Whether any plugin hides when AION2 isn't in front.
+pub fn any_hide_unfocused(app: &tauri::AppHandle) -> bool {
+    !listed(app, HIDE_UNFOCUSED_KEY).is_empty()
 }
 
 /// The plugins that hide while AION2 is closed.
