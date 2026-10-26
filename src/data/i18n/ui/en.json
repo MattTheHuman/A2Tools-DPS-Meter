@@ -839,5 +839,38 @@
     "settings": "Meter settings",
     "opacity": "Background opacity",
     "failed": "This plugin could not start: {error}"
+  },
+  "sharing": {
+    "title": "Help build the leaderboards?",
+    "sub": "Pick one to start. You can change it any time in Settings → Privacy.",
+    "shareTitle": "Share fights anonymously",
+    "recommended": "Recommended",
+    "shareText": "Your boss fights join a2tools.app's public logs with every name hidden. No account needed.",
+    "noTitle": "Don't share",
+    "noText": "Nothing about your fights leaves this PC.",
+    "signInBefore": "Want your fights under your name?",
+    "signIn": "Sign in with A2 Tools",
+    "signInAfter": "Fights shared before then move to your account.",
+    "previewTitle": "How a shared fight appears on a2tools.app",
+    "never": "Your PC's name and your character's full name are never sent.",
+    "policy": "Privacy policy",
+    "continue": "Continue"
+  },
+  "sharingNotice": {
+    "title": "Your fights help build the leaderboards",
+    "text": "Boss fights you finish are shared with a2tools.app with every name hidden, yours too (e.g. Na***a). No account needed, and you can stop any time in Settings → Privacy.",
+    "stop": "Stop sharing",
+    "details": "Details",
+    "keep": "Keep sharing",
+    "stopped": "Sharing stopped. The fights you shared before are being removed from a2tools.app."
+  },
+  "privacy": {
+    "title": "Privacy",
+    "intro": "What this meter shares with a2tools.app. Each one is your choice.",
+    "share": "Share boss fights anonymously",
+    "shareHint": "When a boss fight ends it joins a2tools.app's public logs and leaderboards. Every name is hidden, yours too. No account needed.",
+    "signedIn": "Signed in: your boss fights upload to your A2 Tools account (see A2 Tools Account).",
+    "never": "Never sent: chat, your PC's name, your character's full name. Send Logs to Dev (Advanced) sends logs only when you press it.",
+    "policy": "Full privacy policy"
   }
 }

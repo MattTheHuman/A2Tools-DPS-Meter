@@ -834,5 +834,38 @@
     "settings": "计量器设置",
     "opacity": "背景不透明度",
     "failed": "此插件无法启动：{error}"
+  },
+  "sharing": {
+    "title": "帮忙建立排行榜吗？",
+    "sub": "选一项开始。随时可在 设置 → 隐私 中更改。",
+    "shareTitle": "匿名分享战斗",
+    "recommended": "推荐",
+    "shareText": "你的首领战会加入 a2tools.app 的公开记录，所有名字都会隐藏。无需账号。",
+    "noTitle": "不分享",
+    "noText": "你的战斗信息不会离开这台电脑。",
+    "signInBefore": "想用自己的名字上传战斗？",
+    "signIn": "登录 A2 Tools",
+    "signInAfter": "之前分享的战斗会转入你的账号。",
+    "previewTitle": "分享的战斗在 a2tools.app 上的样子",
+    "never": "绝不会发送电脑名称和角色的完整名字。",
+    "policy": "隐私政策",
+    "continue": "继续"
+  },
+  "sharingNotice": {
+    "title": "你的战斗正在帮忙建立排行榜",
+    "text": "你完成的首领战会分享到 a2tools.app，所有名字都会隐藏，包括你的（例如 Na***a）。无需账号，随时可在 设置 → 隐私 中停止。",
+    "stop": "停止分享",
+    "details": "详情",
+    "keep": "继续分享",
+    "stopped": "已停止分享。之前分享的战斗正在从 a2tools.app 删除。"
+  },
+  "privacy": {
+    "title": "隐私",
+    "intro": "本计量器与 a2tools.app 分享的内容。每一项都由你决定。",
+    "share": "匿名分享首领战",
+    "shareHint": "首领战结束后会加入 a2tools.app 的公开记录和排行榜。所有名字都会隐藏，包括你的。无需账号。",
+    "signedIn": "已登录：首领战会上传到你的 A2 Tools 账号（见 A2 Tools 账号）。",
+    "never": "绝不发送：聊天、电脑名称、角色的完整名字。“发送日志给开发者”（高级）只在你按下时才发送。",
+    "policy": "完整隐私政策"
   }
 }

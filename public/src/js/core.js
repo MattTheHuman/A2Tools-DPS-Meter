@@ -134,6 +134,7 @@ class DpsApp {
       saveRawPackets: "dpsMeter.saveRawPackets",
       autoUpload: "dpsMeter.autoUpload",
       guestUpload: "dpsMeter.guestUpload",
+      sharingAsked: "dpsMeter.sharingAsked",
       discordActivity: "dpsMeter.discordActivity",
       discordStat: "dpsMeter.discordStat",
       discordPromoShown: "dpsMeter.discordPromoShown",
@@ -2758,7 +2759,8 @@ class DpsApp {
   // this PC has guest fights, how to claim them. Signed in: the account's.
   paintGuest(signedIn) {
     document.querySelector(".autoUploadRow")?.style.setProperty("display", signedIn ? "" : "none");
-    document.querySelector(".guestUploadRow")?.style.setProperty("display", signedIn ? "none" : "");
+    for (const row of document.querySelectorAll(".guestUploadRow")) row.style.setProperty("display", signedIn ? "none" : "");
+    document.querySelector(".privacySignedIn")?.style.setProperty("display", signedIn ? "" : "none");
     if (!this.guestClaimRow) return;
     if (signedIn) {
       this.guestClaimRow.style.display = "none";
@@ -3359,7 +3361,11 @@ class DpsApp {
         if (window.a2Build?.online === false) return;   // nothing to offer
         // At most one offer per launch: the account one waits for a launch
         // where the Discord one does not open.
-        if (!(ok && this.maybeShowDiscordPromo()) && !this.maybeShowPartyPromo()) this.maybeShowAccountPromo();
+        // Sharing first (it decides whether anything uploads); otherwise at
+        // most one other offer per launch.
+        this.maybeShowSharing().then((shown) => {
+          if (!shown && !(ok && this.maybeShowDiscordPromo())) this.maybeShowPartyPromo();
+        });
       });
 
     this.initStreamOverlaySettings();
@@ -3368,9 +3374,18 @@ class DpsApp {
     if (this.guestUploadCheckbox) {
       this.guestUploadCheckbox.checked = this.safeGetSetting(this.storageKeys.guestUpload) === "true";
       this.guestUploadCheckbox.addEventListener("change", (event) => {
-        this.safeSetSetting(this.storageKeys.guestUpload, String(!!event.target?.checked));
+        const on = !!event.target?.checked;
+        this.safeSetSetting(this.storageKeys.guestUpload, String(on));
+        if (on) this.safeSetSetting(this.storageKeys.sharingAsked, "true");
       });
     }
+    // Settings → Privacy: its links.
+    document.querySelector(".privacyPolicyBtn")?.addEventListener("click", () => {
+      window.javaBridge?.openBrowser?.("https://a2tools.app/privacy");
+    });
+    document.querySelector(".privacySignInBtn")?.addEventListener("click", () => {
+      document.querySelector('.settingsNavItem[data-section="account"]')?.click();
+    });
     // A code to claim this PC's guest fights from another device.
     this.guestClaimBtn?.addEventListener("click", async () => {
       this.guestClaimBtn.disabled = true;
@@ -7322,72 +7337,97 @@ class DpsApp {
     return true;
   }
 
-  // A one-time popup offering an a2tools.app account, with automatic upload
-  // already ticked. Sign in starts the same browser approval as Settings and
-  // keeps the code on the card; the tick is applied only once the account is
-  // connected. "Without an account" uploads as a guest (account/guest.rs),
-  // claimable later. Not now, ×, Escape or a click outside close it for good:
-  // on a new install fights still upload without an account (on from the
-  // start), on an older one uploads stay off. Shown once to anyone signed out
-  // who hasn't chosen guest uploads either way (again to those who closed the
-  // card before guest uploads existed).
-  async maybeShowAccountPromo() {
-    const promo = document.querySelector("#accountPromo");
-    if (!promo) return;
-    if ((await window.a2BuildReady)?.online === false) return;
-    if (this.safeGetSetting(this.storageKeys.guestPromoShown) === "true") return;
-    const newInstall = this.safeGetSetting("dpsMeter.newInstall") === "true";
-    const guest = this.safeGetSetting(this.storageKeys.guestUpload);
-    if (!newInstall && (guest === "true" || guest === "false")) return;
+  // Sharing (2.0.80): asked once, before anything uploads without an
+  // account (account/guest.rs `uploads`). Not signed in and not asked yet:
+  // those already sharing (guest uploads on, the 2.0.78-79 default) get the
+  // notice (C); anyone who never chose gets the choice (B); those who turned
+  // it off themselves are taken as asked. Signed in: asked, nothing shown.
+  // Resolves true when it showed something.
+  async maybeShowSharing() {
+    if ((await window.a2BuildReady)?.online === false) return false;
+    if (this.safeGetSetting(this.storageKeys.sharingAsked) === "true") return false;
+    const asked = () => this.safeSetSetting(this.storageKeys.sharingAsked, "true");
     try {
       const seen = await window.javaBridge?.accountStatusCached?.();
-      if (seen?.who) return;
-      if (await window.javaBridge?.accountStatus?.()) return;
+      if (seen?.who || (await window.javaBridge?.accountStatus?.())) {
+        asked();
+        return false;
+      }
     } catch {
-      return; // a token is stored but could not be checked: signed in
+      return false; // a token is stored but could not be checked: ask another time
     }
+    const guest = this.safeGetSetting(this.storageKeys.guestUpload);
+    if (guest === "true") return this.showSharingNotice(asked);
+    if (guest === "false") {
+      asked();
+      return false;
+    }
+    return this.showSharingChoice(asked);
+  }
 
-    const checkbox = promo.querySelector(".accountPromoCheckbox");
+  // B: share anonymously (picked to start) or don't, with Sign in for fights
+  // under the player's name. Only Continue (or a finished sign-in) answers;
+  // Escape closes it unanswered, so nothing uploads and it asks next launch.
+  showSharingChoice(asked) {
+    const promo = document.querySelector("#accountPromo");
+    if (!promo) return false;
+    const choices = [...promo.querySelectorAll(".sharingChoice")];
     const signInBtn = promo.querySelector(".accountPromoSignIn");
     const codeBox = promo.querySelector(".accountPromoCodeBox");
     const codeEl = promo.querySelector(".accountPromoCode");
     const stateEl = promo.querySelector(".accountPromoState");
+    let share = true;
     let open = false;
-    const onKey = (event) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        close();
+    const pick = (on) => {
+      share = on;
+      for (const c of choices) {
+        const picked = (c.dataset.share === "true") === on;
+        c.classList.toggle("isPicked", picked);
+        c.setAttribute("aria-pressed", String(picked));
       }
     };
     const setGuest = (on) => {
       this.safeSetSetting(this.storageKeys.guestUpload, String(on));
       if (this.guestUploadCheckbox) this.guestUploadCheckbox.checked = on;
     };
-    const close = (choice) => {
+    const onKey = (event) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        close(false);
+      }
+    };
+    const close = (answered) => {
       if (!open) return;
       open = false;
-      // Without an account: the tick says whether to upload. Closed: a new
-      // install keeps uploading without an account, an older one stays off.
-      if (choice === "guest") setGuest(!!checkbox?.checked);
-      else if (!newInstall && choice !== "signIn") setGuest(false);
-      this.safeSetSetting(this.storageKeys.accountPromoShown, "true");
-      this.safeSetSetting(this.storageKeys.guestPromoShown, "true");
-      this.safeSetSetting("dpsMeter.newInstall", "false");
+      if (answered) {
+        asked();
+        this.safeSetSetting(this.storageKeys.accountPromoShown, "true");
+        this.safeSetSetting(this.storageKeys.guestPromoShown, "true");
+        this.safeSetSetting("dpsMeter.newInstall", "false");
+      }
       promo.classList.remove("isOpen");
       promo.setAttribute("aria-hidden", "true");
       document.removeEventListener("keydown", onKey, true);
     };
+    for (const c of choices) c.addEventListener("click", () => pick(c.dataset.share === "true"));
+    promo.querySelector(".sharingContinue")?.addEventListener("click", () => {
+      setGuest(share);
+      close(true);
+    });
+    promo.querySelector(".sharingPolicy")?.addEventListener("click", () => {
+      window.javaBridge?.openBrowser?.("https://a2tools.app/privacy");
+    });
 
-    // What Sign in chose, applied when the browser approval arrives (on
-    // "account-changed", even after the card was closed).
-    let pendingUpload = null;
+    // Sign in: the same browser approval as Settings. Once connected, fights
+    // upload to the account (and the guest's, if any, become its).
+    let signingIn = false;
     this.onAccountPromoResult = (result) => {
-      if (pendingUpload === null) return;
+      if (!signingIn) return;
       if (result?.connected) {
-        this.safeSetSetting(this.storageKeys.autoUpload, String(pendingUpload));
-        if (this.autoUploadCheckbox) this.autoUploadCheckbox.checked = pendingUpload;
-        pendingUpload = null;
-        close("signIn");
+        signingIn = false;
+        this.safeSetSetting(this.storageKeys.autoUpload, "true");
+        if (this.autoUploadCheckbox) this.autoUploadCheckbox.checked = true;
+        close(true);
       } else if (result?.error) {
         const msg = String(result.error);
         if (stateEl) {
@@ -7396,10 +7436,9 @@ class DpsApp {
         }
         if (codeBox) codeBox.style.display = "none";
         if (signInBtn) signInBtn.disabled = false;
-        pendingUpload = null;
+        signingIn = false;
       }
     };
-
     signInBtn?.addEventListener("click", async () => {
       signInBtn.disabled = true;
       if (stateEl) stateEl.textContent = "";
@@ -7409,8 +7448,7 @@ class DpsApp {
           signInBtn.disabled = false;
           return;
         }
-        pendingUpload = !!checkbox?.checked;
-        this.safeSetSetting(this.storageKeys.accountPromoShown, "true");
+        signingIn = true;
         if (codeEl) codeEl.textContent = prompt.userCode;
         if (codeBox) codeBox.style.display = "block";
         if (stateEl) {
@@ -7425,21 +7463,53 @@ class DpsApp {
         signInBtn.disabled = false;
       }
     });
-    promo.querySelector(".accountPromoLater:not(.accountPromoGuest)")?.addEventListener("click", () => close());
-    promo.querySelector(".accountPromoGuest")?.addEventListener("click", () => close("guest"));
-    promo.querySelector(".accountPromoClose")?.addEventListener("click", () => close());
-    promo.addEventListener("click", (event) => {
-      if (event.target === promo) close();
-    });
 
     // A moment after start, so it does not land on top of the first paint.
     setTimeout(() => {
-      if (checkbox) checkbox.checked = true;
+      pick(true);
       open = true;
       promo.classList.add("isOpen");
       promo.setAttribute("aria-hidden", "false");
       document.addEventListener("keydown", onKey, true);
     }, 2500);
+    return true;
+  }
+
+  // C: for those already sharing. Shown counts as asked: sharing goes on
+  // unless they stop it. Stop sharing deletes their earlier guest uploads
+  // too (guest_stop_sharing, in the background); Details opens Settings →
+  // Privacy.
+  showSharingNotice(asked) {
+    const notice = document.querySelector("#sharingNotice");
+    if (!notice) return false;
+    const text = notice.querySelector(".sharingNoticeText");
+    let open = false;
+    const close = () => {
+      if (!open) return;
+      open = false;
+      notice.classList.remove("isOpen");
+      notice.setAttribute("aria-hidden", "true");
+    };
+    notice.querySelector(".sharingKeep")?.addEventListener("click", close);
+    notice.querySelector(".sharingDetails")?.addEventListener("click", () => {
+      window.__TAURI__?.core?.invoke?.("open_settings_at", { section: "privacy" }).catch(() => {});
+      close();
+    });
+    notice.querySelector(".sharingStop")?.addEventListener("click", () => {
+      if (this.guestUploadCheckbox) this.guestUploadCheckbox.checked = false;
+      window.__TAURI__?.core?.invoke?.("guest_stop_sharing").catch(() => {});
+      for (const b of notice.querySelectorAll("button")) b.disabled = true;
+      if (text) text.textContent = window.i18n?.t?.("sharingNotice.stopped",
+        "Sharing stopped. The fights you shared before are being removed from a2tools.app.");
+      setTimeout(close, 4000);
+    });
+    setTimeout(() => {
+      asked();
+      open = true;
+      notice.classList.add("isOpen");
+      notice.setAttribute("aria-hidden", "false");
+    }, 2500);
+    return true;
   }
 
   _updateSuspendStatusMessage() {

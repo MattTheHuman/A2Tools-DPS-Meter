@@ -827,5 +827,38 @@
     "settings": "Paramètres du compteur",
     "opacity": "Opacité du fond",
     "failed": "Ce plugin n'a pas pu démarrer : {error}"
+  },
+  "sharing": {
+    "title": "Aider à construire les classements ?",
+    "sub": "Choisissez pour commencer. Modifiable à tout moment dans Paramètres → Confidentialité.",
+    "shareTitle": "Partager les combats anonymement",
+    "recommended": "Recommandé",
+    "shareText": "Vos combats de boss rejoignent les journaux publics d'a2tools.app, tous les noms masqués. Aucun compte nécessaire.",
+    "noTitle": "Ne pas partager",
+    "noText": "Rien de vos combats ne quitte ce PC.",
+    "signInBefore": "Vos combats sous votre nom ?",
+    "signIn": "Se connecter avec A2 Tools",
+    "signInAfter": "Les combats partagés avant passent sur votre compte.",
+    "previewTitle": "Un combat partagé sur a2tools.app",
+    "never": "Le nom de votre PC et le nom complet de votre personnage ne sont jamais envoyés.",
+    "policy": "Politique de confidentialité",
+    "continue": "Continuer"
+  },
+  "sharingNotice": {
+    "title": "Vos combats aident à construire les classements",
+    "text": "Les combats de boss que vous terminez sont partagés avec a2tools.app, tous les noms masqués, le vôtre aussi (ex. Na***a). Aucun compte nécessaire, et vous pouvez arrêter à tout moment dans Paramètres → Confidentialité.",
+    "stop": "Arrêter de partager",
+    "details": "Détails",
+    "keep": "Continuer à partager",
+    "stopped": "Partage arrêté. Les combats partagés auparavant sont en cours de suppression sur a2tools.app."
+  },
+  "privacy": {
+    "title": "Confidentialité",
+    "intro": "Ce que ce mètre partage avec a2tools.app. Chaque élément est votre choix.",
+    "share": "Partager les combats de boss anonymement",
+    "shareHint": "À la fin d'un combat de boss, il rejoint les journaux publics et les classements d'a2tools.app. Tous les noms sont masqués, le vôtre aussi. Aucun compte nécessaire.",
+    "signedIn": "Connecté : vos combats de boss sont envoyés sur votre compte A2 Tools (voir Compte A2 Tools).",
+    "never": "Jamais envoyés : le chat, le nom de votre PC, le nom complet de votre personnage. Envoyer les journaux au dev (Avancé) n'envoie que lorsque vous appuyez.",
+    "policy": "Politique de confidentialité complète"
   }
 }

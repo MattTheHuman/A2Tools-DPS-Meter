@@ -834,5 +834,38 @@
     "settings": "計量器設定",
     "opacity": "背景不透明度",
     "failed": "此外掛無法啟動：{error}"
+  },
+  "sharing": {
+    "title": "幫忙建立排行榜嗎？",
+    "sub": "選一項開始。隨時可在 設定 → 隱私 中變更。",
+    "shareTitle": "匿名分享戰鬥",
+    "recommended": "推薦",
+    "shareText": "你的首領戰會加入 a2tools.app 的公開紀錄，所有名字都會隱藏。無需帳號。",
+    "noTitle": "不分享",
+    "noText": "你的戰鬥資訊不會離開這台電腦。",
+    "signInBefore": "想用自己的名字上傳戰鬥？",
+    "signIn": "登入 A2 Tools",
+    "signInAfter": "之前分享的戰鬥會轉入你的帳號。",
+    "previewTitle": "分享的戰鬥在 a2tools.app 上的樣子",
+    "never": "絕不會傳送電腦名稱和角色的完整名字。",
+    "policy": "隱私權政策",
+    "continue": "繼續"
+  },
+  "sharingNotice": {
+    "title": "你的戰鬥正在幫忙建立排行榜",
+    "text": "你完成的首領戰會分享到 a2tools.app，所有名字都會隱藏，包括你的（例如 Na***a）。無需帳號，隨時可在 設定 → 隱私 中停止。",
+    "stop": "停止分享",
+    "details": "詳情",
+    "keep": "繼續分享",
+    "stopped": "已停止分享。先前分享的戰鬥正在從 a2tools.app 刪除。"
+  },
+  "privacy": {
+    "title": "隱私",
+    "intro": "本計量器與 a2tools.app 分享的內容。每一項都由你決定。",
+    "share": "匿名分享首領戰",
+    "shareHint": "首領戰結束後會加入 a2tools.app 的公開紀錄和排行榜。所有名字都會隱藏，包括你的。無需帳號。",
+    "signedIn": "已登入：首領戰會上傳到你的 A2 Tools 帳號（見 A2 Tools 帳號）。",
+    "never": "絕不傳送：聊天、電腦名稱、角色的完整名字。「傳送日誌給開發者」（進階）只在你按下時才傳送。",
+    "policy": "完整隱私權政策"
   }
 }

@@ -827,5 +827,38 @@
     "settings": "Ajustes del medidor",
     "opacity": "Opacidad del fondo",
     "failed": "Este plugin no pudo iniciarse: {error}"
+  },
+  "sharing": {
+    "title": "¿Ayudar a construir las clasificaciones?",
+    "sub": "Elige una para empezar. Puedes cambiarlo cuando quieras en Ajustes → Privacidad.",
+    "shareTitle": "Compartir combates de forma anónima",
+    "recommended": "Recomendado",
+    "shareText": "Tus combates de jefes se suman a los registros públicos de a2tools.app con todos los nombres ocultos. No hace falta cuenta.",
+    "noTitle": "No compartir",
+    "noText": "Nada de tus combates sale de este PC.",
+    "signInBefore": "¿Quieres tus combates con tu nombre?",
+    "signIn": "Iniciar sesión con A2 Tools",
+    "signInAfter": "Los combates compartidos antes pasan a tu cuenta.",
+    "previewTitle": "Cómo se ve un combate compartido en a2tools.app",
+    "never": "El nombre de tu PC y el nombre completo de tu personaje nunca se envían.",
+    "policy": "Política de privacidad",
+    "continue": "Continuar"
+  },
+  "sharingNotice": {
+    "title": "Tus combates ayudan a construir las clasificaciones",
+    "text": "Los combates de jefes que terminas se comparten con a2tools.app con todos los nombres ocultos, también el tuyo (p. ej. Na***a). No hace falta cuenta, y puedes dejarlo cuando quieras en Ajustes → Privacidad.",
+    "stop": "Dejar de compartir",
+    "details": "Detalles",
+    "keep": "Seguir compartiendo",
+    "stopped": "Has dejado de compartir. Los combates que compartiste antes se están eliminando de a2tools.app."
+  },
+  "privacy": {
+    "title": "Privacidad",
+    "intro": "Lo que este medidor comparte con a2tools.app. Cada cosa la eliges tú.",
+    "share": "Compartir combates de jefes de forma anónima",
+    "shareHint": "Al terminar un combate de jefe, se suma a los registros públicos y clasificaciones de a2tools.app. Todos los nombres van ocultos, también el tuyo. No hace falta cuenta.",
+    "signedIn": "Sesión iniciada: tus combates de jefes se suben a tu cuenta de A2 Tools (ver Cuenta de A2 Tools).",
+    "never": "Nunca se envía: el chat, el nombre de tu PC, el nombre completo de tu personaje. Enviar registros al desarrollador (Avanzado) solo envía cuando lo pulsas.",
+    "policy": "Política de privacidad completa"
   }
 }
