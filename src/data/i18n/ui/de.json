@@ -546,7 +546,9 @@
       "confirm": "Dein Debug-Log und deine neuesten Paket-Logs an den A2-Tools-Entwickler senden?\n\nDas Debug-Log zeichnet auf, was das Meter getan hat. Paket-Logs sind der rohe Spielverkehr, aufgezeichnet während die Paketaufzeichnung an war. Beide können Charakternamen enthalten. Nur der Entwickler kann sie öffnen, und sie werden nach 30 Tagen gelöscht.",
       "sending": "Wird gesendet...",
       "sent": "Gesendet. Dein Berichtscode ist {code}: gib ihn dem Entwickler auf Discord.",
-      "failed": "Senden fehlgeschlagen: {error}"
+      "failed": "Senden fehlgeschlagen: {error}",
+      "files": "Diese Dateien werden gesendet:",
+      "contents": "Paket-Logs können Chat und Namen anderer Spieler enthalten."
     },
     "barGap": {
       "label": "Balkenabstand"

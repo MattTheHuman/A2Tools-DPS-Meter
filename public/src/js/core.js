@@ -6147,11 +6147,19 @@ class DpsApp {
       status.textContent = text;
     };
     btn.addEventListener("click", async () => {
+      // Exactly what goes, before it goes (security audit M10).
+      const files = await window.__TAURI__?.core?.invoke?.("dev_logs_preview").catch(() => []) || [];
+      const size = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+      const list = files.length
+        ? "\n\n" + t("settings.sendLogs.files", "These files will be sent:") + "\n" +
+          files.map((f) => `• ${f.name} (${size(f.bytes)})`).join("\n") + "\n\n" +
+          t("settings.sendLogs.contents", "Packet logs can include chat and other players' names.")
+        : "";
       const ok = window.confirm(t("settings.sendLogs.confirm",
         "Send your 3 most recent packet logs to the A2 Tools developer?\n\n" +
         "Packet logs are raw game traffic recorded while packet logging was on, " +
         "including character names. Only the developer can open them, and they " +
-        "are deleted after 30 days."));
+        "are deleted after 30 days.") + list);
       if (!ok) return;
       btn.disabled = true;
       show(t("settings.sendLogs.sending", "Sending..."));

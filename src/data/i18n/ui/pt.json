@@ -546,7 +546,9 @@
       "confirm": "Enviar seu log de depuração e seus logs de pacotes mais recentes ao desenvolvedor do A2 Tools?\n\nO log de depuração registra o que o medidor fez. Logs de pacotes são o tráfego bruto do jogo gravado enquanto o registro de pacotes estava ligado. Ambos podem incluir nomes de personagens. Só o desenvolvedor pode abri-los, e eles são apagados após 30 dias.",
       "sending": "Enviando...",
       "sent": "Enviado. Seu código de relatório é {code}: passe para o desenvolvedor no Discord.",
-      "failed": "Não foi possível enviar: {error}"
+      "failed": "Não foi possível enviar: {error}",
+      "files": "Estes arquivos serão enviados:",
+      "contents": "Os registros de pacotes podem incluir o chat e nomes de outros jogadores."
     },
     "barGap": {
       "label": "Espaçamento das barras"

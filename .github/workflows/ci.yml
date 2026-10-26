@@ -10,6 +10,10 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+# Read-only: CI builds and tests (security audit M13).
+permissions:
+  contents: read
+
 jobs:
   frontend:
     name: Frontend build and tests

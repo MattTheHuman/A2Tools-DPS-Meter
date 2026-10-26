@@ -417,3 +417,9 @@ mod tests {
         }
     }
 }
+
+/// Files the meter creates under %APPDATA% are already private to the user
+/// (the folder's inherited DACL): nothing to change.
+pub fn private(options: &mut std::fs::OpenOptions) -> &mut std::fs::OpenOptions {
+    options
+}

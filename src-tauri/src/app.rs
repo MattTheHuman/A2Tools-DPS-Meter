@@ -1367,6 +1367,21 @@ fn set_packet_logging(state: tauri::State<'_, AppState>, enabled: bool) {
 }
 
 #[cfg(feature = "online")]
+/// What Send Logs to Dev would send, for the page to show before it does
+/// (security audit M10): each file's name and size.
+#[tauri::command]
+fn dev_logs_preview(state: tauri::State<'_, AppState>) -> Vec<serde_json::Value> {
+    crate::share::dev_logs::files_to_send(&state.app_data_dir)
+        .iter()
+        .map(|p| {
+            let name = p.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+            let bytes = std::fs::metadata(p).map(|m| m.len()).unwrap_or(0);
+            serde_json::json!({ "name": name, "bytes": bytes })
+        })
+        .collect()
+}
+
+#[cfg(feature = "online")]
 /// Send the newest packet captures to the developer (Settings, beside packet
 /// logging). Returns the report code the player passes on.
 #[tauri::command]
@@ -1960,6 +1975,12 @@ async fn stream_overlay_configure(enabled: bool, port: u16) -> Result<serde_json
 #[tauri::command]
 async fn stream_overlay_new_key() -> Result<serde_json::Value, String> {
     Err(NOT_IN_THIS_BUILD.into())
+}
+
+#[cfg(not(feature = "online"))]
+#[tauri::command]
+fn dev_logs_preview() -> Vec<serde_json::Value> {
+    Vec::new()
 }
 
 #[cfg(not(feature = "online"))]
@@ -4353,6 +4374,7 @@ pub fn run() {
             test_auto_hide,
             check_for_update,
             build_features,
+            dev_logs_preview,
             guest_stop_sharing,
         ];
             // A plugin's window, the dock and widgets reach only the commands

@@ -546,7 +546,9 @@
       "confirm": "¿Enviar tu registro de depuración y tus registros de paquetes más recientes al desarrollador de A2 Tools?\n\nEl registro de depuración anota lo que hizo el medidor. Los registros de paquetes son el tráfico del juego en bruto grabado mientras el registro de paquetes estaba activado. Ambos pueden incluir nombres de personajes. Solo el desarrollador puede abrirlos y se eliminan a los 30 días.",
       "sending": "Enviando...",
       "sent": "Enviado. Tu código de informe es {code}: dáselo al desarrollador en Discord.",
-      "failed": "No se pudo enviar: {error}"
+      "failed": "No se pudo enviar: {error}",
+      "files": "Se enviarán estos archivos:",
+      "contents": "Los registros de paquetes pueden incluir el chat y nombres de otros jugadores."
     },
     "barGap": {
       "label": "Espacio entre barras"

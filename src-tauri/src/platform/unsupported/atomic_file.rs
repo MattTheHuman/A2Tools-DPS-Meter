@@ -47,3 +47,8 @@ pub fn rename_retryable(error: &io::Error, _target: &Path) -> bool {
         io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
     )
 }
+
+/// The platform's default permissions: no port to narrow them.
+pub fn private(options: &mut OpenOptions) -> &mut OpenOptions {
+    options
+}
