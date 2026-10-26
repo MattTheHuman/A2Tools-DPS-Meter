@@ -723,6 +723,15 @@ struct Inner {
     shop_limits: std::collections::BTreeMap<u32, (u32, i64)>,
     /// Crafts made by recipe id, as the crafting window or a craft last said.
     craft_counts: std::collections::BTreeMap<u32, u32>,
+    /// Kinah gained today with the game's time of it (unix ms), and Abyss
+    /// Points this week with the week's limit and when seen (`a5 ff` /
+    /// `a6 ff`, `a9 ff`). A login's (`a9 ff` just before its list, `a5 ff`
+    /// just after) wait in `login_kinah` / `login_abyss_points` for the self
+    /// record, so they never show under the character before.
+    kinah_today: Option<(u64, i64)>,
+    abyss_points: Option<(u64, u64, i64)>,
+    login_kinah: Option<(u64, i64)>,
+    login_abyss_points: Option<(u64, u64, i64)>,
     /// The Daily Duty board. See `parse_daily_duty_packet`.
     daily_duty: Option<DutyBoard>,
 
@@ -855,6 +864,10 @@ impl DataStorage {
                 content_counts: Default::default(),
                 shop_limits: Default::default(),
                 craft_counts: Default::default(),
+                kinah_today: None,
+                abyss_points: None,
+                login_kinah: None,
+                login_abyss_points: None,
                 daily_duty: None,
                 local_player_id: None,
                 supporters: std::sync::Arc::new(crate::supporters::Roster::default()),
@@ -1107,11 +1120,19 @@ impl DataStorage {
             || inner.local_character_name != name
             || inner.loot_identity.applied;
         inner.loot_identity.applied = false;
+        if let Some(kinah) = inner.login_kinah.take() {
+            inner.kinah_today = Some(kinah);
+        }
+        if let Some(points) = inner.login_abyss_points.take() {
+            inner.abyss_points = Some(points);
+        }
         let known = inner.odyle_energy.is_some()
             || !inner.content_counts.is_empty()
             || inner.daily_duty.is_some()
             || !inner.shop_limits.is_empty()
-            || !inner.craft_counts.is_empty();
+            || !inner.craft_counts.is_empty()
+            || inner.kinah_today.is_some()
+            || inner.abyss_points.is_some();
         if known && (inner.odyle_awaits_self_record || inner.odyle_owner.is_none()) {
             inner.odyle_owner = name.clone();
             inner.odyle_awaits_self_record = false;
@@ -1542,6 +1563,10 @@ impl DataStorage {
             // (a server-wide recipe's count is the same on each).
             inner.shop_limits.clear();
             inner.craft_counts.clear();
+            // Kinah and Abyss Points too: the new character's come with the
+            // login (held until its self record, `login_kinah`).
+            inner.kinah_today = None;
+            inner.abyss_points = None;
             let list: Vec<String> = counts.iter().map(|(id, v)| format!("{id}={}+{}", v[0], v[1])).collect();
             tracing::debug!("Content counts: {}", list.join(" "));
         }
@@ -1570,6 +1595,8 @@ impl DataStorage {
             counts: content_counts_of(&inner, now),
             shop_limits: shop_limits_of(&inner, now),
             crafts: inner.craft_counts.clone(),
+            kinah_today: kinah_today_of(&inner, now),
+            abyss_points: abyss_points_of(&inner, now),
         }
     }
 
@@ -1615,6 +1642,41 @@ impl DataStorage {
 
     pub fn craft_counts(&self) -> std::collections::BTreeMap<u32, u32> {
         self.inner.read().craft_counts.clone()
+    }
+
+    /// Kinah gained today as of `at` (the game's unix ms): at a login
+    /// (`login`, held for the self record) or a gain.
+    pub fn set_kinah_today(&self, kinah: u64, at: i64, login: bool) {
+        let mut inner = self.inner.write();
+        tracing::debug!("Kinah today: {kinah}{}", if login { " (login)" } else { "" });
+        if login {
+            inner.login_kinah = Some((kinah, at));
+        } else {
+            own_list(&mut inner, false);
+            // Newer than a login's still held.
+            inner.login_kinah = None;
+            inner.kinah_today = Some((kinah, at));
+        }
+    }
+
+    /// Kinah gained today at `now` (unix ms): 0 once a daily reset has
+    /// passed since the game said it.
+    pub fn kinah_today_at(&self, now: i64) -> Option<u64> {
+        kinah_today_of(&self.inner.read(), now)
+    }
+
+    /// The week's Abyss Points and limit, seen at `at` (unix ms). Sent at
+    /// logins and transfers only, so held for the self record.
+    pub fn set_abyss_points(&self, points: u64, limit: u64, at: i64) {
+        let mut inner = self.inner.write();
+        tracing::debug!("Abyss Points: {points} of {limit}");
+        inner.login_abyss_points = Some((points, limit, at));
+    }
+
+    /// The week's Abyss Points and limit at `now` (unix ms): 0 points once a
+    /// weekly reset has passed since seen.
+    pub fn abyss_points_at(&self, now: i64) -> Option<(u64, u64)> {
+        abyss_points_of(&self.inner.read(), now)
     }
 
     /// Daily Duty at `now` (unix ms): `(completed, taken)`, taken counting
@@ -3054,6 +3116,9 @@ pub struct EntryList {
     /// `(bought, next reset)` by item id (`DataStorage::shop_limits_at`).
     pub shop_limits: std::collections::BTreeMap<u32, (u32, Option<i64>)>,
     pub crafts: std::collections::BTreeMap<u32, u32>,
+    /// As `DataStorage::kinah_today_at` and `abyss_points_at`.
+    pub kinah_today: Option<u64>,
+    pub abyss_points: Option<(u64, u64)>,
 }
 
 /// The shop's limits at `now` (`DataStorage::shop_limits_at`).
@@ -3063,6 +3128,32 @@ fn shop_limits_of(inner: &Inner, now: i64) -> std::collections::BTreeMap<u32, (u
         .iter()
         .map(|(&id, &(bought, reset_ms))| (id, if now >= reset_ms { (0, None) } else { (bought, Some(reset_ms)) }))
         .collect()
+}
+
+const DAY_MS: i64 = 24 * 60 * 60 * 1000;
+const WEEK_MS: i64 = 7 * DAY_MS;
+/// The daily reset, 07:00 UTC, and the weekly, Wednesday 07:00 UTC (the
+/// Daily Duty board's, the Supply Requests', the shop's weekly limits'), as
+/// offsets from the epoch (a Thursday).
+const DAILY_RESET_MS: i64 = 7 * 60 * 60 * 1000;
+const WEEKLY_RESET_MS: i64 = 6 * DAY_MS + DAILY_RESET_MS;
+
+/// The last reset at or before `now`, of a reset every `period` from
+/// `offset` (all unix ms).
+fn last_reset(now: i64, period: i64, offset: i64) -> i64 {
+    (now - offset).div_euclid(period) * period + offset
+}
+
+/// Kinah gained today at `now` (`DataStorage::kinah_today_at`).
+fn kinah_today_of(inner: &Inner, now: i64) -> Option<u64> {
+    let (kinah, at) = inner.kinah_today?;
+    Some(if last_reset(now, DAY_MS, DAILY_RESET_MS) > at { 0 } else { kinah })
+}
+
+/// The week's Abyss Points at `now` (`DataStorage::abyss_points_at`).
+fn abyss_points_of(inner: &Inner, now: i64) -> Option<(u64, u64)> {
+    let (points, limit, at) = inner.abyss_points?;
+    Some((if last_reset(now, WEEK_MS, WEEKLY_RESET_MS) > at { 0 } else { points }, limit))
 }
 
 /// Whether a quest taken that isn't on the board looks like a new day's duty
