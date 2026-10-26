@@ -429,14 +429,39 @@ fn boss_map_event(map: &crate::capture::boss_map::BossMap) -> Value {
 }
 
 /// Who is playing, as plugins with `events:character` see it.
+///
+/// With it, what the game says of them: combat power and gear score, and the
+/// Odyle energy once the game has said it is theirs (`odyle_owner`: a login's
+/// list comes before the record naming who logged in). Each is null until
+/// known, and a change sends the event again.
 fn character(app: &tauri::AppHandle) -> Option<Value> {
     app.try_state::<AppState>().map(|s| {
         let p = s.data_storage.local_profile();
+        // Owner, energy and counts from one moment: a login's list replaces
+        // them all at once.
+        let list = s.data_storage.entry_list();
+        let theirs = matches!((list.owner.as_deref(), p.name.as_deref()), (Some(o), Some(n)) if o.trim() == n.trim());
+        let odyle = list
+            .odyle_energy
+            .filter(|_| theirs)
+            .map(|(basic, charged)| serde_json::json!({ "basic": basic, "charged": charged }));
+        // The game's entry counts by id, as `[first, second]`, theirs the same
+        // way (they come in Odyle energy's list). Known ids: 1 Shugo
+        // Festival keys, 4 Nightmare, 8 Dimensional Invasion, 101 Daily
+        // Dungeon, 60000001 Odyle energy, 80000001 Ascension Trial. The
+        // game's other ids are passed on too, unnamed: a2.js documents only
+        // the known ones. Started mid-session, the meter has only the entries
+        // that changed since, until the next login or transfer.
+        let content = (theirs && !list.counts.is_empty()).then(|| serde_json::json!(list.counts));
         serde_json::json!({
             "name": p.name,
             "serverId": p.server_id,
             "level": p.level,
             "class": p.class.map(|c| c.class_name().to_string()),
+            "combatPower": p.combat_power,
+            "gearScore": p.gear_score,
+            "odyleEnergy": odyle,
+            "contentCounts": content,
         })
     })
 }
