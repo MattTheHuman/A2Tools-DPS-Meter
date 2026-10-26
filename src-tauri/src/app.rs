@@ -3919,10 +3919,12 @@ pub fn run() {
                                     show_with_meter(&handle, &mut hidden_with_meter);
                                 }
                             } else {
+                                // Plugins' windows and icons at the first look
+                                // (0.5-1 s); Settings, History and Details
+                                // after three (1.5 s), as the meter does, so a
+                                // quick alt-tab doesn't take a form in use away.
                                 others_delay += 1;
-                                if others_delay >= 3 {
-                                    hide_with_meter(&handle, meter_auto_hide, &mut hidden_with_meter);
-                                }
+                                hide_with_meter(&handle, meter_auto_hide && others_delay >= 3, &mut hidden_with_meter);
                             }
                         } else if !hidden_with_meter.is_empty() {
                             // Auto-hide turned off meanwhile: back.
