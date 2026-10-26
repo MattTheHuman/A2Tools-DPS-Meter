@@ -950,10 +950,17 @@ pub async fn upload_detailed(
     };
 
     let meta = read_meta(app_data_dir, &record.id);
+    // A guest's upload names nobody, its uploader included: every name goes
+    // masked as the site shows them (Na***a), so a full name never leaves
+    // this PC without an account. Signed in, the account's fights carry the
+    // names (the site masks the party's).
     let names: HashMap<String, String> = record
         .actors
         .iter()
-        .map(|a| (a.actor_id.to_string(), a.nickname.clone()))
+        .map(|a| {
+            let name = if as_guest { crate::entity::fight_record::obscure_nickname(&a.nickname) } else { a.nickname.clone() };
+            (a.actor_id.to_string(), name)
+        })
         .collect();
     let body = serde_json::json!({
         "slice": base64(&compressed),
