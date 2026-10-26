@@ -125,6 +125,30 @@ fn all_listed(ids: &[String], list: &[String]) -> bool {
     !ids.is_empty() && ids.iter().all(|id| list.contains(id))
 }
 
+/// The app commands a plugin's page may call: those its host page, the
+/// dock, the frame's SDK and its widgets use. Every other command is refused
+/// to a plugin window, the dock and widgets (`allowed_from`), so a plugin
+/// that got hold of the IPC still couldn't open links, read files, change
+/// settings or start an update (security audit H2, 2026-10-26). Add a command
+/// here when a plugin page starts using it.
+const PLUGIN_SURFACE_COMMANDS: &[&str] = &[
+    "dock_close", "dock_fold", "dock_hello", "meter_shown", "open_settings_at", "open_settings_window",
+    "open_url", "plugin_abyss_siege", "plugin_boss_follow", "plugin_boss_timers", "plugin_close",
+    "plugin_fps_admin", "plugin_fps_watch", "plugin_hello", "plugin_set_docked", "plugin_storage_get",
+    "plugin_storage_set", "plugin_widget_area", "plugin_widget_close", "plugin_widget_drag",
+    "plugin_widget_hello", "plugin_widget_open", "plugin_widget_place", "plugin_widget_post",
+    "plugin_widget_send", "plugin_widget_where", "plugin_widgets_lock", "plugin_widgets_locked",
+    "plugin_window", "plugin_window_fit", "set_meter_shown", "start_tool_drag",
+];
+
+/// Whether the window `label` may call the app command `command`: any of the
+/// meter's own windows anything, a plugin's window, the dock or a widget only
+/// `PLUGIN_SURFACE_COMMANDS`.
+pub fn allowed_from(label: &str, command: &str) -> bool {
+    let plugin_surface = is_plugin_window(label) || widgets::parse_label(label).is_some();
+    !plugin_surface || PLUGIN_SURFACE_COMMANDS.contains(&command)
+}
+
 /// Whether a window (`label`) is one of the meter's plugin windows: a
 /// plugin's own, or the dock.
 pub fn is_plugin_window(label: &str) -> bool {
@@ -2304,7 +2328,22 @@ fn percent_decode(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{base64, content_policy, inline_page, inlined_policy, with_meter_fonts, prompt_texts, should_start, take_ready};
+    #[test]
+    fn plugin_windows_reach_only_their_own_commands() {
+        for label in ["plugin-ping", "plugins-dock", "pw_ping_ping"] {
+            assert!(allowed_from(label, "plugin_storage_get"), "{label}");
+            assert!(allowed_from(label, "open_url"), "{label}");
+            for cmd in ["show_update_window", "send_logs_to_dev", "plugin_add_folder", "plugin_install", "update_settings", "capture_screenshot", "set_run_as_admin"] {
+                assert!(!allowed_from(label, cmd), "{label} {cmd}");
+            }
+        }
+        for label in ["main", "settings", "history", "details-123"] {
+            assert!(allowed_from(label, "plugin_add_folder"), "{label}");
+            assert!(allowed_from(label, "show_update_window"), "{label}");
+        }
+    }
+
+    use super::{allowed_from, base64, content_policy, inline_page, inlined_policy, with_meter_fonts, prompt_texts, should_start, take_ready};
     use super::{update_prompt, updates_to_offer, within_reach, Pending, PluginAvailable, PluginInfo, LANGUAGES, SETTLE};
     use std::collections::{HashMap, HashSet};
     use std::time::{Duration, Instant};

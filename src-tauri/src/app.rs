@@ -1466,7 +1466,9 @@ fn is_capture_suspended(state: tauri::State<'_, AppState>) -> bool {
 fn log_from_ui(message: String) {
     // A problem only the webview can see (an icon the CDN would not serve, say),
     // for debug.log. The UI keeps these few; this keeps each one short.
-    let message: String = message.chars().take(300).collect();
+    // One line: a newline let the page write lines that read as the
+    // meter's own (security audit I1).
+    let message: String = message.chars().take(300).map(|c| if c.is_control() { ' ' } else { c }).collect();
     tracing::warn!("UI: {message}");
 }
 
@@ -1898,9 +1900,30 @@ fn build_features() -> serde_json::Value {
     serde_json::json!({ "online": cfg!(feature = "online"), "devSupporter": dev_supporter })
 }
 
+/// Open a link in the browser. Web and mail links only: the shell hands
+/// whatever it is given to its handler, so a path, a network share or another
+/// program's link would have run as the meter (security audit M1, 2026-10-26).
 #[tauri::command]
 fn open_url(url: String) {
-    platform::shell::open_url(&url);
+    if openable_url(&url) {
+        platform::shell::open_url(&url);
+    } else {
+        tracing::warn!("open_url: refused a link that isn't http(s) or mailto");
+    }
+}
+
+/// An http(s) link with a host and no credentials, or a mailto link: no
+/// spaces, control characters or backslashes, at most 2048 characters.
+fn openable_url(url: &str) -> bool {
+    if url.len() > 2048 || url.chars().any(|c| c.is_control() || c.is_whitespace() || c == '\\') {
+        return false;
+    }
+    let lower = url.to_ascii_lowercase();
+    if let Some(rest) = lower.strip_prefix("https://").or_else(|| lower.strip_prefix("http://")) {
+        let host = rest.split(['/', '?', '#']).next().unwrap_or("");
+        return !host.is_empty() && !host.contains('@');
+    }
+    lower.len() > "mailto:".len() && lower.starts_with("mailto:")
 }
 
 #[tauri::command]
@@ -4073,7 +4096,8 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
+        .invoke_handler({
+            let handler: fn(tauri::ipc::Invoke<tauri::Wry>) -> bool = tauri::generate_handler![
             get_app_version,
             get_hotkey_status,
             open_desktop_shortcuts,
@@ -4204,13 +4228,50 @@ pub fn run() {
             fetch_url,
             show_update_window,
             build_features,
-        ])
+        ];
+            // A plugin's window, the dock and widgets reach only the commands
+            // their pages use (`plugins::allowed_from`, security audit H2).
+            move |invoke: tauri::ipc::Invoke<tauri::Wry>| {
+                let label = invoke.message.webview_ref().label().to_string();
+                let command = invoke.message.command().to_string();
+                if !crate::plugins::allowed_from(&label, &command) {
+                    tracing::warn!("Refused {command} from plugin window {label}");
+                    invoke.resolver.reject(format!("{command} isn't available to plugin windows"));
+                    return true;
+                }
+                handler(invoke)
+            }
+        })
         .run(context)
         .expect("error while running tauri application");
 }
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn only_web_and_mail_links_open() {
+        use super::openable_url as ok;
+        assert!(ok("https://a2tools.app/logs/1"));
+        assert!(ok("http://example.com"));
+        assert!(ok("HTTPS://Discord.gg/Aion2Global"));
+        assert!(ok("mailto:help@a2tools.app"));
+        for bad in [
+            "file:///C:/Windows/System32/calc.exe",
+            r"C:\Windows\System32\calc.exe",
+            r"\\server\share\x.exe",
+            "ms-settings:privacy",
+            "https://",
+            "https://user:pass@evil.example/",
+            "https://a2tools.app/ x",
+            r"http:\\evil.example",
+            "mailto:",
+            "javascript:alert(1)",
+        ] {
+            assert!(!ok(bad), "{bad}");
+        }
+        assert!(!ok(&format!("https://a2tools.app/{}", "a".repeat(2100))));
+    }
+
     #[cfg_attr(not(feature = "online"), allow(unused_imports))]
     use super::*;
 

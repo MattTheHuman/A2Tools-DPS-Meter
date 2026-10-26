@@ -2757,10 +2757,15 @@ fn parse_party_roster_at(data: &[u8], at: usize) -> Option<Roster> {
         if nick_len > 40 || o + nick_len > data.len() {
             break;
         }
-        let nickname = match std::str::from_utf8(&data[o..o + nick_len]) {
-            Ok(s) => s.to_string(),
+        // Letters and digits only, as every other name the parser keeps:
+        // the roster's field was taken as it came (security audit M8).
+        let nickname: String = match std::str::from_utf8(&data[o..o + nick_len]) {
+            Ok(s) => s.chars().filter(|c| c.is_alphanumeric()).collect(),
             Err(_) => break,
         };
+        if nickname.is_empty() {
+            break;
+        }
         let name_field = o..o + nick_len;
         o += nick_len;
         if o + 12 > data.len() {
