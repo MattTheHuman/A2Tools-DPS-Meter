@@ -4237,7 +4237,7 @@ class DpsApp {
         value,
         label: value === "0"
           ? this.i18n?.t("settings.hideOutOfCombat.off", "Off") ?? "Off"
-          : this.i18n?.t("settings.hideOutOfCombat.seconds", `After ${value} s`, { seconds: value }) ?? `After ${value} s`,
+          : this.i18n?.format("settings.hideOutOfCombat.seconds", { seconds: value }, `After ${value} s`) ?? `After ${value} s`,
       })),
       this.settingsSelections.hideOutOfCombat,
       (value) => {
