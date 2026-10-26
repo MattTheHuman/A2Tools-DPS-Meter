@@ -437,8 +437,8 @@ fn boss_map_event(map: &crate::capture::boss_map::BossMap) -> Value {
 fn character(app: &tauri::AppHandle) -> Option<Value> {
     app.try_state::<AppState>().map(|s| {
         let p = s.data_storage.local_profile();
-        // Owner, energy and counts from one moment: a login's list replaces
-        // them all at once.
+        // Owner, energy, counts, shop limits and crafts from one moment: a
+        // login's list replaces them all at once.
         let list = s.data_storage.entry_list();
         let theirs = matches!((list.owner.as_deref(), p.name.as_deref()), (Some(o), Some(n)) if o.trim() == n.trim());
         let odyle = list
@@ -454,6 +454,15 @@ fn character(app: &tauri::AppHandle) -> Option<Value> {
         // the known ones. Started mid-session, the meter has only the entries
         // that changed since, until the next login or transfer.
         let content = (theirs && !list.counts.is_empty()).then(|| serde_json::json!(list.counts));
+        // The shop's weekly purchase limits by item id, `[bought, next reset
+        // ms]` (100134 Buy Odyle Energy, 100135 Buy Rift Stones), and the
+        // crafts made by recipe (32070001 Odyle Energy, server-wide; 32070002
+        // the character's): as the shop or crafting window last opened, or a
+        // purchase or craft since. Theirs the same way. Past its reset a
+        // limit is `[0, null]`: nothing bought, the next reset not known until
+        // the shop opens again. From the same snapshot as the owner.
+        let shop = (theirs && !list.shop_limits.is_empty()).then(|| serde_json::json!(list.shop_limits));
+        let crafts = (theirs && !list.crafts.is_empty()).then(|| serde_json::json!(list.crafts));
         serde_json::json!({
             "name": p.name,
             "serverId": p.server_id,
@@ -463,6 +472,8 @@ fn character(app: &tauri::AppHandle) -> Option<Value> {
             "gearScore": p.gear_score,
             "odyleEnergy": odyle,
             "contentCounts": content,
+            "shopLimits": shop,
+            "crafts": crafts,
         })
     })
 }

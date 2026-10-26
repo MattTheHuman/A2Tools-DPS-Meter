@@ -278,6 +278,7 @@ impl StreamProcessor {
         self.parse_party_left_packet(packet);
         self.parse_odyle_energy_packet(packet);
         self.parse_daily_duty_packet(packet);
+        self.parse_shop_and_craft_packet(packet);
         self.parse_stagger_gauge_packet(packet);
         self.parse_self_stats_packet(packet);
         self.parse_death_packet(packet);
@@ -432,6 +433,57 @@ impl StreamProcessor {
             Some([0x0D, 0x8D]) if body.len() >= 6 && body[..2] == [0x00, 0x00] => {
                 let number = u32::from_le_bytes(body[2..6].try_into().unwrap());
                 self.data_storage.daily_duty_given_up(number);
+            }
+            _ => {}
+        }
+    }
+
+    // ===== SHOP LIMITS AND CRAFTS (8E 56, 8F 56, 8F 8D, 8B 8D) =====
+
+    /// The shop's weekly purchase limits and the crafts made, for plugins.
+    ///
+    /// `8e 56 00 00 <count u8>` then each `<item id u32> <bought u32> <next
+    /// reset u64 ms>`: the whole list as the shop opens, or the one bought;
+    /// `8f 56` is one such entry alone. `8f 8d` is the crafting window's
+    /// recipes as it opens, `00 00 00 00` then sections `<count u8>` of
+    /// `<recipe u32> <crafted u32>`; `8b 8d` a craft done, `00 00 01
+    /// <recipe u32> 50 05 <recipe u32> ...` with the server's count at 33
+    /// and the character's at 37 (a recipe has one or the other).
+    ///
+    /// Seen on 2026-10-25 (Nulli, Nullception): Buy Odyle Energy (item
+    /// 100134) at 20 as the game said 20/20, Buy Rift Stones (100135) 0 then
+    /// 1 as one was bought (both weekly, reset Wednesday 07:00 UTC); Odyle
+    /// Energy crafts, recipe 32070001 (server-wide, the game's 3/16) going
+    /// 1, 2, 3 and 32070002 (each character's, 1/4) going 0 to 1.
+    fn parse_shop_and_craft_packet(&self, packet: &[u8]) {
+        let length_info = read_varint(packet, 0);
+        if length_info.length <= 0 {
+            return;
+        }
+        let offset = length_info.length as usize;
+        let body = packet.get(offset + 2..).unwrap_or_default();
+        match packet.get(offset..offset + 2) {
+            Some([0x8E, 0x56]) => {
+                // More than one is the shop's whole list (as it opens); one
+                // is what was just bought, or a shop with one limit.
+                if let Some(limits) = shop_limits(body) {
+                    self.data_storage.set_shop_limits(&limits, limits.len() > 1);
+                }
+            }
+            Some([0x8F, 0x56]) => {
+                if let Some(limit) = shop_limit_at(body, 0).filter(|_| body.len() == 16) {
+                    self.data_storage.set_shop_limits(&[limit], false);
+                }
+            }
+            Some([0x8F, 0x8D]) => {
+                if let Some(counts) = craft_list(body) {
+                    self.data_storage.set_craft_counts(&counts, true);
+                }
+            }
+            Some([0x8B, 0x8D]) => {
+                if let Some(count) = craft_done(body) {
+                    self.data_storage.set_craft_counts(&[count], false);
+                }
             }
             _ => {}
         }
@@ -2356,6 +2408,70 @@ fn daily_duty_board(body: &[u8]) -> Option<(Vec<DutyOffer>, i64)> {
     (body.len() == o + 17 && (1_750_000_000_000..1_850_000_000_000).contains(&reset)).then_some((offers, reset))
 }
 
+/// One shop limit at `at` (see `StreamProcessor::parse_shop_and_craft_packet`):
+/// `(item id, bought, next reset ms)`.
+fn shop_limit_at(body: &[u8], at: usize) -> Option<(u32, u32, i64)> {
+    let b = body.get(at..at + 16)?;
+    let id = u32::from_le_bytes(b[0..4].try_into().ok()?);
+    let bought = u32::from_le_bytes(b[4..8].try_into().ok()?);
+    let reset = i64::from_le_bytes(b[8..16].try_into().ok()?);
+    // Never resetting is year 2100 (item 1254); anything else wasn't one.
+    (1_750_000_000_000..=4_200_000_000_000).contains(&reset).then_some((id, bought, reset))
+}
+
+/// The shop's limits in an `8e 56`: the whole record must read as them.
+fn shop_limits(body: &[u8]) -> Option<Vec<(u32, u32, i64)>> {
+    let count = *body.get(2)? as usize;
+    if count == 0 || body[..2] != [0, 0] || body.len() != 3 + 16 * count {
+        return None;
+    }
+    (0..count).map(|k| shop_limit_at(body, 3 + 16 * k)).collect()
+}
+
+/// Whether `(recipe, crafted)` reads as a craft count: recipe ids seen run
+/// from 31036002 to 72046054, counts are a week's (16 at most).
+fn plausible_craft((recipe, crafted): (u32, u32)) -> bool {
+    (1..=99_999_999).contains(&recipe) && crafted <= 10_000
+}
+
+/// The crafting window's recipes in an `8f 8d`: `(recipe, crafted)`, the
+/// whole record read as sections of them, none empty, each count plausible
+/// (`plausible_craft`): a whole list replaces every count.
+fn craft_list(body: &[u8]) -> Option<Vec<(u32, u32)>> {
+    if body.get(..4)? != [0, 0, 0, 0] {
+        return None;
+    }
+    let mut out = Vec::new();
+    let mut o = 4;
+    while o < body.len() {
+        let count = body[o] as usize;
+        if count == 0 {
+            return None;
+        }
+        o += 1;
+        for _ in 0..count {
+            let entry = body.get(o..o + 8)?;
+            let craft = (u32::from_le_bytes(entry[..4].try_into().ok()?), u32::from_le_bytes(entry[4..].try_into().ok()?));
+            if !plausible_craft(craft) {
+                return None;
+            }
+            out.push(craft);
+            o += 8;
+        }
+    }
+    (!out.is_empty()).then_some(out)
+}
+
+/// A craft done in an `8b 8d`: `(recipe, crafted)`, the server's count or
+/// the character's (one of them is 0).
+fn craft_done(body: &[u8]) -> Option<(u32, u32)> {
+    let u32_at = |o: usize| body.get(o..o + 4).map(|b| u32::from_le_bytes(b.try_into().unwrap()));
+    if body.len() != 41 || body[..3] != [0, 0, 1] || u32_at(3)? != u32_at(9)? {
+        return None;
+    }
+    Some((u32_at(3)?, u32_at(33)?.saturating_add(u32_at(37)?))).filter(|&c| plausible_craft(c))
+}
+
 fn try_read_varint(bytes: &[u8], offset: &mut usize) -> Option<i32> {
     let result = read_varint(bytes, *offset);
     if result.length <= 0 {
@@ -4259,6 +4375,96 @@ mod tests {
         // Another character's login (its list): that board isn't theirs.
         storage.set_content_counts(vec![(1, [12, 9])], true);
         assert_eq!(storage.daily_duty_at(1_792_900_000_000), None);
+    }
+
+    /// The shop's limits and the crafts (2026-10-25, Nulli): the shop opened
+    /// (12:12:29, Buy Odyle Energy 100134 at 20, Buy Rift Stones 100135 at 1
+    /// after one bought at 12:04:05), the crafting window (12:12:04, the
+    /// server's Odyle Energy craft 32070001 at 3) and a craft of the
+    /// character's, 32070002, 0 to 1 (12:12:36).
+    #[test]
+    fn shop_limits_and_crafts() {
+        let (storage, mut p) = processor();
+        let shop = [
+            "798e56000007910400000000000080fd4e81a1010000e6040000000000008075d52abb030000ee04000000000000806d",
+            "e895a1010000048701001e00000000ec8581a1010000268701001400000000ec8581a1010000278701000100000080fd",
+            "4e81a10100002d8701000000000080fd4e81a1010000",
+        ]
+        .concat();
+        p.parse_perfect_packet(&hex(&shop));
+        let now = 1_792_930_000_000;
+        let limits = storage.shop_limits_at(now);
+        assert_eq!(limits.len(), 7);
+        assert_eq!(limits[&100_134], (20, Some(1_793_174_400_000)));
+        assert_eq!(limits[&100_135], (1, Some(1_793_170_800_000)));
+        // Past its reset (Wednesday 07:00 UTC), nothing bought yet.
+        assert_eq!(storage.shop_limits_at(1_793_170_800_000)[&100_135], (0, None));
+        // One bought: the entry alone, then a list of one.
+        p.parse_perfect_packet(&hex("168f56278701000200000080fd4e81a1010000"));
+        assert_eq!(storage.shop_limits_at(now)[&100_135].0, 2);
+        p.parse_perfect_packet(&hex("198e56000001278701000100000080fd4e81a1010000"));
+        assert_eq!(storage.shop_limits_at(now)[&100_135].0, 1);
+
+        let window = [
+            "dc068f8d00000000103117da01000000003317da01000000003417da0100000000e4cada01000000007159e901030000",
+            "007359e901000000007459e90100000000240dea010000000081133c0400000000c1554b0400000000e0554b04000000",
+            "00e1554b0400000000e2554b0400000000e4554b0401000000e5554b0401000000e6554b04010000005a6292d9010000",
+            "00001cc9d901000000001dc9d901000000001ec9d901000000001fc9d9010000000020c9d9010000000021c9d9010000",
+            "00003217da0100000000b155da0100000000b455da010000000039e6da01000000003ae6da01000000003ce6da010000",
+            "000021eada010000000022eada010000000023eada010000000025eada010000000009eeda01000000000aeeda010000",
+            "00000beeda01000000000deeda0100000000f1f1da0100000000a2d4e801000000005c0be901000000005d0be9010000",
+            "00005e0be901000000005f0be90100000000600be90100000000610be901000000007259e90100000000f197e9010000",
+            "0000f497e901000000007928ea01000000007a28ea01000000007c28ea0100000000612cea0100000000622cea010000",
+            "0000632cea0100000000652cea01000000004930ea01000000004a30ea01000000004b30ea01000000004d30ea010000",
+            "00003134ea010000000009cf7102000000000acf710200000000f1d2710200000000f2d271020000000019f671020000",
+            "000001fa71020000000049118102010000004a1181020000000031158102010000003215810200000000593881020000",
+            "0000413c810201000000596d0a030000000099af190301000000f1ffa20300000000f2ffa203000000003142b2030000",
+            "00003242b2030000000071133c040000000072133c040000000073133c040000000076133c040000000077133c040000",
+            "000078133c04000000007a133c04000000007b133c04000000007c133c04000000007d133c04000000007e133c040000",
+            "00007f133c040000000080133c040000000082133c0400000000b1554b0400000000b2554b0400000000b3554b040000",
+            "0000b6554b0400000000b7554b0400000000b8554b0400000000ba554b0400000000bb554b0400000000bc554b040000",
+            "0000bd554b0400000000be554b0400000000bf554b0400000000c0554b0400000000c2554b0400000000",
+        ]
+        .concat();
+        p.parse_perfect_packet(&hex(&window));
+        let crafts = storage.craft_counts();
+        assert_eq!(crafts.len(), 106);
+        assert_eq!(crafts[&32_070_001], 3);
+        assert_eq!(crafts[&32_070_002], 0);
+        // The window's other record (`8f 8d 00 00 01 00 00 00`) is no list.
+        p.parse_perfect_packet(&hex("0c8f8d000001000000"));
+        assert_eq!(storage.craft_counts().len(), 106);
+        p.parse_perfect_packet(&hex("2f8b8d0000017259e90150057259e90101000000010000000000000000000000000000000000000001000000"));
+        assert_eq!(storage.craft_counts()[&32_070_002], 1);
+        p.parse_perfect_packet(&hex("2f8b8d0000017159e90150057159e90101000000010000000000000000000000000000000300000000000000"));
+        assert_eq!(storage.craft_counts()[&32_070_001], 3);
+        // Both counts garbage: no overflow, and not taken.
+        p.parse_perfect_packet(&hex("2f8b8d0000017159e90150057159e9010100000001000000000000000000000000000000ffffffffffffffff"));
+        assert_eq!(storage.craft_counts()[&32_070_001], 3);
+        // Records that would read as a list but for an empty section or an
+        // implausible count replace nothing.
+        p.parse_perfect_packet(&hex("148f8d00000000017159e9010300000000"));
+        p.parse_perfect_packet(&hex("138f8d00000000017159e90100000100"));
+        assert_eq!(storage.craft_counts().len(), 106);
+
+        // The shop's whole list replaces the limits: an item gone from it
+        // goes. A list of one (a purchase) is merged.
+        p.parse_perfect_packet(&hex("298e56000002268701001400000000ec8581a1010000278701000100000080fd4e81a1010000"));
+        assert_eq!(storage.shop_limits_at(now).keys().copied().collect::<Vec<_>>(), vec![100_134, 100_135]);
+        p.parse_perfect_packet(&hex("198e560000012d8701000000000080fd4e81a1010000"));
+        assert_eq!(storage.shop_limits_at(now).len(), 3);
+
+        // The character event reads them with the owner, at one moment.
+        let list = storage.entry_list();
+        assert_eq!(list.crafts, storage.craft_counts());
+        assert_eq!(list.shop_limits.len(), 3);
+
+        // Another character's login: neither is theirs.
+        storage.set_content_counts(vec![(1, [12, 9])], true);
+        assert!(storage.shop_limits_at(now).is_empty());
+        assert!(storage.craft_counts().is_empty());
+        let list = storage.entry_list();
+        assert!(list.shop_limits.is_empty() && list.crafts.is_empty());
     }
 
     /// The whole entry-count list, by id, and its updates (Nullception's
