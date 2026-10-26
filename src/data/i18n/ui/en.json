@@ -668,7 +668,10 @@
       "search": "Search",
       "noMatch": "No plugins match.",
       "permsTitle": "It can:",
-      "permFps": "Show the game's frame rate (on Windows, the meter asks to run as administrator for it)"
+      "permFps": "Show the game's frame rate (on Windows, the meter asks to run as administrator for it)",
+      "testLabel": "Install a test plugin",
+      "testHint": "Test plugins are signed like the others but not listed. Enter the id you were given.",
+      "testUnknown": "No test plugin has that id."
     },
     "clearOnZone": {
       "label": "Clear the meter",

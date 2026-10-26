@@ -278,7 +278,7 @@
 
     const refreshBar = () => {
       const installed = (view.plugins || []).length;
-      const offered = catalog ? catalog.filter((e) => !e.installed).length : 0;
+      const offered = catalog ? catalog.filter((e) => !e.installed && !e.test).length : 0;
       document.querySelector(".pluginInstalledCount").textContent = installed ? String(installed) : "";
       document.querySelector(".pluginAvailableCount").textContent = offered ? String(offered) : "";
       search.hidden = installed + offered < SEARCH_FROM && !query;
@@ -303,7 +303,8 @@
         return;
       }
       if (!catalog) return refreshBar();
-      const offered = catalog.filter((e) => !e.installed);
+      // Test plugins aren't offered: they're installed by id (below).
+      const offered = catalog.filter((e) => !e.installed && !e.test);
       for (const entry of offered) {
         if (!matches(entry.name, entry.description, entry.id, entry.author)) continue;
         const details = [el("p", "pluginDescFull", entry.description || "")];
@@ -371,6 +372,26 @@
         say(String(e));
       }
     };
+
+    // A test plugin, by the id its tester was given: the same consent and
+    // install as a listed one.
+    const testId = document.querySelector(".pluginTestId");
+    document.querySelector(".pluginTestInstall")?.addEventListener("click", async () => {
+      const id = (testId?.value || "").trim().toLowerCase();
+      if (!id) return;
+      if (!catalog) await loadCatalog();
+      const entry = catalog?.find((e) => e.id === id);
+      if (!entry) {
+        say(t("settings.plugins.testUnknown", "No test plugin has that id."));
+        return;
+      }
+      if (entry.installed) {
+        say(t("settings.plugins.installDone", "{name} {version} is installed.", { name: entry.name, version: entry.installed }), false);
+        return;
+      }
+      await install(entry, null);
+      if (testId) testId.value = "";
+    });
 
     const render = (next) => {
       if (next) view = next;

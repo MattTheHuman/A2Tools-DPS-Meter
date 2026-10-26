@@ -656,7 +656,10 @@
       "search": "Buscar",
       "noMatch": "Ningún plugin coincide.",
       "permsTitle": "Puede:",
-      "permFps": "Mostrar los FPS del juego (en Windows, el medidor pide ejecutarse como administrador para ello)"
+      "permFps": "Mostrar los FPS del juego (en Windows, el medidor pide ejecutarse como administrador para ello)",
+      "testLabel": "Instalar un plugin de prueba",
+      "testHint": "Los plugins de prueba están firmados como los demás, pero no aparecen en la lista. Escribe el id que te dieron.",
+      "testUnknown": "Ningún plugin de prueba tiene ese id."
     },
     "clearOnZone": {
       "label": "Vaciar el medidor",

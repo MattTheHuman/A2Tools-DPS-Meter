@@ -663,7 +663,10 @@
       "search": "搜索",
       "noMatch": "没有匹配的插件。",
       "permsTitle": "可以:",
-      "permFps": "显示游戏帧率（在 Windows 上，计量器会为此请求以管理员身份运行）"
+      "permFps": "显示游戏帧率（在 Windows 上，计量器会为此请求以管理员身份运行）",
+      "testLabel": "安装测试插件",
+      "testHint": "测试插件和其他插件一样经过签名，但不会出现在列表中。请输入你收到的 ID。",
+      "testUnknown": "没有该 ID 的测试插件。"
     },
     "clearOnZone": {
       "label": "清空统计",

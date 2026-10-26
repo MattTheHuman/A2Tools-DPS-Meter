@@ -1274,6 +1274,9 @@ pub struct CatalogItem {
     pub source: String,
     /// The installed version, if any.
     pub installed: Option<String>,
+    /// A test plugin: Settings lists it only once installed, and installs it
+    /// by id ("Install a test plugin").
+    pub test: bool,
 }
 
 /// The reviewed plugins on offer, from the signed catalog.
@@ -1291,6 +1294,7 @@ pub async fn plugin_catalog(app: tauri::AppHandle) -> Result<Vec<CatalogItem>, S
             .plugins
             .into_iter()
             .map(|e| CatalogItem {
+                test: e.test,
                 installed: installed.get(&e.id).cloned(),
                 id: e.id,
                 name: e.name,
@@ -1333,7 +1337,8 @@ pub async fn plugin_install(app: tauri::AppHandle, id: String) -> Result<Plugins
         let host = host(&app)?;
         let http = app.try_state::<AppState>().ok_or("no app state")?.http.clone();
         let catalog = catalog::fetch(&http).await?;
-        let entry = catalog.plugins.iter().find(|e| e.id == id).ok_or("that plugin is not in the catalog")?;
+        let id = id.trim().to_lowercase();
+        let entry = catalog.plugins.iter().find(|e| e.id == id).ok_or("No plugin by that id in the catalog or the test catalog.")?;
         install_entry(&app, &host, entry).await?;
         Ok(view(&app, &host))
     }
