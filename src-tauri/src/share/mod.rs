@@ -594,6 +594,38 @@ pub struct SliceMeta {
     pub gave_up: bool,
 }
 
+/// The real uploader name of each fight this PC uploaded, for a guest's
+/// fights to be named again when the player signs in here: a guest uploads
+/// them masked (`upload_detailed`), and only this PC still knows the names.
+/// `{log, actorId, name}` each, at most `max`; the site applies only those
+/// that were the merged guest's.
+pub fn uploaded_names(app_data_dir: &Path, max: usize) -> Vec<serde_json::Value> {
+    let Ok(dir) = std::fs::read_dir(slices_dir(app_data_dir)) else { return Vec::new() };
+    let history = crate::history::fight_history::FightHistoryManager::new(app_data_dir.to_path_buf());
+    let mut out = Vec::new();
+    for entry in dir.flatten() {
+        if out.len() >= max {
+            break;
+        }
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("json") {
+            continue;
+        }
+        let Some(id) = path.file_stem().and_then(|s| s.to_str()) else { continue };
+        let meta = read_meta(app_data_dir, id);
+        let (Some(url), Some(actor)) = (meta.url, meta.uploader_actor_id) else { continue };
+        let Some(log) = url.split_once("/logs/").and_then(|(_, rest)| rest.split(['?', '#', '/']).next()).filter(|l| !l.is_empty()) else {
+            continue;
+        };
+        let Ok(record) = history.load_fight(id) else { continue };
+        let Some(name) = record.actors.iter().find(|a| a.actor_id == actor).map(|a| a.nickname.trim().to_string()).filter(|n| !n.is_empty()) else {
+            continue;
+        };
+        out.push(serde_json::json!({ "log": log, "actorId": actor, "name": name.chars().take(32).collect::<String>() }));
+    }
+    out
+}
+
 fn read_meta(app_data_dir: &Path, id: &str) -> SliceMeta {
     std::fs::read_to_string(meta_path(app_data_dir, id))
         .ok()

@@ -96,7 +96,9 @@ pub async fn merge_into_account(client: &reqwest::Client, app_data_dir: &Path) -
         .timeout(REQUEST_TIMEOUT)
         .header("authorization", format!("Bearer {account}"))
         .header("content-type", "application/json")
-        .body(serde_json::json!({ "guestToken": guest }).to_string())
+        // With the real names of this PC's uploads: a guest's fights went up
+        // masked, and the site names them again once they are the account's.
+        .body(serde_json::json!({ "guestToken": guest, "names": crate::share::uploaded_names(app_data_dir, 2000) }).to_string())
         .send()
         .await
         .ok()?;
