@@ -15,11 +15,12 @@
 //                                              charged }) and contentCounts ({ "<entry id>": [first,
 //                                              second] }: 1 Shugo keys, 4 Nightmare, 8 Invasion,
 //                                              101 Daily Dungeon, 60000001 Odyle energy (as in
-//                                              odyleEnergy), 80000001 Ascension Trial; other ids
-//                                              may change meaning or go: don't rely on them), each
-//                                              null until the game has said. A meter started
-//                                              mid-session has only the counts that changed since,
-//                                              until the next login or server transfer
+//                                              odyleEnergy), 80000001 Ascension Trial; 0 Daily Duty
+//                                              today [completed, taken]; other ids may change meaning
+//                                              or go: don't rely on them), each null until the game
+//                                              has said. A meter started mid-session has only the
+//                                              counts that changed since, until the next login or
+//                                              server transfer
 //   a2.on("bossMap", ({ map, bosses }) => ...) a map the player just opened, its field bosses as
 //                                              a2.bossTimers gives them (permission
 //                                              "feed:boss-timers", meter 2.0.65 on)
