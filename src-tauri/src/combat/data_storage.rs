@@ -1086,6 +1086,13 @@ impl DataStorage {
         }
     }
 
+    /// When the meter last counted damage, dealt or taken (clock ms);
+    /// `None` if it has not since the meter started. "Hide out of combat"
+    /// (app.rs) times its wait from it.
+    pub fn last_damage_ms(&self) -> Option<i64> {
+        Some(self.last_damage_ms.load(Ordering::Relaxed)).filter(|&ms| ms != NEVER_MS)
+    }
+
     /// When the last zone-change combat reset happened (clock ms), `NEVER_MS`
     /// if it has not.
     pub fn last_zone_reset_ms(&self) -> i64 {

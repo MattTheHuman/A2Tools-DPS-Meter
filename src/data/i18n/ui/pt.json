@@ -310,6 +310,11 @@
     "autoHideMeter": "Ocultar quando o AION2 não estiver em foco",
     "hideWhenGameClosed": "Ocultar enquanto o AION2 estiver fechado",
     "hideWhenSolo": "Mostrar só em grupo",
+    "hideOutOfCombat": {
+      "label": "Ocultar fora de combate",
+      "off": "Desligado",
+      "seconds": "Após {seconds} s"
+    },
     "showSuspendBtn": "Mostrar botão de pausar captura",
     "showLockBtn": "Mostrar botão de bloqueio (clique através)",
     "playerLimit": {
@@ -584,6 +589,7 @@
       "clearOnZone": "Quando o último combate sai do medidor após a mudança de zona. Todo combate fica no Histórico de qualquer forma.",
       "hideWhenGameClosed": "O medidor se oculta enquanto o jogo não está aberto e volta quando ele inicia.",
       "hideWhenSolo": "O medidor se oculta enquanto você não está em um grupo e volta quando você entra em um. O atalho de mostrar/ocultar ainda o exibe.",
+      "hideOutOfCombat": "O medidor se oculta após esse tempo fora de combate e volta no próximo golpe. Ele continua visível enquanto Configurações, Histórico ou Detalhes estiverem abertos, ou com o mouse sobre ele.",
       "runAsAdmin": "Necessário para mostrar o FPS do jogo. O Windows pergunta toda vez que o medidor inicia.",
       "shareData": "Compartilha os timers de chefes de campo e os Pedidos de suprimentos do seu servidor com o a2tools.app, para manter o A2Tools atualizado para todos: os chefes no seu mapa, os que você vê serem derrotados e o HP deles, e os quadros de pedidos após cada reinício. Nada sobre o seu personagem é enviado."
     },

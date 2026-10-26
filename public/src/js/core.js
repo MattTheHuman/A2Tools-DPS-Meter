@@ -8,6 +8,8 @@ const SETTING_CHOICES = {
   partyStat: { allowed: ["combatPower", "gearScore", "both", "off"], fallback: "combatPower" },
   // When the last fight leaves the screen after the zone changes.
   clearOnZone: { allowed: ["instance", "any", "never"], fallback: "instance" },
+  // Seconds without combat before the meter hides; "0" is off (app.rs, #106).
+  hideOutOfCombat: { allowed: ["0", "10", "20", "30", "60", "120"], fallback: "0" },
   // The number after the level in the Discord activity (presence.rs).
   discordStat: { allowed: ["combatPower", "gearScore", "off"], fallback: "off" },
   // A pattern over the meter's bars: a supporter's perk (applyBarTexture).
@@ -126,6 +128,7 @@ class DpsApp {
       autoHideMeter: "dpsMeter.autoHideMeter",
       hideWhenGameClosed: "dpsMeter.hideWhenGameClosed",
       hideWhenSolo: "dpsMeter.hideWhenSolo",
+      hideOutOfCombat: "dpsMeter.hideOutOfCombat",
       globalHotkeys: "dpsMeter.globalHotkeys",
       bossLogs: "dpsMeter.bossLogsEnabled",
       saveRawPackets: "dpsMeter.saveRawPackets",
@@ -2786,6 +2789,8 @@ class DpsApp {
     this.partyStatDropdownMenu = document.querySelector(".partyStatDropdownMenu");
     this.clearOnZoneDropdownBtn = document.querySelector(".clearOnZoneDropdownBtn");
     this.clearOnZoneDropdownMenu = document.querySelector(".clearOnZoneDropdownMenu");
+    this.hideOutOfCombatDropdownBtn = document.querySelector(".hideOutOfCombatDropdownBtn");
+    this.hideOutOfCombatDropdownMenu = document.querySelector(".hideOutOfCombatDropdownMenu");
     this.discordStatDropdownBtn = document.querySelector(".discordStatDropdownBtn");
     this.discordStatDropdownMenu = document.querySelector(".discordStatDropdownMenu");
     this.trainSelectionModeDropdownMenu = document.querySelector(".trainSelectionModeDropdownMenu");
@@ -3027,6 +3032,7 @@ class DpsApp {
     this.syncPreviewPartyStat();
     this.settingsSelections.discordStat = pickSettingChoice("discordStat", this.safeGetSetting(this.storageKeys.discordStat));
     this.settingsSelections.clearOnZone = pickSettingChoice("clearOnZone", this.safeGetSetting(this.storageKeys.clearOnZone));
+    this.settingsSelections.hideOutOfCombat = pickSettingChoice("hideOutOfCombat", this.safeGetSetting(this.storageKeys.hideOutOfCombat));
     this.barTexture = pickSettingChoice("barTexture", this.safeGetSetting(this.storageKeys.barTexture));
     this.settingsSelections.barTexture = this.barTexture;
     this.applyBarTexture(this.barTexture);
@@ -4221,6 +4227,23 @@ class DpsApp {
         if (!value) return;
         this.settingsSelections.clearOnZone = value;
         this.safeSetSetting(this.storageKeys.clearOnZone, value);
+      }
+    );
+
+    setupDropdown(
+      this.hideOutOfCombatDropdownBtn,
+      this.hideOutOfCombatDropdownMenu,
+      SETTING_CHOICES.hideOutOfCombat.allowed.map((value) => ({
+        value,
+        label: value === "0"
+          ? this.i18n?.t("settings.hideOutOfCombat.off", "Off") ?? "Off"
+          : this.i18n?.t("settings.hideOutOfCombat.seconds", `After ${value} s`, { seconds: value }) ?? `After ${value} s`,
+      })),
+      this.settingsSelections.hideOutOfCombat,
+      (value) => {
+        if (!value) return;
+        this.settingsSelections.hideOutOfCombat = value;
+        this.safeSetSetting(this.storageKeys.hideOutOfCombat, value);
       }
     );
 
@@ -5958,6 +5981,7 @@ class DpsApp {
       partyStat: "partyStat",
       discordStat: "discordStat",
       barTexture: "barTexture",
+      hideOutOfCombat: "hideOutOfCombat",
     };
     for (const [name, control] of Object.entries(choices)) {
       if (key !== this.storageKeys[name]) continue;

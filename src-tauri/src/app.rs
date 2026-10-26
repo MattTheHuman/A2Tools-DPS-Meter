@@ -297,6 +297,11 @@ fn auto_hide_now(app: &tauri::AppHandle) {
     if state.settings.get("dpsMeter.autoHideMeter").unwrap_or_default() != "true" || !meter_wanted(app) {
         return;
     }
+    // Hidden by a rule of its own (AION2 closed, solo, out of combat): the
+    // game coming to the front doesn't bring it back.
+    if HIDDEN_BY_RULE.load(std::sync::atomic::Ordering::Relaxed) {
+        return;
+    }
     let Some(window) = app.get_webview_window("main") else { return };
     let front = platform::window_detector::is_aion2_foreground() || window.is_focused().unwrap_or(false);
     let hidden = !window.is_visible().unwrap_or(true)
@@ -307,6 +312,45 @@ fn auto_hide_now(app: &tauri::AppHandle) {
     } else if !front && !hidden {
         platform::window::minimize_off_top(&window);
     }
+}
+
+/// The meter hidden by the 500 ms check's own rules: AION2 closed, solo, or
+/// out of combat. Not the player hiding it (`meter_wanted`): it comes back
+/// by itself when the rule no longer holds.
+static HIDDEN_BY_RULE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// "Hide out of combat" (#106): seconds without combat before the meter
+/// hides; 0 is off.
+const HIDE_OUT_OF_COMBAT_KEY: &str = "dpsMeter.hideOutOfCombat";
+
+fn hide_out_of_combat_secs(settings: &Settings) -> u64 {
+    settings.get(HIDE_OUT_OF_COMBAT_KEY).and_then(|v| v.trim().parse().ok()).unwrap_or(0)
+}
+
+/// Whether `secs` seconds without combat have passed by `now_ms`, timed from
+/// `last_combat_ms` (clock ms): the later of the last damage the meter
+/// counted and when the wait began. 0 seconds is off.
+fn out_of_combat(last_combat_ms: i64, now_ms: i64, secs: u64) -> bool {
+    secs > 0 && now_ms.saturating_sub(last_combat_ms) >= i64::try_from(secs).unwrap_or(i64::MAX).saturating_mul(1000)
+}
+
+/// What keeps the meter up out of combat: Settings, History or a fight's
+/// Details open, or (`pointer` true) the mouse over the meter. The pointer
+/// isn't asked while the meter is hidden: on Linux it stays mapped where it
+/// was, and passing over the empty spot would bring it back.
+fn keeps_meter_up(app: &tauri::AppHandle, main: &tauri::WebviewWindow, pointer: bool) -> bool {
+    let tool_open = app.webview_windows().into_iter().any(|(label, w)| {
+        (TOOL_WINDOWS.contains(&label.as_str()) || label.starts_with("details-"))
+            && w.is_visible().unwrap_or(false)
+            && !platform::window::is_hidden_in_place(&w)
+    });
+    tool_open || (pointer && pointer_over_window(main))
+}
+
+fn pointer_over_window(window: &tauri::WebviewWindow) -> bool {
+    let Some((px, py)) = platform::window::cursor_position() else { return false };
+    let (Ok(at), Ok(size)) = (window.inner_position(), window.inner_size()) else { return false };
+    px >= at.x && px < at.x + size.width as i32 && py >= at.y && py < at.y + size.height as i32
 }
 
 /// Tell the main window whether to ignore the mouse: when locked, unless the
@@ -3717,6 +3761,15 @@ pub fn run() {
                 let mut last_ping: Option<u64> = None;
                 // The meter hidden because AION2 is closed (Settings).
                 let mut hidden_closed = false;
+                // Hide while AION2 is closed or while solo, as last checked.
+                let mut closed_or_solo = false;
+                // Out of combat (#106): the setting last seen, and when the
+                // wait began (the meter started, the setting changed, the
+                // player showed the meter, or a Settings/History/Details
+                // window or the mouse kept it up).
+                let mut combat_secs: u64 = 0;
+                let mut combat_wait_from = crate::clock::now_ms();
+                let mut was_wanted = true;
                 // The other windows hidden with the meter (auto-hide), and how
                 // many ticks nothing of ours or the game has been in front.
                 let mut hidden_with_meter: std::collections::HashSet<String> = Default::default();
@@ -3753,33 +3806,70 @@ pub fn run() {
                         }
 
                         // --- Hide while AION2 is closed, or while solo (every 2 s) ---
+                        // --- or out of combat (every tick) ---
                         // Hidden as the game closes or the party breaks up (or
                         // the option is turned on then), shown as it opens or a
                         // party forms: in between, the keybind can still bring
                         // the meter back. Solo is fewer than two in the party,
                         // as the game last told (Hirai, 2026-10-22).
+                        // Out of combat: hidden that many seconds after the
+                        // last damage the meter counted, back with the next
+                        // hit; no keybind needed (#106, a headless stream).
+                        let on = |key: &str| state.settings.get(key).as_deref() == Some("true");
                         if tick_count % 4 == 0 {
-                            let on = |key: &str| state.settings.get(key).as_deref() == Some("true");
                             let closed = on("dpsMeter.hideWhenGameClosed") && !platform::window_detector::find_aion2_window();
                             let solo = on("dpsMeter.hideWhenSolo") && state.data_storage.get_party_members().len() < 2;
-                            let want = meter_wanted(&handle) && (closed || solo);
-                            if want != hidden_closed {
-                                if let Some(window) = handle.get_webview_window("main") {
-                                    if want {
-                                        platform::window::minimize_off_top(&window);
-                                    } else {
-                                        show_meter_again(&handle, &window);
-                                    }
+                            closed_or_solo = closed || solo;
+                        }
+                        let now_ms = crate::clock::now_ms();
+                        let secs = hide_out_of_combat_secs(&state.settings);
+                        if secs != combat_secs {
+                            combat_secs = secs;
+                            combat_wait_from = now_ms;
+                        }
+                        let wanted = meter_wanted(&handle);
+                        if wanted && !was_wanted {
+                            // Shown by the player out of combat: not hidden
+                            // again at once.
+                            combat_wait_from = now_ms;
+                        }
+                        was_wanted = wanted;
+                        let main = handle.get_webview_window("main");
+                        if combat_secs > 0
+                            && let Some(window) = &main
+                            && keeps_meter_up(&handle, window, !hidden_closed)
+                        {
+                            combat_wait_from = now_ms;
+                        }
+                        let last_combat = state.data_storage.last_damage_ms().unwrap_or(i64::MIN).max(combat_wait_from);
+                        let idle = tick_count > 20 && out_of_combat(last_combat, now_ms, combat_secs);
+                        let want = wanted && (closed_or_solo || idle);
+                        if want != hidden_closed {
+                            if let Some(window) = &main {
+                                if want {
+                                    platform::window::minimize_off_top(window);
+                                } else if wanted
+                                    && !(on("dpsMeter.autoHideMeter")
+                                        && !platform::window_detector::is_aion2_foreground()
+                                        && !window.is_focused().unwrap_or(false))
+                                {
+                                    // Hidden by the player meanwhile, it stays
+                                    // so; with another program in front and
+                                    // "Hide when AION2 isn't focused" on, the
+                                    // check below brings it back with the game.
+                                    show_meter_again(&handle, window);
                                 }
-                                hidden_closed = want;
                             }
+                            hidden_closed = want;
+                            HIDDEN_BY_RULE.store(want, std::sync::atomic::Ordering::Relaxed);
                         }
 
                         // --- Auto-hide when AION2 loses focus (every tick) ---
                         // The meter's own hiding waits while it is hidden
-                        // anyway (by the player, AION2 closed, or solo); the
-                        // rest below doesn't: Ping's icon stayed over the
-                        // browser with the meter hidden while solo (Hirai).
+                        // anyway (by the player, AION2 closed, solo, or out
+                        // of combat); the rest below doesn't: Ping's icon
+                        // stayed over the browser with the meter hidden while
+                        // solo (Hirai).
                         let others_auto_hide = tick_count > 20
                             && state.settings.get("dpsMeter.autoHideMeter")
                                 .unwrap_or_default() == "true";
@@ -4117,6 +4207,21 @@ pub fn run() {
 mod tests {
     #[cfg_attr(not(feature = "online"), allow(unused_imports))]
     use super::*;
+
+    /// "Hide out of combat" (#106): hidden once the seconds have passed since
+    /// the last hit (or the wait began), never while off.
+    #[test]
+    fn the_meter_hides_after_the_seconds_out_of_combat() {
+        assert!(!out_of_combat(10_000, 19_999, 10));
+        assert!(out_of_combat(10_000, 20_000, 10));
+        assert!(out_of_combat(10_000, 200_000, 120));
+        assert!(!out_of_combat(10_000, 129_999, 120));
+        // Off.
+        assert!(!out_of_combat(0, i64::MAX, 0));
+        // No damage yet and no wait begun: no overflow.
+        assert!(out_of_combat(i64::MIN, 0, 30));
+        assert!(!out_of_combat(0, 0, u64::MAX));
+    }
 
     /// Locked, the window ignores the mouse except over the lock button, and
     /// while a card is open: a one-time popup at start under a lock left on
