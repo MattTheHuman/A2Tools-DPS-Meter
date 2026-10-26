@@ -437,8 +437,8 @@ fn boss_map_event(map: &crate::capture::boss_map::BossMap) -> Value {
 fn character(app: &tauri::AppHandle) -> Option<Value> {
     app.try_state::<AppState>().map(|s| {
         let p = s.data_storage.local_profile();
-        // Owner, energy and counts from one moment: a login's list replaces
-        // them all at once.
+        // Owner, energy, counts, shop limits and crafts from one moment: a
+        // login's list replaces them all at once.
         let list = s.data_storage.entry_list();
         let theirs = matches!((list.owner.as_deref(), p.name.as_deref()), (Some(o), Some(n)) if o.trim() == n.trim());
         let odyle = list
@@ -460,11 +460,9 @@ fn character(app: &tauri::AppHandle) -> Option<Value> {
         // the character's): as the shop or crafting window last opened, or a
         // purchase or craft since. Theirs the same way. Past its reset a
         // limit is `[0, null]`: nothing bought, the next reset not known until
-        // the shop opens again.
-        let shop = s.data_storage.shop_limits_at(crate::clock::now_ms());
-        let shop = (theirs && !shop.is_empty()).then(|| serde_json::json!(shop));
-        let crafts = s.data_storage.craft_counts();
-        let crafts = (theirs && !crafts.is_empty()).then(|| serde_json::json!(crafts));
+        // the shop opens again. From the same snapshot as the owner.
+        let shop = (theirs && !list.shop_limits.is_empty()).then(|| serde_json::json!(list.shop_limits));
+        let crafts = (theirs && !list.crafts.is_empty()).then(|| serde_json::json!(list.crafts));
         serde_json::json!({
             "name": p.name,
             "serverId": p.server_id,

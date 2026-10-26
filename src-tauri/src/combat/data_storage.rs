@@ -1563,7 +1563,14 @@ impl DataStorage {
     /// the Odyle energy and the counts.
     pub fn entry_list(&self) -> EntryList {
         let inner = self.inner.read();
-        EntryList { owner: inner.odyle_owner.clone(), odyle_energy: inner.odyle_energy, counts: content_counts_of(&inner, now_ms()) }
+        let now = now_ms();
+        EntryList {
+            owner: inner.odyle_owner.clone(),
+            odyle_energy: inner.odyle_energy,
+            counts: content_counts_of(&inner, now),
+            shop_limits: shop_limits_of(&inner, now),
+            crafts: inner.craft_counts.clone(),
+        }
     }
 
     /// Shop purchase limits: `(item id, bought, next reset unix ms)`, the
@@ -1587,12 +1594,7 @@ impl DataStorage {
     /// Once its reset has passed, 0 bought and the next reset unknown (`None`)
     /// until the shop opens again: the game doesn't say how often each resets.
     pub fn shop_limits_at(&self, now: i64) -> std::collections::BTreeMap<u32, (u32, Option<i64>)> {
-        let inner = self.inner.read();
-        inner
-            .shop_limits
-            .iter()
-            .map(|(&id, &(bought, reset_ms))| (id, if now >= reset_ms { (0, None) } else { (bought, Some(reset_ms)) }))
-            .collect()
+        shop_limits_of(&self.inner.read(), now)
     }
 
     /// Crafts made by recipe: the crafting window's whole list (`whole`) or
@@ -3049,6 +3051,18 @@ pub struct EntryList {
     pub owner: Option<String>,
     pub odyle_energy: Option<(u32, u32)>,
     pub counts: std::collections::BTreeMap<u32, [u32; 2]>,
+    /// `(bought, next reset)` by item id (`DataStorage::shop_limits_at`).
+    pub shop_limits: std::collections::BTreeMap<u32, (u32, Option<i64>)>,
+    pub crafts: std::collections::BTreeMap<u32, u32>,
+}
+
+/// The shop's limits at `now` (`DataStorage::shop_limits_at`).
+fn shop_limits_of(inner: &Inner, now: i64) -> std::collections::BTreeMap<u32, (u32, Option<i64>)> {
+    inner
+        .shop_limits
+        .iter()
+        .map(|(&id, &(bought, reset_ms))| (id, if now >= reset_ms { (0, None) } else { (bought, Some(reset_ms)) }))
+        .collect()
 }
 
 /// Whether a quest taken that isn't on the board looks like a new day's duty

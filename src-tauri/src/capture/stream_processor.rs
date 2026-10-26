@@ -4454,10 +4454,17 @@ mod tests {
         p.parse_perfect_packet(&hex("198e560000012d8701000000000080fd4e81a1010000"));
         assert_eq!(storage.shop_limits_at(now).len(), 3);
 
+        // The character event reads them with the owner, at one moment.
+        let list = storage.entry_list();
+        assert_eq!(list.crafts, storage.craft_counts());
+        assert_eq!(list.shop_limits.len(), 3);
+
         // Another character's login: neither is theirs.
         storage.set_content_counts(vec![(1, [12, 9])], true);
         assert!(storage.shop_limits_at(now).is_empty());
         assert!(storage.craft_counts().is_empty());
+        let list = storage.entry_list();
+        assert!(list.shop_limits.is_empty() && list.crafts.is_empty());
     }
 
     /// The whole entry-count list, by id, and its updates (Nullception's
