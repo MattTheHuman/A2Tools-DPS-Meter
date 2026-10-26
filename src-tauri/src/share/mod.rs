@@ -771,7 +771,7 @@ pub const AUTO_UPLOAD_KEY: &str = "dpsMeter.autoUpload";
 /// the key.
 pub fn auto_uploads(settings: &crate::config::settings::Settings) -> bool {
     settings.get(AUTO_UPLOAD_KEY).as_deref() == Some("true")
-        || settings.get(crate::account::guest::GUEST_UPLOAD_KEY).as_deref() == Some("true")
+        || crate::account::guest::uploads(settings)
 }
 
 #[cfg(feature = "online")]
@@ -951,7 +951,7 @@ pub async fn upload_detailed(
         // Not signed in: as a guest, when the player chose to upload without
         // an account (account::guest), claimable once they sign in.
         crate::account::secret::Stored::Missing
-            if settings.get(crate::account::guest::GUEST_UPLOAD_KEY).as_deref() == Some("true") =>
+            if crate::account::guest::uploads(settings) =>
         {
             as_guest = true;
             crate::account::guest::token(client, app_data_dir).await.map_err(|e| UploadFailure {

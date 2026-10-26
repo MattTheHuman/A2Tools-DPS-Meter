@@ -788,6 +788,39 @@ async fn account_status(
 }
 
 #[cfg(feature = "online")]
+/// "Stop sharing" (the sharing notice, 2.0.80 on): no more uploads without an
+/// account, and the fights this PC already uploaded that way deleted from
+/// a2tools.app, in the background.
+#[tauri::command]
+fn guest_stop_sharing(app: tauri::AppHandle, state: tauri::State<'_, AppState>) {
+    state.settings.set(crate::account::guest::GUEST_UPLOAD_KEY, "false");
+    state.settings.set(crate::account::guest::DELETE_PENDING_KEY, "true");
+    spawn_guest_delete(app);
+}
+
+#[cfg(feature = "online")]
+/// Delete this PC's guest uploads while that is pending: at once, then less
+/// and less often (up to every 30 minutes) until the site answers; a meter
+/// closed meanwhile tries again at its next start.
+fn spawn_guest_delete(app: tauri::AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        let mut wait = Duration::from_secs(30);
+        loop {
+            let Some(state) = app.try_state::<AppState>() else { return };
+            if state.settings.get(crate::account::guest::DELETE_PENDING_KEY).as_deref() != Some("true") {
+                return;
+            }
+            if crate::account::guest::delete_uploads(&state.http, &state.app_data_dir).await.is_some() {
+                state.settings.set(crate::account::guest::DELETE_PENDING_KEY, "false");
+                return;
+            }
+            tokio::time::sleep(wait).await;
+            wait = (wait * 2).min(Duration::from_secs(30 * 60));
+        }
+    });
+}
+
+#[cfg(feature = "online")]
 /// Whether this PC has fights uploaded without an account, not claimed yet.
 #[tauri::command]
 fn guest_status(state: tauri::State<'_, AppState>) -> serde_json::Value {
@@ -3569,13 +3602,13 @@ pub fn run() {
                 ping_tracker.clone(),
             );
 
-            // A new install (no settings yet): fights upload without an account
-            // unless the player signs in or says no (the account card asks once).
+            // A new install (no settings yet): the page asks about sharing
+            // before anything uploads (2.0.80 on; it used to switch guest
+            // uploads on by itself, audit H3).
             let new_install = !app_data_dir.join("settings.json").exists();
             let settings = Settings::new(app_data_dir.clone());
             #[cfg(feature = "online")]
             if new_install {
-                settings.set(crate::account::guest::GUEST_UPLOAD_KEY, "true");
                 settings.set("dpsMeter.newInstall", "true");
             }
             #[cfg(not(feature = "online"))]
@@ -3689,6 +3722,10 @@ pub fn run() {
             crate::supply_report::spawn(app.handle().clone());
             #[cfg(feature = "online")]
             crate::party_presence::spawn(app.handle().clone());
+            // A deletion of guest uploads the player asked for that hasn't
+            // gone through yet: tried again.
+            #[cfg(feature = "online")]
+            spawn_guest_delete(app.handle().clone());
             #[cfg(feature = "online")]
             crate::stream_overlay::sync(app.handle());
 
@@ -4312,6 +4349,7 @@ pub fn run() {
             fetch_url,
             show_update_window,
             build_features,
+            guest_stop_sharing,
         ];
             // A plugin's window, the dock and widgets reach only the commands
             // their pages use (`plugins::allowed_from`, security audit H2).
