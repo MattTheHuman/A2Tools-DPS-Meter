@@ -279,6 +279,7 @@ impl StreamProcessor {
         self.parse_odyle_energy_packet(packet);
         self.parse_daily_duty_packet(packet);
         self.parse_shop_and_craft_packet(packet);
+        self.parse_kinah_and_abyss_points_packet(packet);
         self.parse_stagger_gauge_packet(packet);
         self.parse_self_stats_packet(packet);
         self.parse_death_packet(packet);
@@ -483,6 +484,48 @@ impl StreamProcessor {
             Some([0x8B, 0x8D]) => {
                 if let Some(count) = craft_done(body) {
                     self.data_storage.set_craft_counts(&[count], false);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // ===== KINAH TODAY AND ABYSS POINTS (A5 FF, A6 FF, A9 FF) =====
+
+    /// The Kinah gained today and the week's Abyss Points, for plugins. At a
+    /// login or transfer the Abyss Points come just before the list and
+    /// again with the self record, the Kinah (`a5`) just after the list;
+    /// the Kinah comes again at each gain (`a6`).
+    ///
+    /// Seen on 2026-10-25 (Nullception): the Abyss Points 50659 of 2000000
+    /// as the game said, and Kinah 520, 1017, 1534 as it was picked up (the
+    /// game: 1534 of its daily 1000000).
+    fn parse_kinah_and_abyss_points_packet(&self, packet: &[u8]) {
+        let length_info = read_varint(packet, 0);
+        if length_info.length <= 0 {
+            return;
+        }
+        let offset = length_info.length as usize;
+        let body = packet.get(offset + 2..).unwrap_or_default();
+        match packet.get(offset..offset + 2) {
+            // Kinah gained today, at login (`a5`) and each gain (`a6`):
+            // `<kinah u64> <now u64 ms>`, at most the daily 1000000, the
+            // time between 2025 and 2028.
+            Some([op @ (0xA5 | 0xA6), 0xFF]) if body.len() == 16 => {
+                let kinah = u64::from_le_bytes(body[..8].try_into().unwrap());
+                let at = i64::from_le_bytes(body[8..].try_into().unwrap());
+                if kinah <= 1_000_000 && (1_735_689_600_000..1_861_920_000_000).contains(&at) {
+                    self.data_storage.set_kinah_today(kinah, at, *op == 0xA5);
+                }
+            }
+            // Abyss Points this week and the week's limit: `<points u64>
+            // <limit u64>`.
+            Some([0xA9, 0xFF]) if body.len() == 16 => {
+                let points = u64::from_le_bytes(body[..8].try_into().unwrap());
+                let limit = u64::from_le_bytes(body[8..].try_into().unwrap());
+                if (1..=1_000_000_000).contains(&limit) && points <= limit {
+                    let now = self.override_timestamp.unwrap_or_else(crate::clock::now_ms);
+                    self.data_storage.set_abyss_points(points, limit, now);
                 }
             }
             _ => {}
@@ -4465,6 +4508,64 @@ mod tests {
         assert!(storage.craft_counts().is_empty());
         let list = storage.entry_list();
         assert!(list.shop_limits.is_empty() && list.crafts.is_empty());
+    }
+
+    /// Kinah gained today at a login, then a pickup; the week's Abyss Points
+    /// and limit (2026-10-25, Nullception). A login's wait for the self
+    /// record; a reset since gives 0.
+    #[test]
+    fn kinah_today_and_abyss_points() {
+        let (storage, mut p) = processor();
+        // 2026-10-25 12:00 UTC, a Sunday.
+        let now = 1_792_929_600_000;
+        p.set_override_timestamp(Some(now));
+        storage.set_local_identity_from_game(1030, Some("Main".into()));
+        storage.set_kinah_today(400, now, false);
+        storage.set_abyss_points(7, 2_000_000, now);
+        storage.set_local_identity_from_game(1030, Some("Main".into()));
+        // Alt's login: its Abyss Points before the list, its Kinah after.
+        p.parse_perfect_packet(&hex("13a9ffe3c500000000000080841e0000000000"));
+        p.parse_perfect_packet(&hex("13a5ff00000000000000000983c072a1010000"));
+        assert_eq!(storage.kinah_today_at(now), Some(400), "Main's until the self record");
+        assert_eq!(storage.abyss_points_at(now), Some((7, 2_000_000)));
+        storage.set_local_identity_from_game(4294, Some("Alt".into()));
+        assert_eq!(storage.kinah_today_at(now), Some(0));
+        assert_eq!(storage.abyss_points_at(now), Some((50_659, 2_000_000)));
+        p.parse_perfect_packet(&hex("13a6fffe050000000000006b32e172a1010000"));
+        assert_eq!(storage.kinah_today_at(now), Some(1534));
+        // Points over the limit aren't the points; nor Kinah past the daily
+        // cap or with a time that isn't one.
+        p.parse_perfect_packet(&hex("13a9ff05000000000000000100000000000000"));
+        p.parse_perfect_packet(&hex("13a6ff41420f00000000006b32e172a1010000"));
+        p.parse_perfect_packet(&hex("13a6ff06060000000000000500000000000000"));
+        storage.set_local_identity_from_game(4294, Some("Alt".into()));
+        assert_eq!(storage.kinah_today_at(now), Some(1534));
+        assert_eq!(storage.abyss_points_at(now), Some((50_659, 2_000_000)));
+        // The daily reset (2026-10-26 07:00 UTC) and the weekly (Wednesday
+        // 2026-10-28 07:00 UTC).
+        let monday = 1_792_998_000_000;
+        assert_eq!(storage.kinah_today_at(monday - 1), Some(1534));
+        assert_eq!(storage.kinah_today_at(monday), Some(0));
+        assert_eq!(storage.abyss_points_at(monday), Some((50_659, 2_000_000)));
+        let wednesday = monday + 2 * 24 * 60 * 60 * 1000;
+        assert_eq!(storage.abyss_points_at(wednesday - 1), Some((50_659, 2_000_000)));
+        assert_eq!(storage.abyss_points_at(wednesday), Some((0, 2_000_000)));
+
+        // A login whose list brings no Kinah or Abyss Points: the last
+        // character's go with the list.
+        storage.set_content_counts(vec![(1, [12, 9])], true);
+        storage.set_local_identity_from_game(5100, Some("Third".into()));
+        assert_eq!(storage.kinah_today_at(now), None);
+        assert_eq!(storage.abyss_points_at(now), None);
+        // A pickup between the list and the self record is newer than the
+        // login's Kinah held for it.
+        storage.set_content_counts(vec![(1, [12, 9])], true);
+        p.parse_perfect_packet(&hex("13a5ff00000000000000000983c072a1010000"));
+        p.parse_perfect_packet(&hex("13a6fffe050000000000006b32e172a1010000"));
+        storage.set_local_identity_from_game(4294, Some("Alt".into()));
+        assert_eq!(storage.kinah_today_at(now), Some(1534));
+        let list = storage.entry_list();
+        assert_eq!((list.owner.as_deref(), list.kinah_today), (Some("Alt"), Some(1534)));
     }
 
     /// The whole entry-count list, by id, and its updates (Nullception's

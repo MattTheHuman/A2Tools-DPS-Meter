@@ -437,8 +437,8 @@ fn boss_map_event(map: &crate::capture::boss_map::BossMap) -> Value {
 fn character(app: &tauri::AppHandle) -> Option<Value> {
     app.try_state::<AppState>().map(|s| {
         let p = s.data_storage.local_profile();
-        // Owner, energy, counts, shop limits and crafts from one moment: a
-        // login's list replaces them all at once.
+        // Owner, energy, counts, shop limits, crafts, Kinah and Abyss Points
+        // from one moment: a login's list replaces them all at once.
         let list = s.data_storage.entry_list();
         let theirs = matches!((list.owner.as_deref(), p.name.as_deref()), (Some(o), Some(n)) if o.trim() == n.trim());
         let odyle = list
@@ -474,6 +474,11 @@ fn character(app: &tauri::AppHandle) -> Option<Value> {
             "contentCounts": content,
             "shopLimits": shop,
             "crafts": crafts,
+            // Kinah gained today and the Abyss Points this week with the
+            // week's limit, from login, 0 once their reset has passed.
+            // Theirs the same way, from the same snapshot.
+            "kinahToday": list.kinah_today.filter(|_| theirs),
+            "abyssPoints": list.abyss_points.filter(|_| theirs).map(|(p, l)| [p, l]),
         })
     })
 }

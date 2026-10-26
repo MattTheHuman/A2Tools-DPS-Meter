@@ -24,9 +24,12 @@
 //                                              [bought, next reset ms] }: 100134 Buy Odyle Energy,
 //                                              100135 Buy Rift Stones; [0, null] once its reset has
 //                                              passed, until the shop opens again) once the shop has
-//                                              opened, and crafts ({ "<recipe id>": made }: 32070001
-//                                              Odyle Energy server-wide, 32070002 per character) once
-//                                              the crafting window has opened
+//                                              opened, crafts ({ "<recipe id>": made }: 32070001 Odyle
+//                                              Energy server-wide, 32070002 per character) once the
+//                                              crafting window has opened, and kinahToday (Kinah gained
+//                                              today) and abyssPoints ([this week, the week's limit])
+//                                              from login, 0 once the daily reset (07:00 UTC) or the
+//                                              weekly (Wednesday) has passed
 //   a2.on("bossMap", ({ map, bosses }) => ...) a map the player just opened, its field bosses as
 //                                              a2.bossTimers gives them (permission
 //                                              "feed:boss-timers", meter 2.0.65 on)
