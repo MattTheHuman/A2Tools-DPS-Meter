@@ -657,9 +657,8 @@
       "noMatch": "Keine passenden Plugins.",
       "permsTitle": "Es darf:",
       "permFps": "Die Bildrate des Spiels anzeigen (unter Windows bittet das Meter dafür, als Administrator zu laufen)",
-      "testLabel": "Test-Plugin installieren",
-      "testHint": "Test-Plugins sind signiert wie die anderen, aber nicht gelistet. Gib die ID ein, die du bekommen hast.",
-      "testUnknown": "Kein Test-Plugin hat diese ID."
+      "testHint": "Frühe Versionen zum Ausprobieren für alle, signiert wie die anderen. Sie können sich noch ändern oder Ecken und Kanten haben: Sag uns, was dir auffällt.",
+      "testTitle": "Test-Plugins"
     },
     "clearOnZone": {
       "label": "Meter leeren",

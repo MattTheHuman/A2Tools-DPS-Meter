@@ -1838,8 +1838,7 @@ body.mainPlayerDpsBold :is(.meter, .barPreviewPanel) .item .content .dps > p {
   min-width: 0;
 }
 .settingsPanel .characterNameInput,
-.settingsPanel .localActorIdInput,
-.settingsPanel .pluginTestId {
+.settingsPanel .localActorIdInput {
   height: var(--set-field-h);
   box-sizing: border-box;
   padding: 0 8px;
@@ -1854,14 +1853,28 @@ body.mainPlayerDpsBold :is(.meter, .barPreviewPanel) .item .content .dps > p {
   max-width: 180px;
   font-family: var(--hud-ident);
 }
-.settingsPanel .pluginTestId {
-  width: 140px;
-  font-family: var(--hud-tech);
+/* Test plugins: their own heading under the reviewed ones, each row marked. */
+.settingsPanel .pluginTestHead {
+  margin: 12px 0 4px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
-.settingsPanel .pluginTestRow .settingsRowEnd {
-  display: flex;
-  gap: 6px;
-  align-items: center;
+.settingsPanel .pluginTestTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+}
+.settingsPanel .pluginTest .pluginNameText::after {
+  content: "TEST";
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  vertical-align: 1px;
+  color: #1a1206;
+  background: #f2b94f;
 }
 .settingsPanel .localActorIdInput {
   width: 76px;
@@ -1869,14 +1882,12 @@ body.mainPlayerDpsBold :is(.meter, .barPreviewPanel) .item .content .dps > p {
   font-variant-numeric: tabular-nums;
 }
 .settingsPanel .characterNameInput:focus,
-.settingsPanel .localActorIdInput:focus,
-.settingsPanel .pluginTestId:focus {
+.settingsPanel .localActorIdInput:focus {
   outline: none;
   border-color: var(--settings-accent, var(--isUser-fill));
 }
 .settingsPanel .characterNameInput::placeholder,
-.settingsPanel .localActorIdInput::placeholder,
-.settingsPanel .pluginTestId::placeholder {
+.settingsPanel .localActorIdInput::placeholder {
   color: var(--hud-faint);
 }
 .settingsPanel .settingsActorInline {

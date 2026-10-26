@@ -657,9 +657,8 @@
       "noMatch": "Aucun plugin ne correspond.",
       "permsTitle": "Il peut :",
       "permFps": "Afficher les FPS du jeu (sous Windows, le compteur demande à s'exécuter en tant qu'administrateur pour cela)",
-      "testLabel": "Installer un plugin de test",
-      "testHint": "Les plugins de test sont signés comme les autres mais ne sont pas listés. Saisis l'identifiant qu'on t'a donné.",
-      "testUnknown": "Aucun plugin de test n'a cet identifiant."
+      "testHint": "Des versions précoces que tout le monde peut essayer, signées comme les autres. Elles peuvent changer ou avoir des défauts : dis-nous ce que tu trouves.",
+      "testTitle": "Plugins de test"
     },
     "clearOnZone": {
       "label": "Vider le compteur",
