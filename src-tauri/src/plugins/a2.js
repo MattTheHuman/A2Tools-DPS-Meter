@@ -20,7 +20,13 @@
 //                                              or go: don't rely on them), each null until the game
 //                                              has said. A meter started mid-session has only the
 //                                              counts that changed since, until the next login or
-//                                              server transfer
+//                                              server transfer. Also shopLimits ({ "<item id>":
+//                                              [bought, next reset ms] }: 100134 Buy Odyle Energy,
+//                                              100135 Buy Rift Stones; [0, null] once its reset has
+//                                              passed, until the shop opens again) once the shop has
+//                                              opened, and crafts ({ "<recipe id>": made }: 32070001
+//                                              Odyle Energy server-wide, 32070002 per character) once
+//                                              the crafting window has opened
 //   a2.on("bossMap", ({ map, bosses }) => ...) a map the player just opened, its field bosses as
 //                                              a2.bossTimers gives them (permission
 //                                              "feed:boss-timers", meter 2.0.65 on)

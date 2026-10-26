@@ -454,6 +454,17 @@ fn character(app: &tauri::AppHandle) -> Option<Value> {
         // the known ones. Started mid-session, the meter has only the entries
         // that changed since, until the next login or transfer.
         let content = (theirs && !list.counts.is_empty()).then(|| serde_json::json!(list.counts));
+        // The shop's weekly purchase limits by item id, `[bought, next reset
+        // ms]` (100134 Buy Odyle Energy, 100135 Buy Rift Stones), and the
+        // crafts made by recipe (32070001 Odyle Energy, server-wide; 32070002
+        // the character's): as the shop or crafting window last opened, or a
+        // purchase or craft since. Theirs the same way. Past its reset a
+        // limit is `[0, null]`: nothing bought, the next reset not known until
+        // the shop opens again.
+        let shop = s.data_storage.shop_limits_at(crate::clock::now_ms());
+        let shop = (theirs && !shop.is_empty()).then(|| serde_json::json!(shop));
+        let crafts = s.data_storage.craft_counts();
+        let crafts = (theirs && !crafts.is_empty()).then(|| serde_json::json!(crafts));
         serde_json::json!({
             "name": p.name,
             "serverId": p.server_id,
@@ -463,6 +474,8 @@ fn character(app: &tauri::AppHandle) -> Option<Value> {
             "gearScore": p.gear_score,
             "odyleEnergy": odyle,
             "contentCounts": content,
+            "shopLimits": shop,
+            "crafts": crafts,
         })
     })
 }

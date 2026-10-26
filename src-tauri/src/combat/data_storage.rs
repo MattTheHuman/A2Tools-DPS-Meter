@@ -718,6 +718,11 @@ struct Inner {
     /// The game's entry counts by entry id (`0b 61` / `0c 61`), whose owner
     /// is Odyle energy's (they come in the same list).
     content_counts: std::collections::BTreeMap<u32, [u32; 2]>,
+    /// The shop's purchase limits by item id: (bought, next reset unix ms).
+    /// See `parse_shop_and_craft_packet`.
+    shop_limits: std::collections::BTreeMap<u32, (u32, i64)>,
+    /// Crafts made by recipe id, as the crafting window or a craft last said.
+    craft_counts: std::collections::BTreeMap<u32, u32>,
     /// The Daily Duty board. See `parse_daily_duty_packet`.
     daily_duty: Option<DutyBoard>,
 
@@ -848,6 +853,8 @@ impl DataStorage {
                 odyle_owner: None,
                 odyle_awaits_self_record: false,
                 content_counts: Default::default(),
+                shop_limits: Default::default(),
+                craft_counts: Default::default(),
                 daily_duty: None,
                 local_player_id: None,
                 supporters: std::sync::Arc::new(crate::supporters::Roster::default()),
@@ -1100,7 +1107,11 @@ impl DataStorage {
             || inner.local_character_name != name
             || inner.loot_identity.applied;
         inner.loot_identity.applied = false;
-        let known = inner.odyle_energy.is_some() || !inner.content_counts.is_empty() || inner.daily_duty.is_some();
+        let known = inner.odyle_energy.is_some()
+            || !inner.content_counts.is_empty()
+            || inner.daily_duty.is_some()
+            || !inner.shop_limits.is_empty()
+            || !inner.craft_counts.is_empty();
         if known && (inner.odyle_awaits_self_record || inner.odyle_owner.is_none()) {
             inner.odyle_owner = name.clone();
             inner.odyle_awaits_self_record = false;
@@ -1527,6 +1538,10 @@ impl DataStorage {
             // the server's, the sum of each character's today: a plugin
             // keeping each character's adds them up.
             inner.daily_duty = None;
+            // The shop's limits and the crafts are the character's too
+            // (a server-wide recipe's count is the same on each).
+            inner.shop_limits.clear();
+            inner.craft_counts.clear();
             let list: Vec<String> = counts.iter().map(|(id, v)| format!("{id}={}+{}", v[0], v[1])).collect();
             tracing::debug!("Content counts: {}", list.join(" "));
         }
@@ -1549,6 +1564,55 @@ impl DataStorage {
     pub fn entry_list(&self) -> EntryList {
         let inner = self.inner.read();
         EntryList { owner: inner.odyle_owner.clone(), odyle_energy: inner.odyle_energy, counts: content_counts_of(&inner, now_ms()) }
+    }
+
+    /// Shop purchase limits: `(item id, bought, next reset unix ms)`, the
+    /// whole list (`whole`, replacing the last) or the ones that changed.
+    /// One shop's list seen (seven items, the same at each opening): if other
+    /// shops send their own, each whole list would replace the other's.
+    pub fn set_shop_limits(&self, limits: &[(u32, u32, i64)], whole: bool) {
+        let mut inner = self.inner.write();
+        own_list(&mut inner, false);
+        if whole {
+            inner.shop_limits.retain(|id, _| limits.iter().any(|l| l.0 == *id));
+        }
+        for &(id, bought, reset_ms) in limits {
+            if inner.shop_limits.insert(id, (bought, reset_ms)) != Some((bought, reset_ms)) {
+                tracing::info!("Shop limit {id}: {bought} bought (resets {reset_ms})");
+            }
+        }
+    }
+
+    /// The shop's purchase limits by item id, `(bought, next reset unix ms)`.
+    /// Once its reset has passed, 0 bought and the next reset unknown (`None`)
+    /// until the shop opens again: the game doesn't say how often each resets.
+    pub fn shop_limits_at(&self, now: i64) -> std::collections::BTreeMap<u32, (u32, Option<i64>)> {
+        let inner = self.inner.read();
+        inner
+            .shop_limits
+            .iter()
+            .map(|(&id, &(bought, reset_ms))| (id, if now >= reset_ms { (0, None) } else { (bought, Some(reset_ms)) }))
+            .collect()
+    }
+
+    /// Crafts made by recipe: the crafting window's whole list (`whole`) or
+    /// one recipe after a craft.
+    pub fn set_craft_counts(&self, counts: &[(u32, u32)], whole: bool) {
+        let mut inner = self.inner.write();
+        own_list(&mut inner, false);
+        if whole {
+            inner.craft_counts.clear();
+        }
+        for &(recipe, n) in counts {
+            if !whole && inner.craft_counts.get(&recipe) != Some(&n) {
+                tracing::info!("Craft count {recipe}: {n}");
+            }
+            inner.craft_counts.insert(recipe, n);
+        }
+    }
+
+    pub fn craft_counts(&self) -> std::collections::BTreeMap<u32, u32> {
+        self.inner.read().craft_counts.clone()
     }
 
     /// Daily Duty at `now` (unix ms): `(completed, taken)`, taken counting
