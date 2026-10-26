@@ -944,6 +944,7 @@ fn dps_rate_ms(settings: &Settings) -> u64 {
 /// The All Targets time range (Settings), in milliseconds.
 const ALL_TARGETS_WINDOW_KEY: &str = "dpsMeter.allTargetsWindowMs";
 const METER_ANCHOR_KEY: &str = "dpsMeter.meterAnchor";
+const WINDOW_HEIGHT_KEY: &str = "window.h";
 
 fn apply_all_targets_window(state: &AppState, value: &str) {
     if let Ok(ms) = value.trim().parse::<i64>() {
@@ -1898,7 +1899,11 @@ fn build_features() -> serde_json::Value {
     // supporter's account (bar textures), to test those without one. A
     // release build ignores it.
     let dev_supporter = cfg!(debug_assertions) && std::env::var_os("A2_DEV_SUPPORTER").is_some();
-    serde_json::json!({ "online": cfg!(feature = "online"), "devSupporter": dev_supporter })
+    serde_json::json!({
+        "online": cfg!(feature = "online"),
+        "devSupporter": dev_supporter,
+        "meterAnchor": platform::window::meter_anchor_available(),
+    })
 }
 
 #[tauri::command]
@@ -1921,11 +1926,26 @@ fn parse_meter_anchor(value: Option<&str>) -> MeterAnchor {
     }
 }
 
-fn meter_anchor(state: &tauri::State<'_, AppState>, requested: Option<&str>) -> MeterAnchor {
-    if let Some(requested) = requested {
-        return parse_meter_anchor(Some(requested));
+fn meter_anchor(state: &tauri::State<'_, AppState>) -> MeterAnchor {
+    parse_meter_anchor(state.settings.get(METER_ANCHOR_KEY).as_deref())
+}
+
+fn physical_size_for_window(window: &tauri::WebviewWindow, size: &tauri::Size) -> Option<tauri::PhysicalSize<u32>> {
+    match size {
+        tauri::Size::Physical(s) => Some(*s),
+        tauri::Size::Logical(s) => {
+            let scale = window.scale_factor().ok()?;
+            let width = (s.width * scale).round();
+            let height = (s.height * scale).round();
+            if !width.is_finite() || !height.is_finite() || width <= 0.0 || height <= 0.0 {
+                return None;
+            }
+            Some(tauri::PhysicalSize {
+                width: width as u32,
+                height: height as u32,
+            })
+        }
     }
-    parse_meter_anchor(state.settings.get("dpsMeter.meterAnchor").as_deref())
 }
 
 #[tauri::command]
@@ -1935,12 +1955,13 @@ fn resize_window(
     width: f64,
     height: f64,
     scale: Option<f64>,
-    anchor: Option<String>,
+    preserve_anchor: Option<bool>,
 ) {
     // Only the overlay auto-sizes itself. The details window is sized to a
     // whole monitor by open_details_window and must never be resized from JS.
     let Some(window) = app.get_webview_window("main") else { return };
-    let anchor = meter_anchor(&state, anchor.as_deref());
+    let anchor = meter_anchor(&state);
+    let preserve_anchor = preserve_anchor.unwrap_or(true);
     let old_pos = window.outer_position().ok();
     let old_size = window.outer_size().ok();
     // `width`/`height` are the page's CSS pixels and `scale` its
@@ -1955,52 +1976,40 @@ fn resize_window(
         }),
         None => tauri::Size::Logical(tauri::LogicalSize { width, height }),
     };
-    platform::window::set_size(&window, size);
     // On native Wayland, KDE's KWin script keeps placement/anchor because the
     // meter itself cannot reliably place top-level windows.
-    if !platform::window::places_own_windows() {
+    if !platform::window::places_own_windows() || !preserve_anchor {
+        platform::window::set_size(&window, size);
         return;
     }
-    if anchor == MeterAnchor::Middle {
-        return;
-    }
-    let (Some(old_pos), Some(old_size)) = (old_pos, old_size) else {
+    let (Some(old_pos), Some(old_size), Some(new_size)) = (old_pos, old_size, physical_size_for_window(&window, &size)) else {
+        platform::window::set_size(&window, size);
         return;
     };
-    let app_for_move = app.clone();
-    let settled = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let settled_for_loop = settled.clone();
-    tauri::async_runtime::spawn(async move {
-        for _ in 0..12 {
-            if settled_for_loop.load(std::sync::atomic::Ordering::Relaxed) {
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(16)).await;
-            let app_for_read = app_for_move.clone();
-            let settled_for_tick = settled_for_loop.clone();
-            let _ = app_for_move.run_on_main_thread(move || {
-                let Some(window) = app_for_read.get_webview_window("main") else { return };
-                let (Ok(new_pos), Ok(new_size)) = (window.outer_position(), window.outer_size()) else { return };
-                let delta_h = new_size.height as i32 - old_size.height as i32;
-                if delta_h == 0 {
-                    return;
-                }
-                let desired_y = match anchor {
-                    MeterAnchor::Top => old_pos.y,
-                    MeterAnchor::Middle => old_pos.y - (delta_h / 2),
-                    MeterAnchor::Bottom => old_pos.y - delta_h,
-                };
-                if new_pos.x != old_pos.x || new_pos.y != desired_y {
-                    let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition {
-                        x: old_pos.x,
-                        y: desired_y,
-                    }));
-                    return;
-                }
-                settled_for_tick.store(true, std::sync::atomic::Ordering::Relaxed);
-            });
-        }
-    });
+    let old_h = match state.settings.get(WINDOW_HEIGHT_KEY).and_then(|v| v.trim().parse::<i32>().ok()) {
+        Some(saved) if old_size.height == 300 && saved > 0 => saved,
+        _ => old_size.height as i32,
+    };
+    let mut x = old_pos.x;
+    let mut y = match anchor {
+        MeterAnchor::Top => old_pos.y,
+        MeterAnchor::Middle => old_pos.y + ((old_h - new_size.height as i32) / 2),
+        MeterAnchor::Bottom => old_pos.y + (old_h - new_size.height as i32),
+    };
+    if let Ok(Some(monitor)) = window.current_monitor() {
+        let area = monitor.work_area();
+        let min_x = area.position.x;
+        let min_y = area.position.y;
+        let max_x = min_x + area.size.width as i32 - new_size.width as i32;
+        let max_y = min_y + area.size.height as i32 - new_size.height as i32;
+        x = if max_x >= min_x { x.clamp(min_x, max_x) } else { min_x };
+        y = if max_y >= min_y { y.clamp(min_y, max_y) } else { min_y };
+    }
+    if x == old_pos.x && y == old_pos.y {
+        platform::window::set_size(&window, size);
+        return;
+    }
+    platform::window::set_size_and_position(&window, size, tauri::PhysicalPosition { x, y });
 }
 
 /// Linux can load a hidden WebKit window. Map it only after restoring its
@@ -4015,6 +4024,9 @@ pub fn run() {
                                     if pos.x > -10000 && pos.y > -10000 {
                                         state.settings.set("window.x", &pos.x.to_string());
                                         state.settings.set("window.y", &pos.y.to_string());
+                                        if let Ok(size) = window.outer_size() {
+                                            state.settings.set(WINDOW_HEIGHT_KEY, &size.height.to_string());
+                                        }
                                     }
                                 }
                             }

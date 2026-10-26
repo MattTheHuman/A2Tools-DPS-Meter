@@ -2798,6 +2798,9 @@ class DpsApp {
     this.trainSelectionModeDropdownMenu = document.querySelector(".trainSelectionModeDropdownMenu");
     this.meterAnchorDropdownBtn = document.querySelector(".meterAnchorDropdownBtn");
     this.meterAnchorDropdownMenu = document.querySelector(".meterAnchorDropdownMenu");
+    this.meterAnchorRow = typeof this.meterAnchorDropdownBtn?.closest === "function"
+      ? this.meterAnchorDropdownBtn.closest(".settingsRow")
+      : null;
     this.defaultMeterModeDropdownBtn = document.querySelector(".defaultMeterModeDropdownBtn");
     this.defaultMeterModeDropdownMenu = document.querySelector(".defaultMeterModeDropdownMenu");
     this.resetDetectBtn = document.querySelector(".resetDetectBtn");
@@ -2863,6 +2866,9 @@ class DpsApp {
         window.javaBridge?.openBrowser?.(link.href);
       });
     }
+    Promise.resolve(window.a2BuildReady).then((build) => {
+      this.updateMeterAnchorVisibility(build?.meterAnchor !== false);
+    });
     this.kofiButton = document.querySelector(".kofiButton");
     this.kofiWidget = document.querySelector(".kofiWidget");
     this.quitButton = document.querySelector(".quitButton");
@@ -4072,7 +4078,7 @@ class DpsApp {
     ];
     const meterAnchorOptions = [
       { value: "top", label: this.i18n?.t("settings.meterAnchor.options.top", "Top") },
-      { value: "middle", label: this.i18n?.t("settings.meterAnchor.options.middle", "Middle") },
+      { value: "middle", label: this.i18n?.t("settings.meterAnchor.options.middle", "Centre") },
       { value: "bottom", label: this.i18n?.t("settings.meterAnchor.options.bottom", "Bottom") },
     ];
 
@@ -5868,6 +5874,10 @@ class DpsApp {
     if (this.barTextureDropdownBtn) this.barTextureDropdownBtn.disabled = !this.isSupporter;
     if (this.textureOffsetCheckbox) this.textureOffsetCheckbox.disabled = !this.isSupporter;
     if (this.barTextureHint) this.barTextureHint.hidden = this.isSupporter;
+  }
+
+  updateMeterAnchorVisibility(enabled) {
+    if (this.meterAnchorRow) this.meterAnchorRow.hidden = !enabled;
   }
 
   setSupporter(isSupporter) {

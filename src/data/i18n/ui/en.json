@@ -331,10 +331,10 @@
       "label": "Max players shown"
     },
     "meterAnchor": {
-      "label": "Meter growth anchor",
+      "label": "Meter stays fixed at",
       "options": {
         "top": "Top",
-        "middle": "Middle",
+        "middle": "Centre",
         "bottom": "Bottom"
       }
     },
@@ -579,7 +579,7 @@
       "lockedPort": "The adapter and port the game was found on.",
       "defaultMeterMode": "The target mode the meter opens in: Boss, Target, Train or All.",
       "playerLimit": "How many player rows the meter shows; the rest are left out.",
-      "meterAnchor": "Where the meter stays fixed while it auto-resizes as rows appear or disappear.",
+      "meterAnchor": "The edge of the meter that stays put as rows come and go.",
       "pinMeToTop": "Your row stays first, whatever your damage.",
       "autoHideMeter": "The meter disappears while another window is in front of the game, and comes back with it.",
       "detailsMonitor": "Opens the Details window on the chosen display and keeps it there.",

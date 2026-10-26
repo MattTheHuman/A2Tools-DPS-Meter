@@ -438,6 +438,15 @@ pub fn set_size(window: &tauri::WebviewWindow, size: tauri::Size) {
     let _ = window.set_size(size);
 }
 
+pub fn set_size_and_position(window: &tauri::WebviewWindow, size: tauri::Size, pos: tauri::PhysicalPosition<i32>) {
+    set_size(window, size);
+    let _ = window.set_position(tauri::Position::Physical(pos));
+}
+
+pub fn meter_anchor_available() -> bool {
+    places_own_windows() || super::focus::kwin_places_windows()
+}
+
 /// Unpin a tool window's size so the window manager can resize it, down to
 /// `min` logical pixels. Window managers tile on a move, not on a resize, so
 /// this is safe for the length of a resize; `set_size` pins it again after.

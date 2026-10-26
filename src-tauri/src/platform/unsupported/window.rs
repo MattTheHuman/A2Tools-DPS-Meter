@@ -32,6 +32,11 @@ pub fn set_size(window: &tauri::WebviewWindow, size: tauri::Size) {
     let _ = window.set_size(size);
 }
 
+pub fn set_size_and_position(window: &tauri::WebviewWindow, size: tauri::Size, pos: tauri::PhysicalPosition<i32>) {
+    let _ = window.set_size(size);
+    let _ = window.set_position(tauri::Position::Physical(pos));
+}
+
 pub fn release_size(_window: &tauri::WebviewWindow, _min: tauri::LogicalSize<f64>) {}
 
 pub fn primary_button_down() -> Option<bool> {
@@ -69,6 +74,10 @@ pub fn places_own_windows() -> bool {
 
 /// Linux/KWin-specific placement hint. No-op here.
 pub fn set_main_anchor(_anchor: &str) {}
+
+pub fn meter_anchor_available() -> bool {
+    true
+}
 
 /// Windows are placed by the meter itself here (Linux on Wayland asks KWin).
 pub fn keep_places(

@@ -11,6 +11,8 @@
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
+use crate::platform::kwin_rules::OVERLAY_TITLE;
+
 const SERVICE: &str = "app.a2tools.DpsMeter";
 const PATH: &str = "/Focus";
 /// The script's name in KWin, so a script left by an earlier run is replaced.
@@ -106,7 +108,7 @@ function place(w) {
         var seq = 0;
         // The meter's main overlay keeps its top/middle/bottom anchor while
         // its own auto-resize changes its height.
-        var main = String(w.caption) === "A2Tools DPS Meter";
+        var main = String(w.caption) === "__OVERLAY_TITLE__";
         var base = { x: r.x, top: r.y, bottom: r.y + r.height };
         var start = w.interactiveMoveResizeStarted || w.clientStartUserMovedResized;
         if (start) {
@@ -136,22 +138,22 @@ function place(w) {
                 held = false;
                 return;
             }
+            if (Math.round(now.height) === Math.round(base.bottom - base.top)) return;
             var ticket = ++seq;
             anchor(w.caption, function (mode) {
                 if (ticket !== seq || held || userMove || w.move || w.resize) return;
                 var live = w.frameGeometry;
                 var x = Math.round(live.x), y = Math.round(live.y), h = Math.round(live.height);
-                var wantX = base.x, wantY = base.top;
+                var wantY = base.top;
                 if (mode === "bottom") wantY = base.bottom - h;
                 else if (mode === "middle") {
                     if (Date.now() > until) return;
-                    wantX = r.x;
                     wantY = r.y;
                 }
                 // Scale rounding can report +/- 1 px between events.
-                if (Math.abs(x - wantX) <= 1 && Math.abs(y - wantY) <= 1) return;
+                if (Math.abs(y - wantY) <= 1) return;
                 held = true;
-                w.frameGeometry = { x: wantX, y: wantY, width: live.width, height: live.height };
+                w.frameGeometry = { x: x, y: wantY, width: live.width, height: live.height };
                 held = false;
             });
         });
@@ -389,7 +391,7 @@ impl Focus {
 
     /// The configured growth anchor for the main overlay.
     fn anchor(&self, caption: String) -> String {
-        if caption.trim() != "A2Tools DPS Meter" {
+        if caption.trim() != OVERLAY_TITLE {
             return "middle".into();
         }
         match MAIN_ANCHOR.load(Ordering::Relaxed) {
@@ -439,7 +441,9 @@ pub fn watch(on_change: impl Fn() + Send + Sync + 'static) -> Result<(), String>
 
     let dir = std::env::var_os("XDG_RUNTIME_DIR").map(std::path::PathBuf::from).unwrap_or_else(std::env::temp_dir);
     let path = dir.join("a2tools-dps-meter-focus.js");
-    let script = SCRIPT.replace("__PID__", &std::process::id().to_string());
+    let script = SCRIPT
+        .replace("__PID__", &std::process::id().to_string())
+        .replace("__OVERLAY_TITLE__", OVERLAY_TITLE);
     std::fs::write(&path, script).map_err(|e| format!("writing the script: {e}"))?;
 
     let kwin = zbus::blocking::Proxy::new(&connection, "org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting")

@@ -144,8 +144,51 @@ pub fn set_size(window: &tauri::WebviewWindow, size: tauri::Size) {
     let _ = window.set_size(size);
 }
 
+fn physical_size(window: &tauri::WebviewWindow, size: tauri::Size) -> Option<(i32, i32)> {
+    match size {
+        tauri::Size::Physical(s) => Some((s.width as i32, s.height as i32)),
+        tauri::Size::Logical(s) => {
+            let scale = window.scale_factor().ok()?;
+            let w = (s.width * scale).round();
+            let h = (s.height * scale).round();
+            if !w.is_finite() || !h.is_finite() || w <= 0.0 || h <= 0.0 {
+                return None;
+            }
+            Some((w as i32, h as i32))
+        }
+    }
+}
+
+pub fn set_size_and_position(window: &tauri::WebviewWindow, size: tauri::Size, pos: tauri::PhysicalPosition<i32>) {
+    let Some(hwnd) = hwnd_of(window) else {
+        let _ = window.set_size(size);
+        let _ = window.set_position(tauri::Position::Physical(pos));
+        return;
+    };
+    let Some((w, h)) = physical_size(window, size) else {
+        let _ = window.set_size(size);
+        let _ = window.set_position(tauri::Position::Physical(pos));
+        return;
+    };
+    unsafe {
+        let _ = SetWindowPos(
+            hwnd,
+            None,
+            pos.x,
+            pos.y,
+            w,
+            h,
+            SWP_NOZORDER | SWP_NOACTIVATE,
+        );
+    }
+}
+
 /// Linux/KWin-specific placement hint. No-op on Windows.
 pub fn set_main_anchor(_anchor: &str) {}
+
+pub fn meter_anchor_available() -> bool {
+    true
+}
 
 pub fn release_size(_window: &tauri::WebviewWindow, _min: tauri::LogicalSize<f64>) {}
 

@@ -1332,9 +1332,7 @@
           ? Math.max(contentH, Math.min(tooltipReserve.h, room.h))
           : contentH;
     const scale = window.devicePixelRatio || 1;
-    const anchor = String(settingsCache["dpsMeter.meterAnchor"]
-      ?? localStorage.getItem("dpsMeter.meterAnchor")
-      ?? "middle");
+    const preserveAnchor = !(fullPanel || promoOpen || tooltipReserve);
     const sizeKey = `${w}x${h}@${scale}`;
     if (sizeKey === lastSizeKey) return pendingWindowSize?.promise || Promise.resolve(true);
     lastSizeKey = sizeKey;
@@ -1348,7 +1346,7 @@
       .then(() => {
         // A queued auto-size must not interrupt a resize the player began.
         if (resizeActive) return false;
-        return invoke("resize_window", { width: w, height: h, scale, anchor }).then(() => true);
+        return invoke("resize_window", { width: w, height: h, scale, preserveAnchor }).then(() => true);
       })
       .then((applied) => {
         if (!applied && pendingWindowSize === operation) lastSizeKey = "";
