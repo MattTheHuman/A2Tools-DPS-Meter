@@ -371,12 +371,16 @@ impl StreamProcessor {
             _ => return,
         };
         let body = &packet[offset + 2..];
-        let counts = if whole_list { content_counts_in_list(body) } else { content_counts_in_update(body) };
-        let energy = counts.as_deref().and_then(odyle_energy_in).or_else(|| if whole_list { odyle_energy_in_list(body) } else { None });
+        let entries = if whole_list { content_counts_in_list(body) } else { content_counts_in_update(body) };
+        let energy = entries
+            .as_ref()
+            .and_then(|e| odyle_energy_in(&e.counts))
+            .or_else(|| if whole_list { odyle_energy_in_list(body) } else { None });
         // A whole list that doesn't read still says a character logged in:
         // the last one's counts go, with nothing in their place.
-        if counts.is_some() || whole_list {
-            self.data_storage.set_entry_list(counts.unwrap_or_default(), energy, whole_list);
+        if entries.is_some() || whole_list {
+            let now = self.override_timestamp.unwrap_or_else(crate::clock::now_ms);
+            self.data_storage.set_entry_list(entries.unwrap_or_default(), energy, whole_list, now);
         }
     }
 
@@ -2342,7 +2346,10 @@ fn odyle_energy_in_list(body: &[u8]) -> Option<(u32, u32)> {
     let id = ODYLE_ID.to_le_bytes();
     (0..body.len())
         .filter(|&i| matches!(body[i], 0x04 | 0x08 | 0x0C) && body.get(i + 1..i + 5) == Some(&id[..]))
-        .find_map(|i| odyle_energy_in(&[content_entry_at(body, i)?.0?]))
+        .find_map(|i| match content_entry_at(body, i)?.0 {
+            Entry::Count(entry) => odyle_energy_in(&[entry]),
+            Entry::Time(..) => None,
+        })
 }
 
 /// One entry count: its id and `[first, second]` value.
@@ -2350,14 +2357,31 @@ pub type ContentEntry = (u32, [u32; 2]);
 /// The game's entry counts, by entry id.
 pub type ContentCounts = Vec<ContentEntry>;
 
+/// The entries holding a time instead of a count (kind `01`), by entry id:
+/// the Abyss passages' usage time left (ms), others' times.
+pub type ContentTimes = Vec<(u32, u64)>;
+
+/// The entries of a list or an update, counts and times apart.
+#[derive(Debug, Default)]
+pub struct ContentEntries {
+    pub counts: ContentCounts,
+    pub times: ContentTimes,
+}
+
+/// One entry: a count, or a time (id, u64).
+enum Entry {
+    Count(ContentEntry),
+    Time(u32, u64),
+}
+
 /// One entry of the entry counts read as the game lays it out, `<kind> <id
 /// u32 LE> <values>`: kind `00` no value (both 0), `01` a u64 (a time, not a
-/// count: `None`), `04` the first value, `08` the second, `0c` both
-/// (varints). Odyle energy is id 60000001 (`01 87 93 03`), Shugo Festival
-/// keys id 1. Returns the entry, if a count, and where the next begins.
-/// Ids seen run from 1 to 90000006 and counts stay in the thousands, so an
-/// id of 0 or past 99999999, or a count past a million, is not an entry.
-fn content_entry_at(body: &[u8], at: usize) -> Option<(Option<ContentEntry>, usize)> {
+/// count), `04` the first value, `08` the second, `0c` both (varints). Odyle
+/// energy is id 60000001 (`01 87 93 03`), Shugo Festival keys id 1. Returns
+/// the entry and where the next begins. Ids seen run from 1 to 90000006 and
+/// counts stay in the thousands, so an id of 0 or past 99999999, or a count
+/// past a million, is not an entry.
+fn content_entry_at(body: &[u8], at: usize) -> Option<(Entry, usize)> {
     let kind = *body.get(at)?;
     let id = u32::from_le_bytes(body.get(at + 1..at + 5)?.try_into().ok()?);
     if id == 0 || id > 99_999_999 {
@@ -2369,8 +2393,8 @@ fn content_entry_at(body: &[u8], at: usize) -> Option<(Option<ContentEntry>, usi
     match kind {
         0x00 => {}
         0x01 => {
-            body.get(o..o + 8)?;
-            return Some((None, o + 8));
+            let time = u64::from_le_bytes(body.get(o..o + 8)?.try_into().ok()?);
+            return Some((Entry::Time(id, time), o + 8));
         }
         0x04 => v[0] = value(&mut o)?,
         0x08 => v[1] = value(&mut o)?,
@@ -2380,15 +2404,24 @@ fn content_entry_at(body: &[u8], at: usize) -> Option<(Option<ContentEntry>, usi
         }
         _ => return None,
     }
-    Some((Some((id, v)), o))
+    Some((Entry::Count((id, v)), o))
+}
+
+impl ContentEntries {
+    fn push(&mut self, entry: Entry) {
+        match entry {
+            Entry::Count(count) => self.counts.push(count),
+            Entry::Time(id, time) => self.times.push((id, time)),
+        }
+    }
 }
 
 /// `count` entries from `at`, and where they end.
-fn content_entries(body: &[u8], mut at: usize, count: usize) -> Option<(ContentCounts, usize)> {
-    let mut out = Vec::new();
+fn content_entries(body: &[u8], mut at: usize, count: usize) -> Option<(ContentEntries, usize)> {
+    let mut out = ContentEntries::default();
     for _ in 0..count {
         let (entry, next) = content_entry_at(body, at)?;
-        out.extend(entry);
+        out.push(entry);
         at = next;
     }
     Some((out, at))
@@ -2397,7 +2430,7 @@ fn content_entries(body: &[u8], mut at: usize, count: usize) -> Option<(ContentC
 /// The whole list in a `0b 61`: `<count varint> <entries>`, the list being
 /// the rest of the record. Where other things come first, the list is found
 /// as the place from which a count of entries ends right at the end.
-fn content_counts_in_list(body: &[u8]) -> Option<ContentCounts> {
+fn content_counts_in_list(body: &[u8]) -> Option<ContentEntries> {
     (0..body.len()).find_map(|start| {
         let mut o = start;
         let count = try_read_varint(body, &mut o)? as usize;
@@ -2405,7 +2438,7 @@ fn content_counts_in_list(body: &[u8]) -> Option<ContentCounts> {
             return None;
         }
         let (entries, end) = content_entries(body, o, count)?;
-        (end == body.len() && entries.iter().any(|(id, _)| *id == ODYLE_ID)).then_some(entries)
+        (end == body.len() && entries.counts.iter().any(|(id, _)| *id == ODYLE_ID)).then_some(entries)
     })
 }
 
@@ -2415,10 +2448,10 @@ fn content_counts_in_list(body: &[u8]) -> Option<ContentCounts> {
 /// seen is one byte after a `00` count and five (`01 <u32>`) after `01`, so
 /// entries that don't all read, or leave more than five bytes, are not an
 /// update.
-fn content_counts_in_update(body: &[u8]) -> Option<ContentCounts> {
+fn content_counts_in_update(body: &[u8]) -> Option<ContentEntries> {
     let count = (*body.first()?).max(1) as usize;
     let (out, end) = content_entries(body, 1, count)?;
-    (!out.is_empty() && body.len() - end <= 5).then_some(out)
+    ((!out.counts.is_empty() || !out.times.is_empty()) && body.len() - end <= 5).then_some(out)
 }
 
 /// The Daily Duty board in a `1c 8d` (see
@@ -4593,6 +4626,24 @@ mod tests {
         p.parse_perfect_packet(&hex("140c61010c018793031ef0060128000000"));
         assert_eq!(storage.content_counts().get(&60_000_001), Some(&[30, 880]));
         assert_eq!(storage.content_counts().get(&1), Some(&[11, 1]));
+
+        // The Abyss passages (2026-10-25, Nullception): one entered with its
+        // 2:10, used up 130 s later; a count again then.
+        p.set_override_timestamp(Some(1_792_930_000_000));
+        p.parse_perfect_packet(&hex("120c61000182969800d0fb01000000000003"));
+        assert_eq!(storage.content_times().get(&10_000_002), Some(&(130_000, 1_792_930_000_000)));
+        // Sent again unchanged: still seen at the first time.
+        p.set_override_timestamp(Some(1_792_930_005_000));
+        p.parse_perfect_packet(&hex("120c61000182969800d0fb01000000000003"));
+        assert_eq!(storage.content_times().get(&10_000_002), Some(&(130_000, 1_792_930_000_000)));
+        // The counts and times are read together.
+        let list = storage.entry_list();
+        assert_eq!(list.times.get(&10_000_002), Some(&(130_000, 1_792_930_000_000)));
+        assert_eq!(list.counts.get(&10_000_002), None);
+        p.parse_perfect_packet(&hex("0d0c6100008296980003"));
+        assert_eq!(storage.content_times().get(&10_000_002), None);
+        assert_eq!(storage.content_counts().get(&10_000_002), Some(&[0, 0]));
+        p.set_override_timestamp(None);
         // A login's list that doesn't read: the counts before it aren't the
         // new character's, so they go, and the owner waits for the self record.
         storage.set_local_identity_from_game(1030, Some("Nullception".into()));
