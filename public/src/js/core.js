@@ -9,6 +9,8 @@ const SETTING_CHOICES = {
   partyStat: { allowed: ["combatPower", "gearScore", "both", "off"], fallback: "combatPower" },
   // When the last fight leaves the screen after the zone changes.
   clearOnZone: { allowed: ["instance", "any", "never"], fallback: "instance" },
+  // Seconds without combat before the meter hides; "0" is off (app.rs, #106).
+  hideOutOfCombat: { allowed: ["0", "10", "20", "30", "60", "120"], fallback: "0" },
   // The number after the level in the Discord activity (presence.rs).
   discordStat: { allowed: ["combatPower", "gearScore", "off"], fallback: "off" },
   // A pattern over the meter's bars: a supporter's perk (applyBarTexture).
@@ -104,8 +106,7 @@ class DpsApp {
       displayMode: "dpsMeter.displayMode",
       language: "dpsMeter.language",
       debugLogging: "dpsMeter.debugLoggingEnabled",
-      shareBossTimers: "dpsMeter.shareBossTimers",
-      shareSupplyRequests: "dpsMeter.shareSupplyRequests",
+      shareData: "dpsMeter.shareData",
       pinMeToTop: "dpsMeter.pinMeToTop",
       mainPlayerNamesBold: "dpsMeter.mainPlayerNamesBold",
       showSupporterColors: "dpsMeter.showSupporterColors",
@@ -129,16 +130,19 @@ class DpsApp {
       autoHideMeter: "dpsMeter.autoHideMeter",
       hideWhenGameClosed: "dpsMeter.hideWhenGameClosed",
       hideWhenSolo: "dpsMeter.hideWhenSolo",
+      hideOutOfCombat: "dpsMeter.hideOutOfCombat",
       globalHotkeys: "dpsMeter.globalHotkeys",
       bossLogs: "dpsMeter.bossLogsEnabled",
       saveRawPackets: "dpsMeter.saveRawPackets",
       autoUpload: "dpsMeter.autoUpload",
+      guestUpload: "dpsMeter.guestUpload",
       discordActivity: "dpsMeter.discordActivity",
       discordStat: "dpsMeter.discordStat",
       discordPromoShown: "dpsMeter.discordPromoShown",
       partyPresence: "dpsMeter.partyPresence",
       partyPromoShown: "dpsMeter.partyPromoShown",
       accountPromoShown: "dpsMeter.accountPromoShown",
+      guestPromoShown: "dpsMeter.guestPromoShown",
       windowOpacity: "dpsMeter.windowOpacity",
       meterWidth: "dpsMeter.meterWidth",
       meterMinHeight: "dpsMeter.meterMinHeight",
@@ -2670,6 +2674,13 @@ class DpsApp {
     if (!this.accountStateEl) return;
     const request = this._accountPanelRequest = (this._accountPanelRequest || 0) + 1;
     const current = () => request === this._accountPanelRequest;
+    // Signed in: the fights this PC uploaded as a guest became theirs.
+    if (result && result.connected && Number(result.claimed) > 0) {
+      this._claimedNote = window.i18n?.format?.(
+        "settings.account.claimed", { count: Number(result.claimed) },
+        `${Number(result.claimed)} fights uploaded from this PC are now yours.`
+      );
+    }
     if (result && result.connected === false && result.error) {
       const msg = String(result.error);
       this.setAccountState(
@@ -2725,6 +2736,7 @@ class DpsApp {
       this.accountSignOutBtn.style.display = signedIn ? "" : "none";
     }
 
+    this.paintGuest(signedIn);
     if (!signedIn) {
       this.setAccountState(window.i18n?.t?.("settings.account.signedOut", "Not signed in"));
       this.setSupporter(false);
@@ -2740,7 +2752,23 @@ class DpsApp {
       label += " · " + window.i18n?.t?.("settings.account.supporter", "Supporter");
     }
     this.setSupporter(who.supporter);
+    if (this._claimedNote) label += " · " + this._claimedNote;
     this.setAccountState(label);
+  }
+
+  // Signed out: uploading without an account instead of to one, and, once
+  // this PC has guest fights, how to claim them. Signed in: the account's.
+  paintGuest(signedIn) {
+    document.querySelector(".autoUploadRow")?.style.setProperty("display", signedIn ? "" : "none");
+    document.querySelector(".guestUploadRow")?.style.setProperty("display", signedIn ? "none" : "");
+    if (!this.guestClaimRow) return;
+    if (signedIn) {
+      this.guestClaimRow.style.display = "none";
+      return;
+    }
+    window.javaBridge?.guestStatus?.().then((g) => {
+      this.guestClaimRow.style.display = g?.hasGuest ? "" : "none";
+    }).catch(() => {});
   }
 
   setupSettingsPanel() {
@@ -2763,6 +2791,8 @@ class DpsApp {
     this.partyStatDropdownMenu = document.querySelector(".partyStatDropdownMenu");
     this.clearOnZoneDropdownBtn = document.querySelector(".clearOnZoneDropdownBtn");
     this.clearOnZoneDropdownMenu = document.querySelector(".clearOnZoneDropdownMenu");
+    this.hideOutOfCombatDropdownBtn = document.querySelector(".hideOutOfCombatDropdownBtn");
+    this.hideOutOfCombatDropdownMenu = document.querySelector(".hideOutOfCombatDropdownMenu");
     this.discordStatDropdownBtn = document.querySelector(".discordStatDropdownBtn");
     this.discordStatDropdownMenu = document.querySelector(".discordStatDropdownMenu");
     this.trainSelectionModeDropdownMenu = document.querySelector(".trainSelectionModeDropdownMenu");
@@ -2779,8 +2809,7 @@ class DpsApp {
     this.bossLogsCheckbox = document.querySelector(".bossLogsCheckbox");
     this.debugLoggingCheckbox = document.querySelector(".debugLoggingCheckbox");
     this.runAsAdminCheckbox = document.querySelector(".runAsAdminCheckbox");
-    this.shareBossTimersCheckbox = document.querySelector(".shareBossTimersCheckbox");
-    this.shareSupplyRequestsCheckbox = document.querySelector(".shareSupplyRequestsCheckbox");
+    this.shareDataCheckbox = document.querySelector(".shareDataCheckbox");
     this.partyPresenceCheckbox = document.querySelector(".partyPresenceCheckbox");
     this.showPingCheckbox = document.querySelector(".showPingCheckbox");
     this.showOdyleCheckbox = document.querySelector(".showOdyleCheckbox");
@@ -2796,6 +2825,10 @@ class DpsApp {
     this.playerNamesBoldCheckbox = document.querySelector(".playerNamesBoldCheckbox");
     this.showSupporterColorsCheckbox = document.querySelector(".showSupporterColorsCheckbox");
     this.autoUploadCheckbox = document.querySelector(".autoUploadCheckbox");
+    this.guestUploadCheckbox = document.querySelector(".guestUploadCheckbox");
+    this.guestClaimRow = document.querySelector(".guestClaimRow");
+    this.guestClaimText = document.querySelector(".guestClaimText");
+    this.guestClaimBtn = document.querySelector(".guestClaimBtn");
     this.accountStateEl = document.querySelector(".accountState");
     this.accountHintEl = document.querySelector(".accountHint");
     this.accountConnectBtn = document.querySelector(".accountConnectBtn");
@@ -2823,6 +2856,13 @@ class DpsApp {
     this.supportPrimaryButton = document.querySelector(".supportPrimaryButton");
     this.supportCopyStatus = document.querySelector(".supportCopyStatus");
     this.supportActionButtons = Array.from(document.querySelectorAll(".supportIconButton"));
+    // The Donate page and the sponsor's link: in the browser, not the meter.
+    for (const link of document.querySelectorAll(".supportModal [data-open-url]")) {
+      link.addEventListener("click", (event) => {
+        event.preventDefault();
+        window.javaBridge?.openBrowser?.(link.href);
+      });
+    }
     this.kofiButton = document.querySelector(".kofiButton");
     this.kofiWidget = document.querySelector(".kofiWidget");
     this.quitButton = document.querySelector(".quitButton");
@@ -2998,6 +3038,7 @@ class DpsApp {
     this.settingsSelections.discordStat = pickSettingChoice("discordStat", this.safeGetSetting(this.storageKeys.discordStat));
     this.settingsSelections.clearOnZone = pickSettingChoice("clearOnZone", this.safeGetSetting(this.storageKeys.clearOnZone));
     this.settingsSelections.meterAnchor = pickSettingChoice("meterAnchor", this.safeGetSetting(this.storageKeys.meterAnchor));
+    this.settingsSelections.hideOutOfCombat = pickSettingChoice("hideOutOfCombat", this.safeGetSetting(this.storageKeys.hideOutOfCombat));
     this.barTexture = pickSettingChoice("barTexture", this.safeGetSetting(this.storageKeys.barTexture));
     this.settingsSelections.barTexture = this.barTexture;
     this.applyBarTexture(this.barTexture);
@@ -3028,21 +3069,16 @@ class DpsApp {
         this.safeSetSetting(this.storageKeys.partyPresence, event.target?.checked ? "true" : "false");
       });
     }
-    // Field boss timers from the player's map, shared through a2tools.app
-    // (boss_report.rs): on unless turned off.
-    if (this.shareBossTimersCheckbox) {
-      this.shareBossTimersCheckbox.checked = this.safeGetSetting(this.storageKeys.shareBossTimers) !== "false";
-      this.shareBossTimersCheckbox.addEventListener("change", (event) => {
-        this.safeSetSetting(this.storageKeys.shareBossTimers, event.target?.checked ? "true" : "false");
-      });
-    }
-    // The Supply Requests boards, shared with Profiteer (supply_report.rs):
-    // on unless turned off.
-    if (this.shareSupplyRequestsCheckbox) {
-      // Off unless turned on.
-      this.shareSupplyRequestsCheckbox.checked = this.safeGetSetting(this.storageKeys.shareSupplyRequests) === "true";
-      this.shareSupplyRequestsCheckbox.addEventListener("change", (event) => {
-        this.safeSetSetting(this.storageKeys.shareSupplyRequests, event.target?.checked ? "true" : "false");
+    // Field boss timers and Supply Requests, shared with a2tools.app
+    // (boss_report.rs shares_data): on unless turned off, here or, before
+    // 2.0.78, with either of the two switches this one replaced.
+    if (this.shareDataCheckbox) {
+      const set = this.safeGetSetting(this.storageKeys.shareData);
+      this.shareDataCheckbox.checked = set != null && set !== ""
+        ? set !== "false"
+        : ["dpsMeter.shareBossTimers", "dpsMeter.shareSupplyRequests"].every((k) => this.safeGetSetting(k) !== "false");
+      this.shareDataCheckbox.addEventListener("change", (event) => {
+        this.safeSetSetting(this.storageKeys.shareData, event.target?.checked ? "true" : "false");
       });
     }
     // Run as administrator (Windows only: the game's frame rate needs it).
@@ -3333,6 +3369,31 @@ class DpsApp {
       });
 
     this.initStreamOverlaySettings();
+
+    // Uploading without an account (account/guest.rs): off unless turned on.
+    if (this.guestUploadCheckbox) {
+      this.guestUploadCheckbox.checked = this.safeGetSetting(this.storageKeys.guestUpload) === "true";
+      this.guestUploadCheckbox.addEventListener("change", (event) => {
+        this.safeSetSetting(this.storageKeys.guestUpload, String(!!event.target?.checked));
+      });
+    }
+    // A code to claim this PC's guest fights from another device.
+    this.guestClaimBtn?.addEventListener("click", async () => {
+      this.guestClaimBtn.disabled = true;
+      try {
+        const c = await window.javaBridge?.guestClaimCode?.();
+        if (c?.code && this.guestClaimText) {
+          this.guestClaimText.textContent = window.i18n?.format?.(
+            "settings.account.guestClaimCode", { code: c.code, url: c.url },
+            `Enter ${c.code} at ${c.url} while signed in. The code expires in 15 minutes.`
+          );
+        }
+      } catch (err) {
+        if (this.guestClaimText) this.guestClaimText.textContent = typeof err === "string" ? err : err?.message || String(err);
+      } finally {
+        this.guestClaimBtn.disabled = false;
+      }
+    });
 
     if (this.autoUploadCheckbox) {
       // Off unless turned on: an upload publishes a fight.
@@ -4177,6 +4238,23 @@ class DpsApp {
         if (!value) return;
         this.settingsSelections.clearOnZone = value;
         this.safeSetSetting(this.storageKeys.clearOnZone, value);
+      }
+    );
+
+    setupDropdown(
+      this.hideOutOfCombatDropdownBtn,
+      this.hideOutOfCombatDropdownMenu,
+      SETTING_CHOICES.hideOutOfCombat.allowed.map((value) => ({
+        value,
+        label: value === "0"
+          ? this.i18n?.t("settings.hideOutOfCombat.off", "Off") ?? "Off"
+          : this.i18n?.t("settings.hideOutOfCombat.seconds", `After ${value} s`, { seconds: value }) ?? `After ${value} s`,
+      })),
+      this.settingsSelections.hideOutOfCombat,
+      (value) => {
+        if (!value) return;
+        this.settingsSelections.hideOutOfCombat = value;
+        this.safeSetSetting(this.storageKeys.hideOutOfCombat, value);
       }
     );
 
@@ -5926,6 +6004,7 @@ class DpsApp {
       partyStat: "partyStat",
       discordStat: "discordStat",
       barTexture: "barTexture",
+      hideOutOfCombat: "hideOutOfCombat",
     };
     for (const [name, control] of Object.entries(choices)) {
       if (key !== this.storageKeys[name]) continue;
@@ -7269,16 +7348,20 @@ class DpsApp {
   // A one-time popup offering an a2tools.app account, with automatic upload
   // already ticked. Sign in starts the same browser approval as Settings and
   // keeps the code on the card; the tick is applied only once the account is
-  // connected, so a sign-in abandoned halfway leaves uploads off. Not now, ×,
-  // Escape or a click outside close it for good. Not shown to anyone signed in
-  // or who has already set uploads either way.
+  // connected. "Without an account" uploads as a guest (account/guest.rs),
+  // claimable later. Not now, ×, Escape or a click outside close it for good:
+  // on a new install fights still upload without an account (on from the
+  // start), on an older one uploads stay off. Shown once to anyone signed out
+  // who hasn't chosen guest uploads either way (again to those who closed the
+  // card before guest uploads existed).
   async maybeShowAccountPromo() {
     const promo = document.querySelector("#accountPromo");
     if (!promo) return;
     if ((await window.a2BuildReady)?.online === false) return;
-    if (this.safeGetSetting(this.storageKeys.accountPromoShown) === "true") return;
-    const current = this.safeGetSetting(this.storageKeys.autoUpload);
-    if (current === "true" || current === "false") return;
+    if (this.safeGetSetting(this.storageKeys.guestPromoShown) === "true") return;
+    const newInstall = this.safeGetSetting("dpsMeter.newInstall") === "true";
+    const guest = this.safeGetSetting(this.storageKeys.guestUpload);
+    if (!newInstall && (guest === "true" || guest === "false")) return;
     try {
       const seen = await window.javaBridge?.accountStatusCached?.();
       if (seen?.who) return;
@@ -7299,10 +7382,20 @@ class DpsApp {
         close();
       }
     };
-    const close = () => {
+    const setGuest = (on) => {
+      this.safeSetSetting(this.storageKeys.guestUpload, String(on));
+      if (this.guestUploadCheckbox) this.guestUploadCheckbox.checked = on;
+    };
+    const close = (choice) => {
       if (!open) return;
       open = false;
+      // Without an account: the tick says whether to upload. Closed: a new
+      // install keeps uploading without an account, an older one stays off.
+      if (choice === "guest") setGuest(!!checkbox?.checked);
+      else if (!newInstall && choice !== "signIn") setGuest(false);
       this.safeSetSetting(this.storageKeys.accountPromoShown, "true");
+      this.safeSetSetting(this.storageKeys.guestPromoShown, "true");
+      this.safeSetSetting("dpsMeter.newInstall", "false");
       promo.classList.remove("isOpen");
       promo.setAttribute("aria-hidden", "true");
       document.removeEventListener("keydown", onKey, true);
@@ -7317,7 +7410,7 @@ class DpsApp {
         this.safeSetSetting(this.storageKeys.autoUpload, String(pendingUpload));
         if (this.autoUploadCheckbox) this.autoUploadCheckbox.checked = pendingUpload;
         pendingUpload = null;
-        close();
+        close("signIn");
       } else if (result?.error) {
         const msg = String(result.error);
         if (stateEl) {
@@ -7355,8 +7448,9 @@ class DpsApp {
         signInBtn.disabled = false;
       }
     });
-    promo.querySelector(".accountPromoLater")?.addEventListener("click", close);
-    promo.querySelector(".accountPromoClose")?.addEventListener("click", close);
+    promo.querySelector(".accountPromoLater:not(.accountPromoGuest)")?.addEventListener("click", () => close());
+    promo.querySelector(".accountPromoGuest")?.addEventListener("click", () => close("guest"));
+    promo.querySelector(".accountPromoClose")?.addEventListener("click", () => close());
     promo.addEventListener("click", (event) => {
       if (event.target === promo) close();
     });

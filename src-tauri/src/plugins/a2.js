@@ -10,7 +10,29 @@
 //                                              when the meter read it (unix ms), or null on meters
 //                                              that don't say
 //   a2.on("character", (c) => ...)             your character (name, serverId, class, level), at start and
-//                                              whenever it changes (meter 2.0.65 on)
+//                                              whenever it changes (meter 2.0.65 on); meter 2.0.78 on
+//                                              also combatPower, gearScore, odyleEnergy ({ basic,
+//                                              charged }) and contentCounts ({ "<entry id>": [first,
+//                                              second] }: 1 Shugo keys, 4 Nightmare, 8 Invasion,
+//                                              101 Daily Dungeon, 60000001 Odyle energy (as in
+//                                              odyleEnergy), 80000001 Ascension Trial; 0 Daily Duty
+//                                              today [completed, taken]; other ids may change meaning
+//                                              or go: don't rely on them), each null until the game has
+//                                              said. A meter started mid-session has only the counts
+//                                              that changed since, until the next login or server
+//                                              transfer. Also shopLimits ({ "<item id>": [bought, next
+//                                              reset ms] }: 100134 Buy Odyle Energy, 100135 Buy Rift
+//                                              Stones; [0, null] once its reset has passed, until the
+//                                              shop opens again) once the shop has opened, crafts ({
+//                                              "<recipe id>": made }: 32070001 Odyle Energy
+//                                              server-wide, 32070002 per character) once the crafting
+//                                              window has opened, kinahToday (Kinah gained today) and
+//                                              abyssPoints ([this week, the week's limit]) from login,
+//                                              0 once the daily reset (07:00 UTC) or the weekly
+//                                              (Wednesday) has passed, and contentTimes ({ "<entry
+//                                              id>": [time, seen at ms] }: 10000001-10000003 the Abyss
+//                                              passages' usage time left (ms), gone once used; the time
+//                                              as the game last sent it)
 //   a2.on("bossMap", ({ map, bosses }) => ...) a map the player just opened, its field bosses as
 //                                              a2.bossTimers gives them (permission
 //                                              "feed:boss-timers", meter 2.0.65 on)

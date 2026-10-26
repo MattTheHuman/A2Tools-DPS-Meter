@@ -23,6 +23,7 @@
 //!
 //! The token is a bearer credential and is stored encrypted — see [`secret`].
 
+pub mod guest;
 pub mod secret;
 
 use std::path::Path;

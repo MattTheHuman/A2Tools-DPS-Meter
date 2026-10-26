@@ -2,10 +2,11 @@
 //! a2tools.app, which checks it, combines it with other players' and
 //! publishes each server's timers for everyone's Event Timers.
 //!
-//! On by default (`dpsMeter.shareBossTimers`, "false" turns it off). What is
-//! sent: the server, the map, and each field boss on it: up (since when) or
-//! dead (back when). Nothing about the player; the site counts reporters by a
-//! hash of their address that changes daily, and keeps no address.
+//! On by default, with the Supply Requests: Settings' "Sync useful data to
+//! A2Tools" (`shares_data`, "false" turns it off). What is sent: the server,
+//! the map, and each field boss on it: up (since when) or dead (back when).
+//! Nothing about the player; the site counts reporters by a hash of their
+//! address that changes daily, and keeps no address.
 //!
 //! A map is sent when it says something new for that server: a boss up or
 //! down, a new appearance or respawn time, a boss added or gone. The same map
@@ -44,7 +45,25 @@ use crate::capture::abyss_artifacts::ArtifactState;
 use crate::capture::boss_map::BossMap;
 use crate::combat::data_storage::{BossEvent, BossEventKind, BossHp};
 
-pub const SETTING_KEY: &str = "dpsMeter.shareBossTimers";
+/// Settings' "Sync useful data to A2Tools": field boss timers and Supply
+/// Requests, on unless turned off.
+pub const SHARE_DATA_KEY: &str = "dpsMeter.shareData";
+/// The two switches it replaced (2.0.78): either turned off keeps it off,
+/// until the player sets the new one.
+const OLD_KEYS: [&str; 2] = ["dpsMeter.shareBossTimers", "dpsMeter.shareSupplyRequests"];
+
+/// Whether the meter shares field boss timers and Supply Requests with
+/// a2tools.app, `get` reading a setting.
+pub fn shares_data(get: impl Fn(&str) -> Option<String>) -> bool {
+    match get(SHARE_DATA_KEY).as_deref() {
+        Some(v) => v != "false",
+        None => OLD_KEYS.iter().all(|k| get(k).as_deref() != Some("false")),
+    }
+}
+
+fn sharing(state: &AppState) -> bool {
+    shares_data(|k| state.settings.get(k))
+}
 const CHECK: Duration = Duration::from_secs(2);
 /// The same map, unchanged, is sent again after this long at the earliest.
 const RESEND_SAME_MS: i64 = 5 * 60_000;
@@ -259,7 +278,7 @@ fn spawn_events(app: tauri::AppHandle) {
                 last_hp = std::time::Instant::now();
                 let changed = state.data_storage.take_boss_hp(now);
                 let server = report_server(&state);
-                let off = state.settings.get(SETTING_KEY).as_deref() == Some("false");
+                let off = !sharing(&state);
                 let requests = [("/api/boss-timers/hp", hp_request(server, &changed)),
                                 ("/api/boss-timers/cores", cores_hp_request(server, &changed, now))];
                 for (path, body) in requests {
@@ -294,7 +313,7 @@ fn spawn_events(app: tauri::AppHandle) {
             waiting.extend(events.into_iter().map(|e| (now, e)));
             // Orb kills no holder came for in time: "unknown".
             let expired = orb_killers().lock().unwrap_or_else(|p| p.into_inner()).expired(now);
-            if !expired.is_empty() && state.settings.get(SETTING_KEY).as_deref() != Some("false") {
+            if !expired.is_empty() && sharing(&state) {
                 let server = report_server(&state);
                 if server != 0 {
                     send_orb_killers(&state, server, expired).await;
@@ -303,7 +322,7 @@ fn spawn_events(app: tauri::AppHandle) {
             if waiting.is_empty() {
                 continue;
             }
-            if state.settings.get(SETTING_KEY).as_deref() == Some("false") {
+            if !sharing(&state) {
                 waiting.clear();
                 continue;
             }
@@ -343,7 +362,7 @@ pub fn spawn(app: tauri::AppHandle) {
             let Some(state) = app.try_state::<AppState>() else { continue };
             send_artifacts(&state, &mut artifacts_seq, &mut artifacts_sent).await;
             let Some((next, maps)) = state.data_storage.boss_maps_since(seq) else { continue };
-            if state.settings.get(SETTING_KEY).as_deref() == Some("false") {
+            if !sharing(&state) {
                 seq = next;
                 continue;
             }
@@ -387,7 +406,7 @@ pub fn spawn(app: tauri::AppHandle) {
 /// `seq` that wasn't sent for this server lately.
 async fn send_artifacts(state: &AppState, seq: &mut u64, sent: &mut HashMap<u16, (i64, String)>) {
     let Some((next, artifacts, seen_ms)) = state.data_storage.abyss_artifacts_since(*seq) else { return };
-    if state.settings.get(SETTING_KEY).as_deref() == Some("false") {
+    if !sharing(&state) {
         *seq = next;
         return;
     }
@@ -427,6 +446,21 @@ async fn send_artifacts(state: &AppState, seq: &mut u64, sent: &mut HashMap<u16,
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn sharing_is_on_unless_turned_off_here_or_before() {
+        use std::collections::HashMap;
+        let with = |pairs: &[(&str, &str)]| {
+            let m: HashMap<String, String> = pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+            super::shares_data(move |k| m.get(k).cloned())
+        };
+        assert!(with(&[]), "on by default");
+        assert!(with(&[("dpsMeter.shareSupplyRequests", "true")]));
+        assert!(!with(&[("dpsMeter.shareBossTimers", "false")]), "boss timers turned off before: off");
+        assert!(!with(&[("dpsMeter.shareSupplyRequests", "false")]), "Supply Requests turned off before: off");
+        assert!(with(&[("dpsMeter.shareBossTimers", "false"), ("dpsMeter.shareData", "true")]), "the new switch decides once set");
+        assert!(!with(&[("dpsMeter.shareData", "false")]));
+    }
+
     use super::*;
     use crate::capture::boss_map::BossOnMap;
 

@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 
-use crate::combat::data_storage::{DataStorage, NoDamageHit};
+use crate::combat::data_storage::{DataStorage, DutyOffer, NoDamageHit};
 use crate::entity::damage_packet::ParsedDamagePacket;
 use crate::entity::job_class::JobClass;
 use crate::entity::special_damage::{self, SpecialDamage};
@@ -277,6 +277,9 @@ impl StreamProcessor {
         self.parse_party_scope_packet(packet);
         self.parse_party_left_packet(packet);
         self.parse_odyle_energy_packet(packet);
+        self.parse_daily_duty_packet(packet);
+        self.parse_shop_and_craft_packet(packet);
+        self.parse_kinah_and_abyss_points_packet(packet);
         self.parse_stagger_gauge_packet(packet);
         self.parse_self_stats_packet(packet);
         self.parse_death_packet(packet);
@@ -346,12 +349,11 @@ impl StreamProcessor {
 
     // ===== ODYLE ENERGY (0B 61, 0C 61) =====
 
-    /// Odyle energy, the first entry of the game's list of entry counts. An
-    /// entry is `<kind> <slot> <key varint> <value varint>...`: kind `04` has
-    /// one value (a dungeon's entries left), `0c` two; Odyle energy is
-    /// `0c 01 <key> <basic> <charged>`. `0b 61` holds the whole list, at
-    /// login and after a server transfer, among other things before it;
-    /// `0c 61 <count> <entries>` the entries that changed.
+    /// The game's entry counts (see `content_entry_at`), Odyle energy among
+    /// them: entry id 60000001, `0c 01 87 93 03 <basic> <charged>`. `0b 61`
+    /// holds the whole list, at login and after a server transfer, among
+    /// other things before it; `0c 61 <count> <entries>` the entries that
+    /// changed.
     ///
     /// Seen on 2026-10-14: the list at 03:18:42 (15 basic, 605 charged, after
     /// a raid) and at 21:16:50 (30, 840, at login; the game's tooltip said
@@ -363,13 +365,174 @@ impl StreamProcessor {
             return;
         }
         let offset = length_info.length as usize;
-        let (energy, whole_list) = match packet.get(offset..offset + 2) {
-            Some([0x0B, 0x61]) => (odyle_energy_in_list(&packet[offset + 2..]), true),
-            Some([0x0C, 0x61]) => (odyle_energy_in_update(&packet[offset + 2..]), false),
+        let whole_list = match packet.get(offset..offset + 2) {
+            Some([0x0B, 0x61]) => true,
+            Some([0x0C, 0x61]) => false,
             _ => return,
         };
-        if let Some((basic, charged)) = energy {
-            self.data_storage.set_odyle_energy(basic, charged, whole_list);
+        let body = &packet[offset + 2..];
+        let entries = if whole_list { content_counts_in_list(body) } else { content_counts_in_update(body) };
+        let energy = entries
+            .as_ref()
+            .and_then(|e| odyle_energy_in(&e.counts))
+            .or_else(|| if whole_list { odyle_energy_in_list(body) } else { None });
+        // A whole list that doesn't read still says a character logged in:
+        // the last one's counts go, with nothing in their place.
+        if entries.is_some() || whole_list {
+            let now = self.override_timestamp.unwrap_or_else(crate::clock::now_ms);
+            self.data_storage.set_entry_list(entries.unwrap_or_default(), energy, whole_list, now);
+        }
+    }
+
+    // ===== DAILY DUTY BOARD (1C 8D, 20 8D, 0D 8D) =====
+
+    /// Daily Duty: the character's daily board of quest offers, and how many
+    /// of them were taken today (the game's "Per Server Daily Completion"
+    /// n/5: taken ones count, done or not, and giving one up frees it). Each
+    /// character has its own board, but the limit is the server's: the sum of
+    /// each character's today (5 taken on Nulli, none could be taken on
+    /// Nullception). A board not used since a reset still comes, with that
+    /// reset (Nullception's of yesterday, all completed): it counts 0. A
+    /// login's list drops the last board (`set_content_counts`).
+    ///
+    /// `1c 8d` is the board, at login and after a server transfer:
+    /// `<8 bytes> <count varint>`, then each offer `<offer u32> <quest u32>
+    /// <your quest number u32> <u32> <state u8> <rewards n u8>` and n rewards
+    /// `<item u32> <count varint> <u8> <u64>`, then the next reset (u64 ms),
+    /// a byte and the reset again. State 01 is open, 02 taken, 04
+    /// completed (handed in). The game sends the board again at a turn-in. `20 8d 01 00 00 <offer u32> <quest
+    /// u32> <your quest number u32>` is an offer taken; `0d 8d 00 00 <your
+    /// quest number u32>` a quest given up.
+    ///
+    /// Seen on 2026-10-24 (Nullception): the board at a transfer with three
+    /// taken (the game said 3/5); Defiance II taken as offer 37, quest
+    /// 2302143, number 263; Weaken Blades Defenses taken (offer 45, number
+    /// 266) and given up 3 s later. At 17:54:26 a turn-in (quest number
+    /// 268, after `0f 8d 00 00 0c 01 00 00 ...`) sent the board again at
+    /// once: 20 offers, five taken, that one at 04.
+    fn parse_daily_duty_packet(&self, packet: &[u8]) {
+        let length_info = read_varint(packet, 0);
+        if length_info.length <= 0 {
+            return;
+        }
+        let offset = length_info.length as usize;
+        let body = packet.get(offset + 2..).unwrap_or_default();
+        match packet.get(offset..offset + 2) {
+            Some([0x1C, 0x8D]) => {
+                if let Some((offers, reset_ms)) = daily_duty_board(body) {
+                    self.data_storage.set_daily_duty_board(offers, reset_ms);
+                } else {
+                    // Rare (login, transfer, turn-in): one that doesn't read
+                    // as a board is logged, to see how it differs.
+                    let hex: String = body.iter().take(64).map(|b| format!("{b:02x}")).collect();
+                    tracing::info!("Daily Duty: unreadable board ({} bytes): {hex}", body.len());
+                }
+            }
+            Some([0x20, 0x8D]) if body.len() >= 15 && body[..3] == [0x01, 0x00, 0x00] => {
+                let offer = u32::from_le_bytes(body[3..7].try_into().unwrap());
+                let quest = u32::from_le_bytes(body[7..11].try_into().unwrap());
+                let number = u32::from_le_bytes(body[11..15].try_into().unwrap());
+                let now = self.override_timestamp.unwrap_or_else(crate::clock::now_ms);
+                self.data_storage.daily_duty_taken(offer, quest, number, now);
+            }
+            Some([0x0D, 0x8D]) if body.len() >= 6 && body[..2] == [0x00, 0x00] => {
+                let number = u32::from_le_bytes(body[2..6].try_into().unwrap());
+                self.data_storage.daily_duty_given_up(number);
+            }
+            _ => {}
+        }
+    }
+
+    // ===== SHOP LIMITS AND CRAFTS (8E 56, 8F 56, 8F 8D, 8B 8D) =====
+
+    /// The shop's weekly purchase limits and the crafts made, for plugins.
+    ///
+    /// `8e 56 00 00 <count u8>` then each `<item id u32> <bought u32> <next
+    /// reset u64 ms>`: the whole list as the shop opens, or the one bought;
+    /// `8f 56` is one such entry alone. `8f 8d` is the crafting window's
+    /// recipes as it opens, `00 00 00 00` then sections `<count u8>` of
+    /// `<recipe u32> <crafted u32>`; `8b 8d` a craft done, `00 00 01
+    /// <recipe u32> 50 05 <recipe u32> ...` with the server's count at 33
+    /// and the character's at 37 (a recipe has one or the other).
+    ///
+    /// Seen on 2026-10-25 (Nulli, Nullception): Buy Odyle Energy (item
+    /// 100134) at 20 as the game said 20/20, Buy Rift Stones (100135) 0 then
+    /// 1 as one was bought (both weekly, reset Wednesday 07:00 UTC); Odyle
+    /// Energy crafts, recipe 32070001 (server-wide, the game's 3/16) going
+    /// 1, 2, 3 and 32070002 (each character's, 1/4) going 0 to 1.
+    fn parse_shop_and_craft_packet(&self, packet: &[u8]) {
+        let length_info = read_varint(packet, 0);
+        if length_info.length <= 0 {
+            return;
+        }
+        let offset = length_info.length as usize;
+        let body = packet.get(offset + 2..).unwrap_or_default();
+        match packet.get(offset..offset + 2) {
+            Some([0x8E, 0x56]) => {
+                // More than one is the shop's whole list (as it opens); one
+                // is what was just bought, or a shop with one limit.
+                if let Some(limits) = shop_limits(body) {
+                    self.data_storage.set_shop_limits(&limits, limits.len() > 1);
+                }
+            }
+            Some([0x8F, 0x56]) => {
+                if let Some(limit) = shop_limit_at(body, 0).filter(|_| body.len() == 16) {
+                    self.data_storage.set_shop_limits(&[limit], false);
+                }
+            }
+            Some([0x8F, 0x8D]) => {
+                if let Some(counts) = craft_list(body) {
+                    self.data_storage.set_craft_counts(&counts, true);
+                }
+            }
+            Some([0x8B, 0x8D]) => {
+                if let Some(count) = craft_done(body) {
+                    self.data_storage.set_craft_counts(&[count], false);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // ===== KINAH TODAY AND ABYSS POINTS (A5 FF, A6 FF, A9 FF) =====
+
+    /// The Kinah gained today and the week's Abyss Points, for plugins. At a
+    /// login or transfer the Abyss Points come just before the list and
+    /// again with the self record, the Kinah (`a5`) just after the list;
+    /// the Kinah comes again at each gain (`a6`).
+    ///
+    /// Seen on 2026-10-25 (Nullception): the Abyss Points 50659 of 2000000
+    /// as the game said, and Kinah 520, 1017, 1534 as it was picked up (the
+    /// game: 1534 of its daily 1000000).
+    fn parse_kinah_and_abyss_points_packet(&self, packet: &[u8]) {
+        let length_info = read_varint(packet, 0);
+        if length_info.length <= 0 {
+            return;
+        }
+        let offset = length_info.length as usize;
+        let body = packet.get(offset + 2..).unwrap_or_default();
+        match packet.get(offset..offset + 2) {
+            // Kinah gained today, at login (`a5`) and each gain (`a6`):
+            // `<kinah u64> <now u64 ms>`, at most the daily 1000000, the
+            // time between 2025 and 2028.
+            Some([op @ (0xA5 | 0xA6), 0xFF]) if body.len() == 16 => {
+                let kinah = u64::from_le_bytes(body[..8].try_into().unwrap());
+                let at = i64::from_le_bytes(body[8..].try_into().unwrap());
+                if kinah <= 1_000_000 && (1_735_689_600_000..1_861_920_000_000).contains(&at) {
+                    self.data_storage.set_kinah_today(kinah, at, *op == 0xA5);
+                }
+            }
+            // Abyss Points this week and the week's limit: `<points u64>
+            // <limit u64>`.
+            Some([0xA9, 0xFF]) if body.len() == 16 => {
+                let points = u64::from_le_bytes(body[..8].try_into().unwrap());
+                let limit = u64::from_le_bytes(body[8..].try_into().unwrap());
+                if (1..=1_000_000_000).contains(&limit) && points <= limit {
+                    let now = self.override_timestamp.unwrap_or_else(crate::clock::now_ms);
+                    self.data_storage.set_abyss_points(points, limit, now);
+                }
+            }
+            _ => {}
         }
     }
 
@@ -2157,78 +2320,232 @@ pub fn read_varint(bytes: &[u8], offset: usize) -> VarIntResult {
     }
 }
 
-/// One entry of the game's entry counts (see
-/// `StreamProcessor::parse_odyle_energy_packet`) at `at`: its kind, slot, key
-/// and values, and where the next begins.
-fn entry_count_at(body: &[u8], at: usize) -> Option<(u8, u8, i32, [i32; 2], usize)> {
-    let kind = *body.get(at)?;
-    // The kind says which values follow: 04 the first, 08 the second, 0c
-    // both (a zero is left out).
-    let values = match kind {
-        0x04 | 0x08 => 1,
-        0x0C => 2,
-        _ => return None,
-    };
-    let slot = *body.get(at + 1)?;
-    let mut o = at + 2;
-    let key = try_read_varint(body, &mut o)?;
-    let mut v = [0; 2];
-    for value in v.iter_mut().take(values) {
-        *value = try_read_varint(body, &mut o)?;
-    }
-    Some((kind, slot, key, v, o))
-}
+/// Odyle energy's entry id (`01 87 93 03`), in every list and update seen,
+/// from several players.
+const ODYLE_ID: u32 = 60_000_001;
 
-/// Odyle energy as `(basic, charged)` from an entry, when it is that entry.
+/// Odyle energy as `(basic, charged)`, when among the entries.
 ///
 /// The kind is which of basic and charged are sent, a zero being left out:
 /// `0c` both, `04` basic only (`04 01 87 93 03 c8 06`, 840 and 0, at a login
 /// on 2026-10-16), `08` charged only (`08 01 87 93 03 ab 0e`, 0 and 1835, in
-/// a player's log of 2026-10-15). The meter read only `0c`, so it missed the
-/// energy of anyone with either at 0.
-fn odyle_energy_of(kind: u8, slot: u8, v: [i32; 2]) -> Option<(u32, u32)> {
-    // Generous bounds (the game's are 840, or 560 without a membership, and 2000): only to turn away bytes
-    // that merely look like the entry.
-    let ok = |n: i32| (0..=100_000).contains(&n);
-    match kind {
-        0x0C if slot == 1 && ok(v[0]) && ok(v[1]) => Some((v[0] as u32, v[1] as u32)),
-        0x04 if slot == 1 && ok(v[0]) => Some((v[0] as u32, 0)),
-        0x08 if slot == 1 && ok(v[0]) => Some((0, v[0] as u32)),
-        _ => None,
-    }
+/// a player's log of 2026-10-15). Only the entry with the energy's id:
+/// another (`0c 61 00 0c 01 00 00 00 04 01 03`, id 1) was once read as 0
+/// basic, 0 charged.
+fn odyle_energy_in(entries: &[ContentEntry]) -> Option<(u32, u32)> {
+    // Generous bounds (the game's are 840, or 560 without a membership, and
+    // 2000): only to turn away bytes that merely look like the entry.
+    let ok = |n: u32| n <= 100_000;
+    let (_, v) = entries.iter().find(|(id, _)| *id == ODYLE_ID)?;
+    (ok(v[0]) && ok(v[1])).then_some((v[0], v[1]))
 }
 
-/// Odyle energy in a `0b 61` list: the `0c 01` entry that the list's second
-/// entry follows with the same key.
+/// Odyle energy in a `0b 61` whose list doesn't read whole: its entry found
+/// by the id.
 fn odyle_energy_in_list(body: &[u8]) -> Option<(u32, u32)> {
-    (0..body.len().saturating_sub(1))
-        .filter(|&i| matches!(body[i], 0x0C | 0x04 | 0x08) && body[i + 1] == 0x01)
-        .find_map(|i| {
-            let (kind, slot, key, v, next) = entry_count_at(body, i)?;
-            let (_, next_slot, next_key, _, _) = entry_count_at(body, next)?;
-            if next_slot != 2 || next_key != key {
-                return None;
-            }
-            odyle_energy_of(kind, slot, v)
+    let id = ODYLE_ID.to_le_bytes();
+    (0..body.len())
+        .filter(|&i| matches!(body[i], 0x04 | 0x08 | 0x0C) && body.get(i + 1..i + 5) == Some(&id[..]))
+        .find_map(|i| match content_entry_at(body, i)?.0 {
+            Entry::Count(entry) => odyle_energy_in(&[entry]),
+            Entry::Time(..) => None,
         })
 }
 
-/// Odyle energy in a `0c 61` update, if among the entries that changed.
-///
-/// The first byte is not a count: updates with `00` there carry an entry too
-/// (`0c 61 00 08 01 87 93 03 ab 0e 03`, 2026-10-15), and the meter skipped
-/// them. The entries are read from after it, at least one.
-fn odyle_energy_in_update(body: &[u8]) -> Option<(u32, u32)> {
-    let count = (*body.first()?).max(1);
-    let mut at = 1;
-    for _ in 0..count {
-        let (kind, slot, _, v, next) = entry_count_at(body, at)?;
-        if let Some(energy) = odyle_energy_of(kind, slot, v) {
-            return Some(energy);
+/// One entry count: its id and `[first, second]` value.
+pub type ContentEntry = (u32, [u32; 2]);
+/// The game's entry counts, by entry id.
+pub type ContentCounts = Vec<ContentEntry>;
+
+/// The entries holding a time instead of a count (kind `01`), by entry id:
+/// the Abyss passages' usage time left (ms), others' times.
+pub type ContentTimes = Vec<(u32, u64)>;
+
+/// The entries of a list or an update, counts and times apart.
+#[derive(Debug, Default)]
+pub struct ContentEntries {
+    pub counts: ContentCounts,
+    pub times: ContentTimes,
+}
+
+/// One entry: a count, or a time (id, u64).
+enum Entry {
+    Count(ContentEntry),
+    Time(u32, u64),
+}
+
+/// One entry of the entry counts read as the game lays it out, `<kind> <id
+/// u32 LE> <values>`: kind `00` no value (both 0), `01` a u64 (a time, not a
+/// count), `04` the first value, `08` the second, `0c` both (varints). Odyle
+/// energy is id 60000001 (`01 87 93 03`), Shugo Festival keys id 1. Returns
+/// the entry and where the next begins. Ids seen run from 1 to 90000006 and
+/// counts stay in the thousands, so an id of 0 or past 99999999, or a count
+/// past a million, is not an entry.
+fn content_entry_at(body: &[u8], at: usize) -> Option<(Entry, usize)> {
+    let kind = *body.get(at)?;
+    let id = u32::from_le_bytes(body.get(at + 1..at + 5)?.try_into().ok()?);
+    if id == 0 || id > 99_999_999 {
+        return None;
+    }
+    let mut o = at + 5;
+    let mut v = [0u32; 2];
+    let value = |o: &mut usize| try_read_varint(body, o).filter(|&n| n <= 1_000_000).map(|n| n as u32);
+    match kind {
+        0x00 => {}
+        0x01 => {
+            let time = u64::from_le_bytes(body.get(o..o + 8)?.try_into().ok()?);
+            return Some((Entry::Time(id, time), o + 8));
         }
+        0x04 => v[0] = value(&mut o)?,
+        0x08 => v[1] = value(&mut o)?,
+        0x0C => {
+            v[0] = value(&mut o)?;
+            v[1] = value(&mut o)?;
+        }
+        _ => return None,
+    }
+    Some((Entry::Count((id, v)), o))
+}
+
+impl ContentEntries {
+    fn push(&mut self, entry: Entry) {
+        match entry {
+            Entry::Count(count) => self.counts.push(count),
+            Entry::Time(id, time) => self.times.push((id, time)),
+        }
+    }
+}
+
+/// `count` entries from `at`, and where they end.
+fn content_entries(body: &[u8], mut at: usize, count: usize) -> Option<(ContentEntries, usize)> {
+    let mut out = ContentEntries::default();
+    for _ in 0..count {
+        let (entry, next) = content_entry_at(body, at)?;
+        out.push(entry);
         at = next;
     }
-    None
+    Some((out, at))
+}
+
+/// The whole list in a `0b 61`: `<count varint> <entries>`, the list being
+/// the rest of the record. Where other things come first, the list is found
+/// as the place from which a count of entries ends right at the end.
+fn content_counts_in_list(body: &[u8]) -> Option<ContentEntries> {
+    (0..body.len()).find_map(|start| {
+        let mut o = start;
+        let count = try_read_varint(body, &mut o)? as usize;
+        if count == 0 || count > 1000 {
+            return None;
+        }
+        let (entries, end) = content_entries(body, o, count)?;
+        (end == body.len() && entries.counts.iter().any(|(id, _)| *id == ODYLE_ID)).then_some(entries)
+    })
+}
+
+/// The entries that changed, in a `0c 61`: `<count u8> <entries> <tail>`.
+/// The first byte is not quite a count: updates with `00` there carry an
+/// entry too (`0c 61 00 08 01 87 93 03 ab 0e 03`, 2026-10-15). The tail
+/// seen is one byte after a `00` count and five (`01 <u32>`) after `01`, so
+/// entries that don't all read, or leave more than five bytes, are not an
+/// update.
+fn content_counts_in_update(body: &[u8]) -> Option<ContentEntries> {
+    let count = (*body.first()?).max(1) as usize;
+    let (out, end) = content_entries(body, 1, count)?;
+    ((!out.counts.is_empty() || !out.times.is_empty()) && body.len() - end <= 5).then_some(out)
+}
+
+/// The Daily Duty board in a `1c 8d` (see
+/// `StreamProcessor::parse_daily_duty_packet`): its offers and the next reset
+/// (unix ms). The whole record must read as a board, its reset ending it.
+fn daily_duty_board(body: &[u8]) -> Option<(Vec<DutyOffer>, i64)> {
+    let u32_at = |o: usize| body.get(o..o + 4).map(|b| u32::from_le_bytes(b.try_into().unwrap()));
+    let mut o = 8;
+    let count = try_read_varint(body, &mut o)? as usize;
+    if count == 0 || count > 100 {
+        return None;
+    }
+    let mut offers = Vec::with_capacity(count);
+    for _ in 0..count {
+        let offer = u32_at(o)?;
+        let quest = u32_at(o + 4)?;
+        let number = u32_at(o + 8)?;
+        let state = *body.get(o + 16)?;
+        let rewards = *body.get(o + 17)? as usize;
+        o += 18;
+        for _ in 0..rewards {
+            o += 4;
+            try_read_varint(body, &mut o)?;
+            o += 9;
+        }
+        offers.push(DutyOffer { offer, quest, number, state });
+    }
+    let reset = i64::from_le_bytes(body.get(o..o + 8)?.try_into().ok()?);
+    // A reset a year either side of 2026 at most: anything else wasn't a board.
+    (body.len() == o + 17 && (1_750_000_000_000..1_850_000_000_000).contains(&reset)).then_some((offers, reset))
+}
+
+/// One shop limit at `at` (see `StreamProcessor::parse_shop_and_craft_packet`):
+/// `(item id, bought, next reset ms)`.
+fn shop_limit_at(body: &[u8], at: usize) -> Option<(u32, u32, i64)> {
+    let b = body.get(at..at + 16)?;
+    let id = u32::from_le_bytes(b[0..4].try_into().ok()?);
+    let bought = u32::from_le_bytes(b[4..8].try_into().ok()?);
+    let reset = i64::from_le_bytes(b[8..16].try_into().ok()?);
+    // Never resetting is year 2100 (item 1254); anything else wasn't one.
+    (1_750_000_000_000..=4_200_000_000_000).contains(&reset).then_some((id, bought, reset))
+}
+
+/// The shop's limits in an `8e 56`: the whole record must read as them.
+fn shop_limits(body: &[u8]) -> Option<Vec<(u32, u32, i64)>> {
+    let count = *body.get(2)? as usize;
+    if count == 0 || body[..2] != [0, 0] || body.len() != 3 + 16 * count {
+        return None;
+    }
+    (0..count).map(|k| shop_limit_at(body, 3 + 16 * k)).collect()
+}
+
+/// Whether `(recipe, crafted)` reads as a craft count: recipe ids seen run
+/// from 31036002 to 72046054, counts are a week's (16 at most).
+fn plausible_craft((recipe, crafted): (u32, u32)) -> bool {
+    (1..=99_999_999).contains(&recipe) && crafted <= 10_000
+}
+
+/// The crafting window's recipes in an `8f 8d`: `(recipe, crafted)`, the
+/// whole record read as sections of them, none empty, each count plausible
+/// (`plausible_craft`): a whole list replaces every count.
+fn craft_list(body: &[u8]) -> Option<Vec<(u32, u32)>> {
+    if body.get(..4)? != [0, 0, 0, 0] {
+        return None;
+    }
+    let mut out = Vec::new();
+    let mut o = 4;
+    while o < body.len() {
+        let count = body[o] as usize;
+        if count == 0 {
+            return None;
+        }
+        o += 1;
+        for _ in 0..count {
+            let entry = body.get(o..o + 8)?;
+            let craft = (u32::from_le_bytes(entry[..4].try_into().ok()?), u32::from_le_bytes(entry[4..].try_into().ok()?));
+            if !plausible_craft(craft) {
+                return None;
+            }
+            out.push(craft);
+            o += 8;
+        }
+    }
+    (!out.is_empty()).then_some(out)
+}
+
+/// A craft done in an `8b 8d`: `(recipe, crafted)`, the server's count or
+/// the character's (one of them is 0).
+fn craft_done(body: &[u8]) -> Option<(u32, u32)> {
+    let u32_at = |o: usize| body.get(o..o + 4).map(|b| u32::from_le_bytes(b.try_into().unwrap()));
+    if body.len() != 41 || body[..3] != [0, 0, 1] || u32_at(3)? != u32_at(9)? {
+        return None;
+    }
+    Some((u32_at(3)?, u32_at(33)?.saturating_add(u32_at(37)?))).filter(|&c| plausible_craft(c))
 }
 
 fn try_read_varint(bytes: &[u8], offset: &mut usize) -> Option<i32> {
@@ -3995,6 +4312,372 @@ mod tests {
         assert_eq!(storage.odyle_energy(), Some((30, 880)));
     }
 
+    /// The Daily Duty board at a transfer (2026-10-24 17:34:16, the game
+    /// said 3/5), then an offer taken and given up (Weaken Blades Defenses,
+    /// 17:31:28 and 17:31:31, replayed on the board).
+    #[test]
+    fn daily_duty_from_the_board_and_its_changes() {
+        let (storage, mut p) = processor();
+        p.set_override_timestamp(Some(1_792_900_000_000));
+        let board = [
+            "870b1c8d00000000000000000f1f0000003a2023000000000000000000010537337037f4030000e1f505000000006526",
+            "b41fc8010080f0fa020000000037337037e80700408af701000000002133703780fa010040787d01000000006826b41f",
+            "c80100809698000000000020000000a52023000000000000000000010537337037ac020000e1f5050000000037337037",
+            "f4030080f0fa020000000021337037b0ea0100408af701000000006426b41fc8010040787d0100000000c2ee65240100",
+            "809698000000000021000000c420230000000000000000000105e4f59306010000e1f5050000000037337037e8070080",
+            "f0fa020000000043da051e0100408af7010000000037337037f4030040787d010000000021337037a08d060080969800",
+            "00000000220000003b2023000000000000000000010521337037d00f0000e1f505000000006626b41fc8010080f0fa02",
+            "0000000023c59a250100408af7010000000037337037f4030040787d01000000000189890c0100809698000000000023",
+            "000000b52023000000000000000000010537337037640000e1f505000000006726b41fc8010080f0fa02000000003733",
+            "7037e80700408af70100000000bdee6524010040787d01000000006426b41fc80100809698000000000024000000d820",
+            "23000000000000000000010537337037ac020000e1f505000000006426b41fc8010080f0fa020000000023c59a250100",
+            "408af701000000006726b41fc8010040787d010000000037337037b81700809698000000000025000000bf2023000701",
+            "000000000000020543da051e010000e1f505000000006526b41fc8010080f0fa020000000040da051e0100408af70100",
+            "00000037337037f4030040787d01000000002133703780f10400809698000000000026000000a7202300090100000000",
+            "0000020541da051e010000e1f5050000000040da051e010080f0fa020000000040da051e0100408af701000000006626",
+            "b41fc8010040787d010000000040da051e0100809698000000000027000000c320230000000000000000000105213370",
+            "37a01f0000e1f5050000000037337037f4030080f0fa020000000041da051e0100408af701000000006626b41fc80100",
+            "40787d010000000021337037e0d40300809698000000000028000000b12023000000000000000000010521337037d00f",
+            "0000e1f5050000000037337037e8070080f0fa020000000021337037a09c0100408af701000000006526b41fc8010040",
+            "787d010000000021337037e0d40300809698000000000029000000dc2023000000000000000000010537337037900300",
+            "00e1f5050000000037337037f4030080f0fa020000000037337037f40300408af701000000006426b41fc8010040787d",
+            "01000000006426b41fc8010080969800000000002a000000a9202300080100000000000002056426b41fc8010000e1f5",
+            "050000000042da051e010080f0fa0200000000bcee65240100408af7010000000037337037d00f0040787d0100000000",
+            "37337037a01f0080969800000000002b000000d720230000000000000000000105dc156624010000e1f5050000000037",
+            "337037f4030080f0fa020000000037337037dc0b00408af7010000000021337037d089020040787d0100000000373370",
+            "37a01f0080969800000000002c000000d12023000000000000000000010521337037a01f0000e1f50500000000373370",
+            "37e8070080f0fa02000000006826b41fc80100408af7010000000023c59a25010040787d010000000037337037882700",
+            "80969800000000002d000000ad20230000000000000000000105c4899806010000e1f5050000000037337037e8070080",
+            "f0fa020000000085ca8f0c0100408af7010000000021337037b0ea010040787d01000000003733703788270080969800",
+            "0000000080e9db71a10100000080e9db71a1010000",
+        ]
+        .concat();
+        let (offers, reset) = daily_duty_board(&hex(&board)[4..]).unwrap();
+        assert_eq!(offers.len(), 15);
+        assert_eq!(reset, 1_792_911_600_000);
+        let taken: Vec<_> = offers.iter().filter(|o| o.state == 2).map(|o| (o.offer, o.quest, o.number)).collect();
+        assert_eq!(taken, vec![(37, 2_302_143, 263), (38, 2_302_119, 265), (42, 2_302_121, 264)]);
+        p.parse_perfect_packet(&hex(&board));
+        // Before the board's reset (2026-10-25 07:00 UTC), and after it.
+        let duty = |s: &DataStorage| s.daily_duty_at(1_792_900_000_000).map(|(_, taken)| taken);
+        // Three taken, none completed.
+        assert_eq!(storage.daily_duty_at(1_792_900_000_000), Some((0, 3)));
+        assert_eq!(storage.daily_duty_at(1_792_911_600_000), Some((0, 0)));
+        p.parse_perfect_packet(&hex("15208d0100002d000000ad2023000a010000"));
+        assert_eq!(duty(&storage), Some(4));
+        p.parse_perfect_packet(&hex("0c0d8d00000a010000"));
+        assert_eq!(duty(&storage), Some(3));
+        // Another quest given up (not the board's) changes nothing.
+        p.parse_perfect_packet(&hex("0c0d8d0000ff010000"));
+        assert_eq!(duty(&storage), Some(3));
+        // A quest taken that isn't one of the board's offers doesn't count,
+        // even one like them: the board names all of the day's.
+        p.parse_perfect_packet(&hex("15208d01000060000000b02023000b010000"));
+        p.parse_perfect_packet(&hex("15208d0100002d00000041420f000b010000"));
+        assert_eq!(duty(&storage), Some(3));
+
+        // The board the turn-in sent: one completed of five taken.
+        let after = [
+            "d90e1c8d02000000010000001425000000bf2023000701000000000000020543da051e010000e1f505000000006526b4",
+            "1fc8010080f0fa020000000040da051e0100408af7010000000037337037f4030040787d01000000002133703780f104",
+            "00809698000000000026000000a72023000901000000000000020541da051e010000e1f5050000000040da051e010080",
+            "f0fa020000000040da051e0100408af701000000006626b41fc8010040787d010000000040da051e0100809698000000",
+            "00002a000000a9202300080100000000000002056426b41fc8010000e1f5050000000042da051e010080f0fa02000000",
+            "00bcee65240100408af7010000000037337037d00f0040787d010000000037337037a01f008096980000000000310000",
+            "00ae202300000000000000000001056426b41fc8010000e1f505000000006426b41fc8010080f0fa02000000006426b4",
+            "1fc80100408af701000000006826b41fc8010040787d01000000002133703780f10400809698000000000035000000af",
+            "2023000b01000000000000020540da051e010000e1f5050000000037337037e8070080f0fa02000000006726b41fc801",
+            "00408af7010000000037337037e8070040787d01000000006426b41fc8010080969800000000003d0000003a20230000",
+            "0000000000000001053733703790030000e1f50500000000f33c6624010080f0fa020000000037337037f40300408af7",
+            "010000000005b0890c010040787d01000000002133703780f1040080969800000000003e000000482023000000000000",
+            "000000010521337037a01f0000e1f505000000006626b41fc8010080f0fa02000000006426b41fc80100408af7010000",
+            "000037337037f4030040787d01000000006526b41fc8010080969800000000003f000000b02023000000000000000000",
+            "010526e48c0c010000e1f5050000000021337037b06d0080f0fa02000000006826b41fc80100408af701000000006826",
+            "b41fc8010040787d010000000037337037a01f00809698000000000040000000d6202300000000000000000001056626",
+            "b41fc8010000e1f5050000000021337037d08c010080f0fa020000000037337037f40300408af7010000000021337037",
+            "80fa010040787d01000000002133703780f10400809698000000000041000000ca2023000c01000000000000040544da",
+            "051e010000e1f50500000000c4899806010080f0fa02000000002133703790cb0100408af701000000006726b41fc801",
+            "0040787d010000000021337037a08d06008096980000000000420000009e2023000000000000000000010537337037f4",
+            "030000e1f505000000006426b41fc8010080f0fa020000000021337037e0da0100408af7010000000023c59a25010040",
+            "787d0100000000c07b860c0100809698000000000043000000cb2023000000000000000000010521337037d00f0000e1",
+            "f505000000006d526524010080f0fa020000000040da051e0100408af7010000000037337037dc0b0040787d01000000",
+            "0037337037a01f00809698000000000044000000ce2023000000000000000000010521337037904e0000e1f505000000",
+            "0021337037807d0080f0fa020000000021337037f0ab0100408af7010000000037337037e8070040787d0100000000a2",
+            "0f8b0c0100809698000000000045000000c52023000000000000000000010521337037904e0000e1f505000000003733",
+            "7037e8070080f0fa02000000006426b41fc80100408af701000000006626b41fc8010040787d01000000006626b41fc8",
+            "0100809698000000000046000000b2202300000000000000000001053733703790030000e1f505000000006426b41fc8",
+            "010080f0fa020000000037337037e80700408af701000000006626b41fc8010040787d01000000006426b41fc8010080",
+            "9698000000000047000000c82023000000000000000000010521337037f02e0000e1f5050000000037337037f4030080",
+            "f0fa02000000006526b41fc80100408af70100000000c1ee6524010040787d01000000006626b41fc801008096980000",
+            "00000048000000a82023000000000000000000010521337037d00f0000e1f5050000000037337037f4030080f0fa0200",
+            "0000006726b41fc80100408af701000000006426b41fc8010040787d010000000080a38f0c0100809698000000000049",
+            "000000bd2023000000000000000000010537337037c8010000e1f5050000000005b0890c010080f0fa020000000040da",
+            "051e0100408af7010000000037337037d00f0040787d010000000021337037e0d4030080969800000000004a000000d2",
+            "2023000000000000000000010540da051e010000e1f5050000000037337037f4030080f0fa020000000021337037b0ea",
+            "0100408af7010000000040da051e010040787d010000000021337037e0d4030080969800000000004b000000d3202300",
+            "00000000000000000105f33c6624010000e1f5050000000021337037e05d0080f0fa02000000006826b41fc80100408a",
+            "f7010000000021337037b0ea010040787d010000000021337037a08d0600809698000000000080e9db71a10100000080",
+            "e9db71a1010000",
+        ]
+        .concat();
+        p.parse_perfect_packet(&hex(&after));
+        assert_eq!(storage.daily_duty_at(1_792_900_000_000), Some((1, 5)));
+
+        // Played through the reset (2026-10-25 07:00 UTC): the day starts
+        // with none, and an offer taken counts until the next board.
+        let next_day = 1_792_911_600_000 + 60_000;
+        assert_eq!(storage.daily_duty_at(next_day), Some((0, 0)));
+        p.set_override_timestamp(Some(next_day));
+        p.parse_perfect_packet(&hex("15208d0100002d000000ad2023000a010000"));
+        assert_eq!(storage.daily_duty_at(next_day), Some((0, 1)));
+        p.parse_perfect_packet(&hex("0c0d8d00000a010000"));
+        assert_eq!(storage.daily_duty_at(next_day), Some((0, 0)));
+        // Until the new board comes: a quest unlike the board's doesn't
+        // count, a second like them does.
+        p.parse_perfect_packet(&hex("15208d0100002d000000ad2023000a010000"));
+        p.parse_perfect_packet(&hex("15208d0100006100000041420f000c010000"));
+        assert_eq!(storage.daily_duty_at(next_day), Some((0, 1)));
+        p.parse_perfect_packet(&hex("15208d01000060000000b02023000b010000"));
+        assert_eq!(storage.daily_duty_at(next_day), Some((0, 2)));
+        // 2301990 is in the board's hex block (`23 20 xx`) but not its
+        // thousand: not counted.
+        p.parse_perfect_packet(&hex("15208d01000062000000262023000d010000"));
+        assert_eq!(storage.daily_duty_at(next_day), Some((0, 2)));
+        // Records that only start the same, without the `00 00`: nothing.
+        p.parse_perfect_packet(&hex("15208d01ffff63000000b12023000e010000"));
+        p.parse_perfect_packet(&hex("0c0d8dffff0b010000"));
+        assert_eq!(storage.daily_duty_at(next_day), Some((0, 2)));
+
+        // Another character's login (its list): that board isn't theirs.
+        storage.set_content_counts(vec![(1, [12, 9])], true);
+        assert_eq!(storage.daily_duty_at(1_792_900_000_000), None);
+    }
+
+    /// The shop's limits and the crafts (2026-10-25, Nulli): the shop opened
+    /// (12:12:29, Buy Odyle Energy 100134 at 20, Buy Rift Stones 100135 at 1
+    /// after one bought at 12:04:05), the crafting window (12:12:04, the
+    /// server's Odyle Energy craft 32070001 at 3) and a craft of the
+    /// character's, 32070002, 0 to 1 (12:12:36).
+    #[test]
+    fn shop_limits_and_crafts() {
+        let (storage, mut p) = processor();
+        let shop = [
+            "798e56000007910400000000000080fd4e81a1010000e6040000000000008075d52abb030000ee04000000000000806d",
+            "e895a1010000048701001e00000000ec8581a1010000268701001400000000ec8581a1010000278701000100000080fd",
+            "4e81a10100002d8701000000000080fd4e81a1010000",
+        ]
+        .concat();
+        p.parse_perfect_packet(&hex(&shop));
+        let now = 1_792_930_000_000;
+        let limits = storage.shop_limits_at(now);
+        assert_eq!(limits.len(), 7);
+        assert_eq!(limits[&100_134], (20, Some(1_793_174_400_000)));
+        assert_eq!(limits[&100_135], (1, Some(1_793_170_800_000)));
+        // Past its reset (Wednesday 07:00 UTC), nothing bought yet.
+        assert_eq!(storage.shop_limits_at(1_793_170_800_000)[&100_135], (0, None));
+        // One bought: the entry alone, then a list of one.
+        p.parse_perfect_packet(&hex("168f56278701000200000080fd4e81a1010000"));
+        assert_eq!(storage.shop_limits_at(now)[&100_135].0, 2);
+        p.parse_perfect_packet(&hex("198e56000001278701000100000080fd4e81a1010000"));
+        assert_eq!(storage.shop_limits_at(now)[&100_135].0, 1);
+
+        let window = [
+            "dc068f8d00000000103117da01000000003317da01000000003417da0100000000e4cada01000000007159e901030000",
+            "007359e901000000007459e90100000000240dea010000000081133c0400000000c1554b0400000000e0554b04000000",
+            "00e1554b0400000000e2554b0400000000e4554b0401000000e5554b0401000000e6554b04010000005a6292d9010000",
+            "00001cc9d901000000001dc9d901000000001ec9d901000000001fc9d9010000000020c9d9010000000021c9d9010000",
+            "00003217da0100000000b155da0100000000b455da010000000039e6da01000000003ae6da01000000003ce6da010000",
+            "000021eada010000000022eada010000000023eada010000000025eada010000000009eeda01000000000aeeda010000",
+            "00000beeda01000000000deeda0100000000f1f1da0100000000a2d4e801000000005c0be901000000005d0be9010000",
+            "00005e0be901000000005f0be90100000000600be90100000000610be901000000007259e90100000000f197e9010000",
+            "0000f497e901000000007928ea01000000007a28ea01000000007c28ea0100000000612cea0100000000622cea010000",
+            "0000632cea0100000000652cea01000000004930ea01000000004a30ea01000000004b30ea01000000004d30ea010000",
+            "00003134ea010000000009cf7102000000000acf710200000000f1d2710200000000f2d271020000000019f671020000",
+            "000001fa71020000000049118102010000004a1181020000000031158102010000003215810200000000593881020000",
+            "0000413c810201000000596d0a030000000099af190301000000f1ffa20300000000f2ffa203000000003142b2030000",
+            "00003242b2030000000071133c040000000072133c040000000073133c040000000076133c040000000077133c040000",
+            "000078133c04000000007a133c04000000007b133c04000000007c133c04000000007d133c04000000007e133c040000",
+            "00007f133c040000000080133c040000000082133c0400000000b1554b0400000000b2554b0400000000b3554b040000",
+            "0000b6554b0400000000b7554b0400000000b8554b0400000000ba554b0400000000bb554b0400000000bc554b040000",
+            "0000bd554b0400000000be554b0400000000bf554b0400000000c0554b0400000000c2554b0400000000",
+        ]
+        .concat();
+        p.parse_perfect_packet(&hex(&window));
+        let crafts = storage.craft_counts();
+        assert_eq!(crafts.len(), 106);
+        assert_eq!(crafts[&32_070_001], 3);
+        assert_eq!(crafts[&32_070_002], 0);
+        // The window's other record (`8f 8d 00 00 01 00 00 00`) is no list.
+        p.parse_perfect_packet(&hex("0c8f8d000001000000"));
+        assert_eq!(storage.craft_counts().len(), 106);
+        p.parse_perfect_packet(&hex("2f8b8d0000017259e90150057259e90101000000010000000000000000000000000000000000000001000000"));
+        assert_eq!(storage.craft_counts()[&32_070_002], 1);
+        p.parse_perfect_packet(&hex("2f8b8d0000017159e90150057159e90101000000010000000000000000000000000000000300000000000000"));
+        assert_eq!(storage.craft_counts()[&32_070_001], 3);
+        // Both counts garbage: no overflow, and not taken.
+        p.parse_perfect_packet(&hex("2f8b8d0000017159e90150057159e9010100000001000000000000000000000000000000ffffffffffffffff"));
+        assert_eq!(storage.craft_counts()[&32_070_001], 3);
+        // Records that would read as a list but for an empty section or an
+        // implausible count replace nothing.
+        p.parse_perfect_packet(&hex("148f8d00000000017159e9010300000000"));
+        p.parse_perfect_packet(&hex("138f8d00000000017159e90100000100"));
+        assert_eq!(storage.craft_counts().len(), 106);
+
+        // The shop's whole list replaces the limits: an item gone from it
+        // goes. A list of one (a purchase) is merged.
+        p.parse_perfect_packet(&hex("298e56000002268701001400000000ec8581a1010000278701000100000080fd4e81a1010000"));
+        assert_eq!(storage.shop_limits_at(now).keys().copied().collect::<Vec<_>>(), vec![100_134, 100_135]);
+        p.parse_perfect_packet(&hex("198e560000012d8701000000000080fd4e81a1010000"));
+        assert_eq!(storage.shop_limits_at(now).len(), 3);
+
+        // The character event reads them with the owner, at one moment.
+        let list = storage.entry_list();
+        assert_eq!(list.crafts, storage.craft_counts());
+        assert_eq!(list.shop_limits.len(), 3);
+
+        // Another character's login: neither is theirs.
+        storage.set_content_counts(vec![(1, [12, 9])], true);
+        assert!(storage.shop_limits_at(now).is_empty());
+        assert!(storage.craft_counts().is_empty());
+        let list = storage.entry_list();
+        assert!(list.shop_limits.is_empty() && list.crafts.is_empty());
+    }
+
+    /// Kinah gained today at a login, then a pickup; the week's Abyss Points
+    /// and limit (2026-10-25, Nullception). A login's wait for the self
+    /// record; a reset since gives 0.
+    #[test]
+    fn kinah_today_and_abyss_points() {
+        let (storage, mut p) = processor();
+        // 2026-10-25 12:00 UTC, a Sunday.
+        let now = 1_792_929_600_000;
+        p.set_override_timestamp(Some(now));
+        storage.set_local_identity_from_game(1030, Some("Main".into()));
+        storage.set_kinah_today(400, now, false);
+        storage.set_abyss_points(7, 2_000_000, now);
+        storage.set_local_identity_from_game(1030, Some("Main".into()));
+        // Alt's login: its Abyss Points before the list, its Kinah after.
+        p.parse_perfect_packet(&hex("13a9ffe3c500000000000080841e0000000000"));
+        p.parse_perfect_packet(&hex("13a5ff00000000000000000983c072a1010000"));
+        assert_eq!(storage.kinah_today_at(now), Some(400), "Main's until the self record");
+        assert_eq!(storage.abyss_points_at(now), Some((7, 2_000_000)));
+        storage.set_local_identity_from_game(4294, Some("Alt".into()));
+        assert_eq!(storage.kinah_today_at(now), Some(0));
+        assert_eq!(storage.abyss_points_at(now), Some((50_659, 2_000_000)));
+        p.parse_perfect_packet(&hex("13a6fffe050000000000006b32e172a1010000"));
+        assert_eq!(storage.kinah_today_at(now), Some(1534));
+        // Points over the limit aren't the points; nor Kinah past the daily
+        // cap or with a time that isn't one.
+        p.parse_perfect_packet(&hex("13a9ff05000000000000000100000000000000"));
+        p.parse_perfect_packet(&hex("13a6ff41420f00000000006b32e172a1010000"));
+        p.parse_perfect_packet(&hex("13a6ff06060000000000000500000000000000"));
+        storage.set_local_identity_from_game(4294, Some("Alt".into()));
+        assert_eq!(storage.kinah_today_at(now), Some(1534));
+        assert_eq!(storage.abyss_points_at(now), Some((50_659, 2_000_000)));
+        // The daily reset (2026-10-26 07:00 UTC) and the weekly (Wednesday
+        // 2026-10-28 07:00 UTC).
+        let monday = 1_792_998_000_000;
+        assert_eq!(storage.kinah_today_at(monday - 1), Some(1534));
+        assert_eq!(storage.kinah_today_at(monday), Some(0));
+        assert_eq!(storage.abyss_points_at(monday), Some((50_659, 2_000_000)));
+        let wednesday = monday + 2 * 24 * 60 * 60 * 1000;
+        assert_eq!(storage.abyss_points_at(wednesday - 1), Some((50_659, 2_000_000)));
+        assert_eq!(storage.abyss_points_at(wednesday), Some((0, 2_000_000)));
+
+        // A login whose list brings no Kinah or Abyss Points: the last
+        // character's go with the list.
+        storage.set_content_counts(vec![(1, [12, 9])], true);
+        storage.set_local_identity_from_game(5100, Some("Third".into()));
+        assert_eq!(storage.kinah_today_at(now), None);
+        assert_eq!(storage.abyss_points_at(now), None);
+        // A pickup between the list and the self record is newer than the
+        // login's Kinah held for it.
+        storage.set_content_counts(vec![(1, [12, 9])], true);
+        p.parse_perfect_packet(&hex("13a5ff00000000000000000983c072a1010000"));
+        p.parse_perfect_packet(&hex("13a6fffe050000000000006b32e172a1010000"));
+        storage.set_local_identity_from_game(4294, Some("Alt".into()));
+        assert_eq!(storage.kinah_today_at(now), Some(1534));
+        let list = storage.entry_list();
+        assert_eq!((list.owner.as_deref(), list.kinah_today), (Some("Alt"), Some(1534)));
+    }
+
+    /// The whole entry-count list, by id, and its updates (Nullception's
+    /// login, 2026-10-22 00:59:21; updates from 2026-10-17 and -19).
+    #[test]
+    fn content_counts_from_the_login_list_and_its_updates() {
+        let (storage, mut p) = processor();
+        let list = "fa030b61490c0100000006090103000000f89b7901000000000004000000000600000004070000002004080000000701090000008085800100000000040a0000000e040b00000002040c0000000e010d0000008085800100000000040e0000000e040f0000000e04650000000e04660000000704670000000701c9000000808580010000000001ca000000808580010000000001cb000000808580010000000001cc000000808580010000000001cd000000808580010000000001ce00000080858001000000000181969800d0fb01000000000000829698000083969800008496980000859698000086969800008796980000889698000089969800008a969800008b969800008c9698000c018793039601ff0b04028793030e04038793030e04048793030e04058793030e04068793031504078793032304088793031c04098793030a040a8793030704658793030e04c987930307044d8b93030704b18b93030e04358f93030704998f93030e041d9393030704819393030e04059793030704699793030704b59b930304049d9f93030404bda29303070421a393030e048daa93030704f1aa93030e0445b693030704a9b6930307042dba9303070415be93030704fdc193030704811d2c04030401b4c4040304814a5d050404824a5d050104834a5d050404844a5d050204854a5d050404864a5d0502";
+        p.parse_perfect_packet(&hex(list));
+        let counts = storage.content_counts();
+        assert_eq!(counts.get(&1), Some(&[6, 9]));
+        assert_eq!(counts.get(&60_000_001), Some(&[150, 1535]));
+        assert_eq!(counts.get(&4), Some(&[0, 0]));
+        assert_eq!(counts.get(&70_000_001), Some(&[3, 0]));
+        assert_eq!(counts.get(&90_000_006), Some(&[2, 0]));
+        // u64 entries (times) are not counts.
+        assert_eq!(counts.get(&3), None);
+        assert_eq!(storage.odyle_energy(), Some((150, 1535)));
+
+        p.parse_perfect_packet(&hex("0f0c61000c010000000b0103"));
+        assert_eq!(storage.content_counts().get(&1), Some(&[11, 1]));
+        p.parse_perfect_packet(&hex("0e0c6100040c0000000e02"));
+        assert_eq!(storage.content_counts().get(&12), Some(&[14, 0]));
+        // An update with Odyle energy only: the rest are kept.
+        p.parse_perfect_packet(&hex("140c61010c018793031ef0060128000000"));
+        assert_eq!(storage.content_counts().get(&60_000_001), Some(&[30, 880]));
+        assert_eq!(storage.content_counts().get(&1), Some(&[11, 1]));
+
+        // The Abyss passages (2026-10-25, Nullception): one entered with its
+        // 2:10, used up 130 s later; a count again then.
+        p.set_override_timestamp(Some(1_792_930_000_000));
+        p.parse_perfect_packet(&hex("120c61000182969800d0fb01000000000003"));
+        assert_eq!(storage.content_times().get(&10_000_002), Some(&(130_000, 1_792_930_000_000)));
+        // Sent again unchanged: still seen at the first time.
+        p.set_override_timestamp(Some(1_792_930_005_000));
+        p.parse_perfect_packet(&hex("120c61000182969800d0fb01000000000003"));
+        assert_eq!(storage.content_times().get(&10_000_002), Some(&(130_000, 1_792_930_000_000)));
+        // The counts and times are read together.
+        let list = storage.entry_list();
+        assert_eq!(list.times.get(&10_000_002), Some(&(130_000, 1_792_930_000_000)));
+        assert_eq!(list.counts.get(&10_000_002), None);
+        p.parse_perfect_packet(&hex("0d0c6100008296980003"));
+        assert_eq!(storage.content_times().get(&10_000_002), None);
+        assert_eq!(storage.content_counts().get(&10_000_002), Some(&[0, 0]));
+        p.set_override_timestamp(None);
+        // A login's list that doesn't read: the counts before it aren't the
+        // new character's, so they go, and the owner waits for the self record.
+        storage.set_local_identity_from_game(1030, Some("Nullception".into()));
+        p.parse_perfect_packet(&hex("0a0b61ffeeddccbb"));
+        assert!(storage.content_counts().is_empty());
+        assert_eq!(storage.odyle_owner(), None);
+        // Its energy goes with them: the next self record must not take the
+        // last character's 30/880 as its own.
+        assert_eq!(storage.odyle_energy(), None);
+        storage.set_local_identity_from_game(4294, Some("Alt".into()));
+        assert_eq!(storage.odyle_energy(), None);
+        assert_eq!(storage.odyle_owner(), None);
+    }
+
+    /// Updates that don't read whole are turned away: trailing bytes that
+    /// would make up entries, an id of 0, a count past a million.
+    #[test]
+    fn content_count_updates_that_dont_read_whole_change_nothing() {
+        let (storage, mut p) = processor();
+        p.parse_perfect_packet(&hex("0f0c61000c010000000b0103"));
+        assert_eq!(storage.content_counts().get(&1), Some(&[11, 1]));
+        // Two entries claimed, one there.
+        p.parse_perfect_packet(&hex("0f0c61020c010000000c0103"));
+        // One entry, then more than a tail.
+        p.parse_perfect_packet(&hex("150c61000c010000000c0103aabbccddeeff"));
+        // Id 0.
+        p.parse_perfect_packet(&hex("0e0c610004000000000e02"));
+        // A count of 2^28.
+        p.parse_perfect_packet(&hex("120c6100040c00000080808080010203"));
+        let counts = storage.content_counts();
+        assert_eq!(counts.get(&1), Some(&[11, 1]));
+        assert_eq!(counts.len(), 1, "{counts:?}");
+    }
+
     /// With no charged energy the entry has one value (`04`, the zero
     /// dropped): the list at a login on 2026-10-16 (its energy entry and the
     /// one after it, as the game sent them) is 840 basic, 0 charged. The
@@ -4014,9 +4697,11 @@ mod tests {
         assert_eq!(storage.odyle_energy(), Some((0, 1755)));
         p.parse_perfect_packet(&hex("130c61010801879303cb0f01f0000000"));
         assert_eq!(storage.odyle_energy(), Some((0, 1995)));
-        // Updates without the energy change nothing.
+        // Updates without the energy change nothing, nor another entry in
+        // slot 1 (2026-10-17 15:06:54, logged as 0 basic, 0 charged).
         p.parse_perfect_packet(&hex("0e0c6100040c0000000e02"));
         p.parse_perfect_packet(&hex("0d0c6100000987930303"));
+        p.parse_perfect_packet(&hex("0f0c61000c01000000040103"));
         assert_eq!(storage.odyle_energy(), Some((0, 1995)));
     }
 
@@ -4062,6 +4747,22 @@ mod tests {
         assert_eq!(storage.odyle_owner(), None);
         storage.set_local_identity_from_game(1030, Some("Nullception".into()));
         assert_eq!(storage.odyle_owner().as_deref(), Some("Nullception"));
+
+        // Content counts and the Daily Duty board the same way, with no
+        // energy yet: a meter started mid-session, then a transfer's board.
+        let storage = DataStorage::new();
+        storage.set_local_identity_from_game(1030, Some("Nullception".into()));
+        storage.set_daily_duty_board(vec![DutyOffer { offer: 37, quest: 2_302_143, number: 263, state: 2 }], i64::MAX);
+        assert_eq!(storage.odyle_owner().as_deref(), Some("Nullception"));
+        let storage = DataStorage::new();
+        storage.set_local_identity_from_game(1030, Some("Nullception".into()));
+        storage.set_content_counts(vec![(4, [5, 2])], false);
+        assert_eq!(storage.odyle_owner().as_deref(), Some("Nullception"));
+        // A whole list without the energy waits for the self record too.
+        storage.set_content_counts(vec![(4, [5, 2])], true);
+        assert_eq!(storage.odyle_owner(), None);
+        storage.set_local_identity_from_game(4294, Some("Alt".into()));
+        assert_eq!(storage.odyle_owner().as_deref(), Some("Alt"));
     }
 
     /// Leaving an open-world party (2026-10-13, 23:43:42): `1f 92 03`, then

@@ -1,7 +1,8 @@
 name: Linux packages
 
-# Run by hand (Actions tab, or `gh workflow run arch-package.yml`). Builds the
-# meter's Linux packages and keeps them as downloads:
+# Runs on its own when a release tag (v*) is pushed, and by hand (Actions tab,
+# or `gh workflow run arch-package.yml`). Builds the meter's Linux packages and
+# keeps them as downloads:
 #
 # - the Arch package (packaging/arch/PKGBUILD, makepkg in an Arch container),
 #   for Arch, CachyOS, Manjaro, EndeavourOS;
@@ -13,11 +14,14 @@ name: Linux packages
 # meter never runs as root. Nothing here publishes anything: the files go to
 # the CDN by hand.
 #
-# For a release, run it on the release tag (`gh workflow run arch-package.yml
-# -f ref=v2.0.36`): the packages are then plain 2.0.36, and go to the CDN with
+# For a release, pushing the tag starts it (by hand: `gh workflow run
+# arch-package.yml -f ref=v2.0.36`): the packages are then plain 2.0.36, and go to the CDN with
 # the MSI before the manifest names them (archUrl, debUrl, rpmUrl), which is
 # what Linux meters update from.
 on:
+  # A pushed tag is checked out as itself (inputs.ref is empty then).
+  push:
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
       ref:

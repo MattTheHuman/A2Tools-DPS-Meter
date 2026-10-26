@@ -310,14 +310,17 @@
     "autoHideMeter": "Ausblenden, wenn AION2 nicht im Vordergrund ist",
     "hideWhenGameClosed": "Ausblenden, wenn AION2 geschlossen ist",
     "hideWhenSolo": "Nur in einer Gruppe anzeigen",
+    "hideOutOfCombat": {
+      "label": "Außerhalb des Kampfes ausblenden",
+      "off": "Aus",
+      "seconds": "Nach {seconds} s"
+    },
     "showSuspendBtn": "Taste „Erfassung pausieren“ anzeigen",
     "showLockBtn": "Taste für Durchklick-Sperre anzeigen",
     "playerLimit": {
       "label": "Max. angezeigte Spieler"
     },
     "partyPresence": "A2Tools-Nutzer in meiner Gruppe zeigen",
-    "shareBossTimers": "Feldboss-Timer teilen",
-    "shareSupplyRequests": "Versorgungsaufträge teilen",
     "debugLogging": "Debug-Protokoll",
     "quit": "Beenden",
     "discord": {
@@ -529,7 +532,13 @@
       "codeHint": "Die Seite sollte sich bereits geöffnet haben. Der Code läuft in 10 Minuten ab.",
       "working": "Warte auf Bestätigung…",
       "failed": "Anmeldung fehlgeschlagen: {error}",
-      "supporter": "Unterstützer"
+      "supporter": "Unterstützer",
+      "guestUpload": "Bosskämpfe ohne Konto hochladen",
+      "guestUploadHint": "Wenn ein Bosskampf endet, wird er öffentlich und ohne Konto auf a2tools.app hochgeladen. Andere Spieler bleiben maskiert. Meldest du dich später an, gehören die von diesem PC hochgeladenen Kämpfe dir.",
+      "guestClaimHint": "Von diesem PC hochgeladene Kämpfe werden für dich aufbewahrt. Melde dich hier an, um sie zu übernehmen, oder hol dir einen Code, um sie von einem anderen Gerät aus zu beanspruchen.",
+      "guestClaimButton": "Code anfordern",
+      "guestClaimCode": "Gib {code} auf {url} ein, während du angemeldet bist. Der Code läuft in 15 Minuten ab.",
+      "claimed": "{count} von diesem PC hochgeladene Kämpfe gehören jetzt dir."
     },
     "sendLogs": {
       "hint": "Sendet dein Debug-Log und deine neuesten Paket-Logs (insgesamt 3 Dateien) für einen Fehlerbericht an den Entwickler.",
@@ -572,8 +581,6 @@
       "allTargetsWindow": "Im Modus „Alle Ziele“ zählt das Meter alle Ziele, die innerhalb dieser Zeit vor dem letzten Treffer getroffen wurden.",
       "updateRate": "Wie oft sich die Zahlen des Meters aktualisieren. Schneller zeigt Treffer früher, braucht aber mehr CPU.",
       "partyPresence": "Gruppenmitglieder, die auch A2Tools nutzen, sehen ein kleines A2 neben deinem Namen und du ihres. Jeder in deiner Gruppe mit A2Tools sieht es und weiß damit, dass du ein Drittanbieter-Meter nutzt. Gesendet werden nur Hashes von Charakternamen und Servern.",
-      "shareBossTimers": "Teilt Feldboss-Timer über a2tools.app (und seinen Partner Aion 2 Timers) mit anderen Spielern: die Bosse auf deiner Karte, wenn du sie öffnest, und Feldbosse, die du sterben siehst, und ihre HP, während du gegen sie kämpfst. Gesendet werden nur Server, Bosse, Zeiten und HP.",
-      "shareSupplyRequests": "Teilt die Versorgungsaufträge deines Servers mit dem Profiteer von a2tools.app, wenn sie sich ändern (nach jedem Reset): den Server, die Tafeln und ihre Aufträge. Nichts über deinen Charakter oder seinen Fortschritt wird gesendet.",
       "debugLogging": "Schreibt ein Diagnoseprotokoll, mit dem der Entwickler Probleme finden kann.",
       "saveRawPackets": "Zeichnet rohen Spielverkehr für Fehlerberichte auf. Das Debug-Protokoll wird mit eingeschaltet.",
       "globalHotkeys": "Die Tasten unten funktionieren überall, auch wenn das Spiel im Vordergrund ist. Aus: Sie werden für andere Programme freigegeben. Unter Linux registriert der Desktop sie und fragt eventuell, ob du sie erlaubst.",
@@ -582,7 +589,9 @@
       "clearOnZone": "Wann der letzte Kampf nach einem Zonenwechsel aus dem Meter verschwindet. Jeder Kampf bleibt so oder so im Verlauf.",
       "hideWhenGameClosed": "Das Meter wird ausgeblendet, solange das Spiel nicht läuft, und erscheint wieder, wenn es startet.",
       "hideWhenSolo": "Das Meter wird ausgeblendet, solange du in keiner Gruppe bist, und erscheint wieder, wenn du einer beitrittst. Die Tastenkombination zum Ein-/Ausblenden holt es trotzdem hervor.",
-      "runAsAdmin": "Nötig, um die Bildrate des Spiels anzuzeigen. Windows fragt bei jedem Start des Meters nach."
+      "hideOutOfCombat": "Das Meter wird ausgeblendet, wenn du so lange nicht im Kampf warst, und erscheint mit dem nächsten Treffer wieder. Solange Einstellungen, Verlauf oder Details offen sind oder die Maus darüber ist, bleibt es sichtbar.",
+      "runAsAdmin": "Nötig, um die Bildrate des Spiels anzuzeigen. Windows fragt bei jedem Start des Meters nach.",
+      "shareData": "Teilt die Feldboss-Timer und Versorgungsaufträge deines Servers mit a2tools.app, damit A2Tools für alle aktuell bleibt: die Bosse auf deiner Karte, die du besiegt siehst, und ihre HP, sowie die Auftragstafeln nach jedem Reset. Nichts über deinen Charakter wird gesendet."
     },
     "globalHotkeys": "Tastenkürzel verwenden",
     "hotkeyConsent": {
@@ -647,7 +656,9 @@
       "search": "Suchen",
       "noMatch": "Keine passenden Plugins.",
       "permsTitle": "Es darf:",
-      "permFps": "Die Bildrate des Spiels anzeigen (unter Windows bittet das Meter dafür, als Administrator zu laufen)"
+      "permFps": "Die Bildrate des Spiels anzeigen (unter Windows bittet das Meter dafür, als Administrator zu laufen)",
+      "testHint": "Frühe Versionen zum Ausprobieren für alle, signiert wie die anderen. Sie können sich noch ändern oder Ecken und Kanten haben: Sag uns, was dir auffällt.",
+      "testTitle": "Test-Plugins"
     },
     "clearOnZone": {
       "label": "Meter leeren",
@@ -659,7 +670,8 @@
     },
     "runAsAdmin": "Als Administrator ausführen",
     "runAsAdminTitle": "A2Tools - Als Administrator ausführen",
-    "runAsAdminAsk": "Um die Bildrate des Spiels anzuzeigen, muss das Meter als Administrator laufen.\n\nDas Meter jetzt als Administrator neu starten? Windows fragt bei jedem Start des Meters nach. Du kannst das in den Einstellungen wieder ausschalten."
+    "runAsAdminAsk": "Um die Bildrate des Spiels anzuzeigen, muss das Meter als Administrator laufen.\n\nDas Meter jetzt als Administrator neu starten? Windows fragt bei jedem Start des Meters nach. Du kannst das in den Einstellungen wieder ausschalten.",
+    "shareData": "Nützliche Daten mit A2Tools synchronisieren"
   },
   "support": {
     "button": "Unterstütze mich",
@@ -685,7 +697,12 @@
       "btc": "BTC-Adresse kopieren",
       "eth": "ETH-Adresse kopieren",
       "usdc": "USDC-Adresse kopieren"
-    }
+    },
+    "sponsorLabel": "Anzeige",
+    "sponsorShort": "Ping senken mit ExitLag",
+    "sponsorCode": "Code",
+    "sponsorDisclosure": "Affiliate-Link. A2 Tools erhält bei einem Abschluss eine Provision, was hilft, die Tools kostenlos zu halten.",
+    "more": "Weitere Spendenmöglichkeiten auf a2tools.app"
   },
   "battleTime": {
     "analysing": "Überwache",
@@ -777,7 +794,9 @@
     "hint": "Namen anderer Spieler bleiben verborgen, Trainingspuppen werden nie hochgeladen. Du kannst das jederzeit in den Einstellungen ändern.",
     "signIn": "Anmelden",
     "later": "Nicht jetzt",
-    "close": "Schließen"
+    "close": "Schließen",
+    "guest": "Ohne Konto",
+    "guestHint": "Kein Konto? Deine Kämpfe können trotzdem hochgeladen werden und gehören dir, wenn du dich später anmeldest."
   },
   "npcapPrompt": {
     "ask": "A2Tools DPS Meter braucht Npcap, um den Netzwerkverkehr des Spiels zu lesen, und Npcap fehlt oder funktioniert nicht.\n\nJetzt installieren? Das Meter lädt den Npcap-Installer von npcap.com herunter und öffnet ihn. Sobald Npcap installiert ist, beginnt das Meter von selbst mit der Aufzeichnung.\n\nWähle Nein, um es selbst von https://npcap.com/#download zu installieren.",

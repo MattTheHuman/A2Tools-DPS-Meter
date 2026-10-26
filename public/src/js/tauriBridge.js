@@ -905,6 +905,15 @@
       return this._accountStatus;
     },
 
+    // Fights uploaded without an account from this PC, not claimed yet:
+    // { hasGuest }. A claim code for a2tools.app/claim: { code, expiresAt, url }.
+    guestStatus() {
+      return invoke("guest_status");
+    },
+    guestClaimCode() {
+      return invoke("guest_claim_code");
+    },
+
     discordActivityAvailable() {
       return invoke("discord_activity_available");
     },

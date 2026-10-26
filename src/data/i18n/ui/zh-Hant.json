@@ -315,14 +315,17 @@
     "autoHideMeter": "AION2 不在前景時隱藏",
     "hideWhenGameClosed": "AION2 關閉時隱藏",
     "hideWhenSolo": "僅在隊伍中顯示",
+    "hideOutOfCombat": {
+      "label": "脫離戰鬥時隱藏",
+      "off": "關閉",
+      "seconds": "{seconds} 秒後"
+    },
     "showSuspendBtn": "顯示暫停擷取按鈕",
     "showLockBtn": "顯示點擊穿透鎖定按鈕",
     "playerLimit": {
       "label": "最大顯示人數"
     },
     "partyPresence": "顯示隊伍中的 A2Tools 使用者",
-    "shareBossTimers": "分享野外首領計時",
-    "shareSupplyRequests": "分享補給委託",
     "debugLogging": "除錯記錄",
     "quit": "結束",
     "discord": {
@@ -536,7 +539,13 @@
       "failed": "登入失敗：{error}",
       "supporter": "贊助者",
       "autoUpload": "自動上傳首領戰",
-      "autoUploadHint": "首領戰結束時會以你在 a2tools.app 選擇的公開設定上傳到你的帳號。其他玩家的名稱會被遮蔽。木樁戰鬥不會上傳。"
+      "autoUploadHint": "首領戰結束時會以你在 a2tools.app 選擇的公開設定上傳到你的帳號。其他玩家的名稱會被遮蔽。木樁戰鬥不會上傳。",
+      "guestUpload": "無需帳號上傳首領戰",
+      "guestUploadHint": "首領戰結束後，會以公開形式上傳到 a2tools.app，無需帳號。其他玩家仍會被隱藏。之後登入時，從這台電腦上傳的戰鬥會歸你所有。",
+      "guestClaimHint": "從這台電腦上傳的戰鬥會為你保留。在這裡登入即可歸你所有，或取得代碼在其他裝置上認領。",
+      "guestClaimButton": "取得認領代碼",
+      "guestClaimCode": "登入後在 {url} 輸入 {code}。代碼 15 分鐘後失效。",
+      "claimed": "從這台電腦上傳的 {count} 場戰鬥現在歸你了。"
     },
     "sendLogs": {
       "hint": "將你的除錯日誌和最近的封包日誌（共 3 個檔案）傳送給開發者，用於錯誤回報。",
@@ -579,8 +588,6 @@
       "allTargetsWindow": "全部目標模式下，計量器彙總最後一次命中前這段時間內命中的所有目標。",
       "updateRate": "統計數字多久刷新一次。越快越早顯示傷害，但佔用更多 CPU。",
       "partyPresence": "同樣使用 A2Tools 的隊友會在你的名字旁看到小小的 A2 標記，你也會看到他們的。隊伍中任何使用 A2Tools 的人都看得到，因此會知道你使用第三方計量器。只會傳送角色名稱與伺服器的雜湊值。",
-      "shareBossTimers": "透過 a2tools.app（及合作夥伴 Aion 2 Timers）與其他玩家分享野外首領計時：開啟地圖時圖上的首領，以及你看到被擊殺的野外首領，以及戰鬥中首領的 HP。只會傳送伺服器、首領、時間與 HP。",
-      "shareSupplyRequests": "當伺服器的補給委託看板變更時（每次重置後），與 a2tools.app 的 Profiteer 分享：只傳送伺服器、看板與委託內容，不傳送你的角色或進度。",
       "debugLogging": "寫入開發者用於排查問題的診斷記錄。",
       "saveRawPackets": "記錄原始遊戲流量以便回報錯誤。除錯記錄會隨之開啟。",
       "globalHotkeys": "下面的按鍵在遊戲位於前景時也能使用。關閉後，這些按鍵會釋放給其他程式。在 Linux 上由桌面註冊這些按鍵，桌面可能會請你核准。",
@@ -589,7 +596,9 @@
       "clearOnZone": "切換區域後，何時從統計中清除上一場戰鬥。所有戰鬥都會保留在歷史紀錄中。",
       "hideWhenGameClosed": "遊戲未執行時隱藏計量器，遊戲啟動後再次顯示。",
       "hideWhenSolo": "不在隊伍中時隱藏計量器，加入隊伍後再次顯示。顯示/隱藏快捷鍵仍可隨時開啟它。",
-      "runAsAdmin": "顯示遊戲幀率需要此項。每次啟動計量器時 Windows 都會詢問。"
+      "hideOutOfCombat": "脫離戰鬥達到該時長後隱藏計量器，下一次命中時再次顯示。設定、歷史紀錄或詳情視窗開啟時，或滑鼠停在計量器上時不會隱藏。",
+      "runAsAdmin": "顯示遊戲幀率需要此項。每次啟動計量器時 Windows 都會詢問。",
+      "shareData": "將你所在伺服器的野外首領計時和補給委託分享給 a2tools.app，讓大家的 A2Tools 保持同步：你地圖上的首領、你看到被擊殺的首領及其血量，以及每次重置後的委託板。不會傳送任何關於你角色的資訊。"
     },
     "globalHotkeys": "使用快捷鍵",
     "hotkeyConsent": {
@@ -654,7 +663,9 @@
       "search": "搜尋",
       "noMatch": "沒有符合的外掛。",
       "permsTitle": "可以:",
-      "permFps": "顯示遊戲幀率（在 Windows 上，計量器會為此要求以系統管理員身分執行）"
+      "permFps": "顯示遊戲幀率（在 Windows 上，計量器會為此要求以系統管理員身分執行）",
+      "testHint": "任何人都可以試用的早期版本，和其他外掛一樣經過簽署。它們可能會變動或尚不完善：發現問題請告訴我們。",
+      "testTitle": "測試外掛"
     },
     "clearOnZone": {
       "label": "清空統計",
@@ -666,7 +677,8 @@
     },
     "runAsAdmin": "以系統管理員身分執行",
     "runAsAdminTitle": "A2Tools - 以系統管理員身分執行",
-    "runAsAdminAsk": "顯示遊戲幀率需要計量器以系統管理員身分執行。\n\n現在以系統管理員身分重新啟動計量器嗎？每次啟動計量器時 Windows 都會詢問。你可以在設定中關閉此項。"
+    "runAsAdminAsk": "顯示遊戲幀率需要計量器以系統管理員身分執行。\n\n現在以系統管理員身分重新啟動計量器嗎？每次啟動計量器時 Windows 都會詢問。你可以在設定中關閉此項。",
+    "shareData": "將有用的資料同步到 A2Tools"
   },
   "support": {
     "button": "支持我一下",
@@ -692,7 +704,12 @@
       "btc": "複製 BTC 地址",
       "eth": "複製 ETH 地址",
       "usdc": "複製 USDC 地址"
-    }
+    },
+    "sponsorLabel": "贊助",
+    "sponsorShort": "用 ExitLag 降低延遲",
+    "sponsorCode": "使用代碼",
+    "sponsorDisclosure": "聯盟連結。若你訂閱，A2 Tools 會獲得佣金，這有助於讓這些工具保持免費。",
+    "more": "在 a2tools.app 查看更多贊助方式"
   },
   "battleTime": {
     "analysing": "監控中",
@@ -784,7 +801,9 @@
     "hint": "其他玩家的名稱會被遮蔽，訓練假人的戰鬥不會上傳。可隨時在設定中變更。",
     "signIn": "登入",
     "later": "稍後再說",
-    "close": "關閉"
+    "close": "關閉",
+    "guest": "不使用帳號",
+    "guestHint": "沒有帳號？戰鬥仍可上傳，之後登入即歸你所有。"
   },
   "npcapPrompt": {
     "ask": "A2Tools DPS Meter 需要 Npcap 來讀取遊戲的網路流量，但 Npcap 未安裝或無法使用。\n\n現在安裝嗎？本工具會從 npcap.com 下載 Npcap 安裝程式並開啟它。Npcap 安裝完成後，本工具會自動開始擷取。\n\n選擇「否」可自行從 https://npcap.com/#download 安裝。",

@@ -320,6 +320,11 @@
     "autoHideMeter": "Hide when AION2 isn't focused",
     "hideWhenGameClosed": "Hide while AION2 is closed",
     "hideWhenSolo": "Show only in a party",
+    "hideOutOfCombat": {
+      "label": "Hide out of combat",
+      "off": "Off",
+      "seconds": "After {seconds} s"
+    },
     "showSuspendBtn": "Show pause capture button",
     "showLockBtn": "Show click-through lock button",
     "playerLimit": {
@@ -334,8 +339,6 @@
       }
     },
     "partyPresence": "Show A2Tools users in my party",
-    "shareBossTimers": "Share field boss timers",
-    "shareSupplyRequests": "Share Supply Requests",
     "debugLogging": "Debug logging",
     "quit": "Quit",
     "discord": {
@@ -549,7 +552,13 @@
       "failed": "Sign-in failed: {error}",
       "supporter": "Supporter",
       "autoUpload": "Upload boss fights automatically",
-      "autoUploadHint": "When a boss fight ends it is uploaded to your account, with the visibility you chose on a2tools.app. Other players stay masked. Training dummies are never uploaded."
+      "autoUploadHint": "When a boss fight ends it is uploaded to your account, with the visibility you chose on a2tools.app. Other players stay masked. Training dummies are never uploaded.",
+      "guestUpload": "Upload boss fights without an account",
+      "guestUploadHint": "When a boss fight ends it is uploaded to a2tools.app, public, without an account. Other players stay masked. Sign in later and the fights uploaded from this PC become yours.",
+      "guestClaimHint": "Fights uploaded from this PC are kept for you. Sign in here to make them yours, or get a code to claim them from another device.",
+      "guestClaimButton": "Get a claim code",
+      "guestClaimCode": "Enter {code} at {url} while signed in. The code expires in 15 minutes.",
+      "claimed": "{count} fights uploaded from this PC are now yours."
     },
     "sendLogs": {
       "hint": "Sends your debug log and your most recent packet logs (3 files in all) to the developer, for a bug report.",
@@ -593,8 +602,6 @@
       "allTargetsWindow": "In All Targets mode, the meter adds up every target hit within this time of the latest hit.",
       "updateRate": "How often the meter's numbers refresh. Faster shows hits sooner but uses more CPU.",
       "partyPresence": "Party members who also use A2Tools see a small A2 tag beside your name, and you see theirs. Anyone in your party using A2Tools can see it, so they'll know you use a third-party meter. Only hashes of character names and servers are sent.",
-      "shareBossTimers": "Shares field boss timers with other players through a2tools.app (and its partner Aion 2 Timers): the bosses on your map when you open it, and the field bosses you see killed, and their HP while you fight them. Only the server, the bosses, their times and HP are sent.",
-      "shareSupplyRequests": "Shares your server's Supply Requests boards with a2tools.app's Profiteer when they change (after each reset): the server, the boards and their requests. Nothing about your character or its progress is sent.",
       "debugLogging": "Writes a diagnostic log the developer can use to track down problems.",
       "saveRawPackets": "Records raw game traffic for bug reports. Debug logging turns on with it.",
       "globalHotkeys": "The keys below work anywhere, even while the game is in front. Off, they are released for other programs. On Linux your desktop registers them and may ask you to approve them.",
@@ -603,7 +610,9 @@
       "clearOnZone": "When the last fight leaves the meter after the zone changes. Every fight stays in History either way.",
       "hideWhenGameClosed": "The meter hides while the game isn't running, and comes back when it starts.",
       "hideWhenSolo": "The meter hides while you're not in a party, and comes back when you join one. The Show/Hide keybind still brings it up.",
-      "runAsAdmin": "Needed to show the game's frame rate. Windows asks each time the meter starts."
+      "hideOutOfCombat": "The meter hides once you've been out of combat this long, and comes back with the next hit. It stays up while Settings, History or Details is open, or the mouse is over it.",
+      "runAsAdmin": "Needed to show the game's frame rate. Windows asks each time the meter starts.",
+      "shareData": "Shares your server's field boss timers and Supply Requests with a2tools.app, to help keep A2Tools in sync for everyone: the bosses on your map, the ones you see killed and their HP, and the request boards after each reset. Nothing about your character is sent."
     },
     "globalHotkeys": "Use keybinds",
     "hotkeyConsent": {
@@ -668,7 +677,9 @@
       "search": "Search",
       "noMatch": "No plugins match.",
       "permsTitle": "It can:",
-      "permFps": "Show the game's frame rate (on Windows, the meter asks to run as administrator for it)"
+      "permFps": "Show the game's frame rate (on Windows, the meter asks to run as administrator for it)",
+      "testHint": "Early versions for anyone to try, signed like the others. They may change or have rough edges: tell us what you find.",
+      "testTitle": "Test plugins"
     },
     "clearOnZone": {
       "label": "Clear the meter",
@@ -680,7 +691,8 @@
     },
     "runAsAdmin": "Run as administrator",
     "runAsAdminTitle": "A2Tools - Run as administrator",
-    "runAsAdminAsk": "Showing the game's frame rate needs the meter to run as administrator.\n\nRestart the meter as administrator now? Windows will ask each time the meter starts. You can turn this off in Settings."
+    "runAsAdminAsk": "Showing the game's frame rate needs the meter to run as administrator.\n\nRestart the meter as administrator now? Windows will ask each time the meter starts. You can turn this off in Settings.",
+    "shareData": "Sync useful data to A2Tools"
   },
   "support": {
     "button": "Support Me",
@@ -706,7 +718,12 @@
       "btc": "Copy BTC address",
       "eth": "Copy ETH address",
       "usdc": "Copy USDC address"
-    }
+    },
+    "sponsorLabel": "Sponsored",
+    "sponsorShort": "Reduce your ping with ExitLag",
+    "sponsorCode": "Use code",
+    "sponsorDisclosure": "Affiliate link. A2 Tools earns a commission if you subscribe, which helps keep these tools free.",
+    "more": "More ways to donate on a2tools.app"
   },
   "battleTime": {
     "analysing": "Monitoring",
@@ -798,7 +815,9 @@
     "hint": "Other players' names stay masked, and training dummies are never uploaded. You can change this any time in Settings.",
     "signIn": "Sign in",
     "later": "Not now",
-    "close": "Close"
+    "close": "Close",
+    "guest": "No account",
+    "guestHint": "No account? Fights still upload, and become yours when you sign in."
   },
   "npcapPrompt": {
     "ask": "A2Tools DPS Meter needs Npcap to read the game's network traffic, and Npcap is missing or not working.\n\nInstall it now? The meter downloads Npcap's installer from npcap.com and opens it. Once Npcap is installed, the meter starts capturing by itself.\n\nChoose No to install it yourself from https://npcap.com/#download",

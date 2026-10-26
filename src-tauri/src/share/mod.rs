@@ -734,6 +734,15 @@ pub fn prune_slices(app_data_dir: &Path) {
 pub const AUTO_UPLOAD_KEY: &str = "dpsMeter.autoUpload";
 
 #[cfg(feature = "online")]
+/// Whether finished fights upload by themselves: the account's switch, or
+/// uploading without an account (`account::guest`); `upload_detailed` picks
+/// the key.
+pub fn auto_uploads(settings: &crate::config::settings::Settings) -> bool {
+    settings.get(AUTO_UPLOAD_KEY).as_deref() == Some("true")
+        || settings.get(crate::account::guest::GUEST_UPLOAD_KEY).as_deref() == Some("true")
+}
+
+#[cfg(feature = "online")]
 /// How long after the last hit a fight counts as over. The same rule the
 /// snapshot uses to stop re-saving a boss.
 const ENDED_AFTER_MS: i64 = 10_000;
@@ -899,12 +908,25 @@ pub async fn upload_detailed(
     record: &FightRecord,
     settings: &crate::config::settings::Settings,
 ) -> Result<UploadResult, UploadFailure> {
+    let mut as_guest = false;
     let token = match crate::account::secret::load_stored(app_data_dir) {
         crate::account::secret::Stored::Token(token) => token,
         crate::account::secret::Stored::Locked => {
             return Err(UploadFailure::locked(
                 "The desktop keyring is locked. Unlock the keyring to upload fights.",
             ))
+        }
+        // Not signed in: as a guest, when the player chose to upload without
+        // an account (account::guest), claimable once they sign in.
+        crate::account::secret::Stored::Missing
+            if settings.get(crate::account::guest::GUEST_UPLOAD_KEY).as_deref() == Some("true") =>
+        {
+            as_guest = true;
+            crate::account::guest::token(client, app_data_dir).await.map_err(|e| UploadFailure {
+                message: e.message,
+                retryable: e.retryable,
+                keyring_locked: false,
+            })?
         }
         crate::account::secret::Stored::Missing => {
             return Err(UploadFailure::fatal("Sign in under Settings → A2 Tools Account to upload fights."))
@@ -970,6 +992,15 @@ pub async fn upload_detailed(
         return Ok(result);
     }
     let code = status.as_u16();
+    // The guest key no longer works: its fights were claimed by an account
+    // (from another device, with a claim code). Forgotten; the next upload
+    // goes as a new guest.
+    if code == 401 && as_guest {
+        crate::account::secret::clear_guest(app_data_dir);
+        return Err(UploadFailure::retry(
+            "This PC's earlier fights were claimed by an account. The next upload starts afresh without an account.",
+        ));
+    }
     let message = match (code, reply.get("error").and_then(|e| e.as_str())) {
         (401, _) => "Your sign-in has expired. Connect your account again in Settings.".into(),
         (403, Some("insufficient_scope")) => {

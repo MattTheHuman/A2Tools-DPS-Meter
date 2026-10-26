@@ -2,7 +2,8 @@
 //! (`capture::supply_requests`) goes to a2tools.app, whose Profiteer shows
 //! each server's current requests and what they're worth.
 //!
-//! Off by default (`dpsMeter.shareSupplyRequests`, "true" turns it on). What
+//! On by default, with the field boss timers: Settings' "Sync useful data to
+//! A2Tools" (`boss_report::shares_data`, "false" turns it off). What
 //! is sent: the server, and each board whose window is open (its id, tab,
 //! window and request ids). Not the character, nor its progress on them.
 //!
@@ -20,7 +21,6 @@ use tauri::Manager;
 use crate::app::AppState;
 use crate::capture::supply_requests::Board;
 
-pub const SETTING_KEY: &str = "dpsMeter.shareSupplyRequests";
 const CHECK: Duration = Duration::from_secs(30);
 /// A server's boards go at most this often, whatever changes.
 const MIN_GAP_MS: i64 = 60 * 60_000;
@@ -64,7 +64,7 @@ pub fn spawn(app: tauri::AppHandle) {
             tokio::time::sleep(CHECK).await;
             let Some(state) = app.try_state::<AppState>() else { continue };
             let Some((next, boards)) = state.data_storage.supply_requests_since(seq) else { continue };
-            if state.settings.get(SETTING_KEY).as_deref() != Some("true") {
+            if !crate::boss_report::shares_data(|k| state.settings.get(k)) {
                 seq = next;
                 continue;
             }

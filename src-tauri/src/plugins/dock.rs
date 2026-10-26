@@ -152,6 +152,46 @@ pub fn sync(app: &tauri::AppHandle, focus: Option<&str>) {
     }
 }
 
+/// A plugin that showed itself in the dock (an alert, Hidden Cubes' found
+/// cube): how the dock was before, put back when it hides itself again.
+#[derive(Clone, Copy)]
+pub struct Raised {
+    pub dock_was_up: bool,
+    pub tab_was_shown: bool,
+}
+
+fn raised() -> &'static std::sync::Mutex<std::collections::HashMap<String, Raised>> {
+    static RAISED: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<String, Raised>>> = std::sync::OnceLock::new();
+    RAISED.get_or_init(Default::default)
+}
+
+/// `id` shows itself: note how the dock was, unless it already showed
+/// itself since (the first time is what to go back to).
+pub fn note_raised(app: &tauri::AppHandle, id: &str) {
+    let dock_was_up = app
+        .get_webview_window(LABEL)
+        .is_some_and(|w| w.is_visible().unwrap_or(false) && !crate::platform::window::is_hidden_in_place(&w));
+    let tab_was_shown = shown_members(app).iter().any(|m| m == id);
+    raised()
+        .lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .entry(id.to_string())
+        .or_insert(Raised { dock_was_up, tab_was_shown });
+}
+
+/// How the dock was before `id` showed itself, if it did.
+pub fn take_raised(id: &str) -> Option<Raised> {
+    raised().lock().unwrap_or_else(|p| p.into_inner()).remove(id)
+}
+
+/// The dock out of sight, its tabs as they are (shown again as they were).
+pub fn hide_now(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window(LABEL) {
+        crate::platform::window::hide_in_place(&window);
+        crate::app::keep_something_on_screen(app, LABEL);
+    }
+}
+
 /// Build the dock window, shown or hidden, where it was left.
 fn build(app: &tauri::AppHandle, visible: bool) -> Result<(), String> {
     if app.get_webview_window(LABEL).is_some() {

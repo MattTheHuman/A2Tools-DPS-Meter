@@ -10,6 +10,11 @@
 //!   https://cdn.a2tools.app/plugins/index.json       the catalog
 //!   https://cdn.a2tools.app/plugins/index.json.sig   its signature, hex
 //!   https://cdn.a2tools.app/plugins/<id>/<version>/<file>
+//!
+//! Test plugins (meter 2.0.78 on) are in a second catalog, signed the same
+//! way, that older meters never read: `plugins/test/index.json` (+ `.sig`).
+//! Its plugins are installed by id (Settings → Plugins, "Install a test
+//! plugin"), aren't listed until installed, and update like any other.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -70,6 +75,9 @@ pub struct Entry {
     pub source: String,
     /// Each file's path in the plugin folder → its SHA-256 (hex).
     pub files: BTreeMap<String, String>,
+    /// From the test catalog (set here, not in the file).
+    #[serde(default, skip_deserializing)]
+    pub test: bool,
 }
 
 fn hex_bytes(text: &str) -> Option<Vec<u8>> {
@@ -134,7 +142,25 @@ pub async fn fetch(http: &reqwest::Client) -> Result<Catalog, String> {
     let base = base_url();
     let (list_url, signature_url) = (format!("{base}/index.json"), format!("{base}/index.json.sig"));
     let (body, signature) = tokio::join!(get(http, &list_url, MAX_CATALOG), get(http, &signature_url, 1024));
-    let catalog = verify_with(&public_key(), &body?, &String::from_utf8_lossy(&signature?))?;
+    let mut catalog = verify_with(&public_key(), &body?, &String::from_utf8_lossy(&signature?))?;
+    // The test catalog, when there is one: its plugins added (a reviewed
+    // plugin of the same id wins). Missing or bad, it's left out quietly.
+    let (test_list_url, test_signature_url) = (format!("{base}/test/index.json"), format!("{base}/test/index.json.sig"));
+    let (test_body, test_signature) =
+        tokio::join!(get(http, &test_list_url, MAX_CATALOG), get(http, &test_signature_url, 1024));
+    if let (Ok(body), Ok(signature)) = (test_body, test_signature) {
+        match verify_with(&public_key(), &body, &String::from_utf8_lossy(&signature)) {
+            Ok(test) => {
+                for mut entry in test.plugins {
+                    if catalog.plugins.iter().all(|e| e.id != entry.id) {
+                        entry.test = true;
+                        catalog.plugins.push(entry);
+                    }
+                }
+            }
+            Err(e) => tracing::info!("Plugins: the test catalog didn't verify: {e}"),
+        }
+    }
     *last_fetched().lock().unwrap_or_else(|p| p.into_inner()) = Some((std::time::Instant::now(), catalog.clone()));
     Ok(catalog)
 }

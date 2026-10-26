@@ -315,14 +315,17 @@
     "autoHideMeter": "AION2 不在前台时隐藏",
     "hideWhenGameClosed": "AION2 关闭时隐藏",
     "hideWhenSolo": "仅在队伍中显示",
+    "hideOutOfCombat": {
+      "label": "脱离战斗时隐藏",
+      "off": "关闭",
+      "seconds": "{seconds} 秒后"
+    },
     "showSuspendBtn": "显示暂停捕获按钮",
     "showLockBtn": "显示点击穿透锁定按钮",
     "playerLimit": {
       "label": "最大显示人数"
     },
     "partyPresence": "显示队伍中的 A2Tools 用户",
-    "shareBossTimers": "分享野外首领计时",
-    "shareSupplyRequests": "分享补给委托",
     "debugLogging": "调试日志",
     "quit": "退出",
     "discord": {
@@ -536,7 +539,13 @@
       "failed": "登录失败：{error}",
       "supporter": "赞助者",
       "autoUpload": "自动上传首领战",
-      "autoUploadHint": "首领战结束时会以你在 a2tools.app 选择的公开设置上传到你的账号。其他玩家的名称会被遮蔽。木桩战斗不会上传。"
+      "autoUploadHint": "首领战结束时会以你在 a2tools.app 选择的公开设置上传到你的账号。其他玩家的名称会被遮蔽。木桩战斗不会上传。",
+      "guestUpload": "无需账号上传首领战",
+      "guestUploadHint": "首领战结束后，会以公开形式上传到 a2tools.app，无需账号。其他玩家仍会被隐藏。之后登录时，从这台电脑上传的战斗会归你所有。",
+      "guestClaimHint": "从这台电脑上传的战斗会为你保留。在这里登录即可归你所有，或获取代码在其他设备上认领。",
+      "guestClaimButton": "获取认领代码",
+      "guestClaimCode": "登录后在 {url} 输入 {code}。代码 15 分钟后失效。",
+      "claimed": "从这台电脑上传的 {count} 场战斗现在归你了。"
     },
     "sendLogs": {
       "hint": "将你的调试日志和最近的数据包日志（共 3 个文件）发送给开发者，用于错误报告。",
@@ -579,8 +588,6 @@
       "allTargetsWindow": "全部目标模式下，计量器汇总最后一次命中前这段时间内命中的所有目标。",
       "updateRate": "统计数字多久刷新一次。越快越早显示伤害，但占用更多 CPU。",
       "partyPresence": "同样使用 A2Tools 的队友会在你的名字旁看到小小的 A2 标记，你也会看到他们的。队伍中任何使用 A2Tools 的人都看得到，因此会知道你使用第三方计量器。只会发送角色名称与服务器的哈希值。",
-      "shareBossTimers": "通过 a2tools.app（及合作伙伴 Aion 2 Timers）与其他玩家分享野外首领计时：打开地图时图上的首领，以及你看到被击杀的野外首领，以及战斗中首领的 HP。只会发送服务器、首领、时间与 HP。",
-      "shareSupplyRequests": "当服务器的补给委托看板变化时（每次重置后），与 a2tools.app 的 Profiteer 分享：只发送服务器、看板和委托内容，不发送你的角色或进度。",
       "debugLogging": "写入开发者用于排查问题的诊断日志。",
       "saveRawPackets": "记录原始游戏流量以便提交错误报告。调试日志会随之开启。",
       "globalHotkeys": "下面的按键在游戏处于前台时也能使用。关闭后，这些按键会释放给其他程序。在 Linux 上由桌面注册这些按键，桌面可能会请你批准。",
@@ -589,7 +596,9 @@
       "clearOnZone": "切换区域后，何时从统计中清除上一场战斗。所有战斗都会保留在历史记录中。",
       "hideWhenGameClosed": "游戏未运行时隐藏计量器，游戏启动后再次显示。",
       "hideWhenSolo": "不在队伍中时隐藏计量器，加入队伍后再次显示。显示/隐藏快捷键仍可随时打开它。",
-      "runAsAdmin": "显示游戏帧率需要此项。每次启动计量器时 Windows 都会询问。"
+      "hideOutOfCombat": "脱离战斗达到该时长后隐藏计量器，下一次命中时再次显示。设置、历史记录或详情窗口打开时，或鼠标停在计量器上时不会隐藏。",
+      "runAsAdmin": "显示游戏帧率需要此项。每次启动计量器时 Windows 都会询问。",
+      "shareData": "将你所在服务器的野外首领计时和补给委托分享给 a2tools.app，让大家的 A2Tools 保持同步：你地图上的首领、你看到被击杀的首领及其血量，以及每次重置后的委托板。不会发送任何关于你角色的信息。"
     },
     "globalHotkeys": "使用快捷键",
     "hotkeyConsent": {
@@ -654,7 +663,9 @@
       "search": "搜索",
       "noMatch": "没有匹配的插件。",
       "permsTitle": "可以:",
-      "permFps": "显示游戏帧率（在 Windows 上，计量器会为此请求以管理员身份运行）"
+      "permFps": "显示游戏帧率（在 Windows 上，计量器会为此请求以管理员身份运行）",
+      "testHint": "任何人都可以试用的早期版本，和其他插件一样经过签名。它们可能会变化或还不完善：发现问题请告诉我们。",
+      "testTitle": "测试插件"
     },
     "clearOnZone": {
       "label": "清空统计",
@@ -666,7 +677,8 @@
     },
     "runAsAdmin": "以管理员身份运行",
     "runAsAdminTitle": "A2Tools - 以管理员身份运行",
-    "runAsAdminAsk": "显示游戏帧率需要计量器以管理员身份运行。\n\n现在以管理员身份重启计量器吗？每次启动计量器时 Windows 都会询问。你可以在设置中关闭此项。"
+    "runAsAdminAsk": "显示游戏帧率需要计量器以管理员身份运行。\n\n现在以管理员身份重启计量器吗？每次启动计量器时 Windows 都会询问。你可以在设置中关闭此项。",
+    "shareData": "将有用的数据同步到 A2Tools"
   },
   "support": {
     "button": "支持我一下",
@@ -692,7 +704,12 @@
       "btc": "复制 BTC 地址",
       "eth": "复制 ETH 地址",
       "usdc": "复制 USDC 地址"
-    }
+    },
+    "sponsorLabel": "赞助",
+    "sponsorShort": "用 ExitLag 降低延迟",
+    "sponsorCode": "使用代码",
+    "sponsorDisclosure": "联盟链接。若你订阅，A2 Tools 会获得佣金，这有助于让这些工具保持免费。",
+    "more": "在 a2tools.app 查看更多赞助方式"
   },
   "battleTime": {
     "analysing": "监控中",
@@ -784,7 +801,9 @@
     "hint": "其他玩家的名称会被遮蔽，训练假人的战斗不会上传。可随时在设置中更改。",
     "signIn": "登录",
     "later": "以后再说",
-    "close": "关闭"
+    "close": "关闭",
+    "guest": "不使用账号",
+    "guestHint": "没有账号？战斗仍可上传，之后登录即归你所有。"
   },
   "npcapPrompt": {
     "ask": "A2Tools DPS Meter 需要 Npcap 来读取游戏的网络流量，但 Npcap 未安装或无法使用。\n\n现在安装吗？本工具会从 npcap.com 下载 Npcap 安装程序并打开它。Npcap 安装完成后，本工具会自动开始捕获。\n\n选择“否”可自行从 https://npcap.com/#download 安装。",

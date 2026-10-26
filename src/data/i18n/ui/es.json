@@ -310,14 +310,17 @@
     "autoHideMeter": "Ocultar cuando AION2 no está activo",
     "hideWhenGameClosed": "Ocultar mientras AION2 está cerrado",
     "hideWhenSolo": "Mostrar solo en grupo",
+    "hideOutOfCombat": {
+      "label": "Ocultar fuera de combate",
+      "off": "Desactivado",
+      "seconds": "Tras {seconds} s"
+    },
     "showSuspendBtn": "Mostrar botón de pausar captura",
     "showLockBtn": "Mostrar botón de bloqueo (clic a través)",
     "playerLimit": {
       "label": "Máx. jugadores mostrados"
     },
     "partyPresence": "Mostrar usuarios de A2Tools en mi grupo",
-    "shareBossTimers": "Compartir temporizadores de jefes de campo",
-    "shareSupplyRequests": "Compartir solicitudes de suministros",
     "debugLogging": "Registro de depuración",
     "quit": "Salir",
     "discord": {
@@ -529,7 +532,13 @@
       "codeHint": "La página ya debería haberse abierto. El código caduca en 10 minutos.",
       "working": "Esperando aprobación…",
       "failed": "Error al iniciar sesión: {error}",
-      "supporter": "Mecenas"
+      "supporter": "Mecenas",
+      "guestUpload": "Subir combates de jefe sin cuenta",
+      "guestUploadHint": "Al terminar un combate de jefe se sube a a2tools.app, público, sin cuenta. Los demás jugadores siguen ocultos. Si inicias sesión más tarde, los combates subidos desde este PC pasan a ser tuyos.",
+      "guestClaimHint": "Los combates subidos desde este PC se guardan para ti. Inicia sesión aquí para que sean tuyos, o consigue un código para reclamarlos desde otro dispositivo.",
+      "guestClaimButton": "Obtener un código",
+      "guestClaimCode": "Introduce {code} en {url} con la sesión iniciada. El código caduca en 15 minutos.",
+      "claimed": "{count} combates subidos desde este PC ahora son tuyos."
     },
     "sendLogs": {
       "hint": "Envía tu registro de depuración y tus registros de paquetes más recientes (3 archivos en total) al desarrollador, para un informe de errores.",
@@ -572,8 +581,6 @@
       "allTargetsWindow": "En el modo Todos los objetivos, el medidor suma cada objetivo golpeado dentro de este tiempo antes del último golpe.",
       "updateRate": "Cada cuánto se actualizan los números del medidor. Más rápido muestra los golpes antes pero usa más CPU.",
       "partyPresence": "Los miembros del grupo que también usan A2Tools ven una pequeña etiqueta A2 junto a tu nombre, y tú ves la suya. Cualquiera del grupo que use A2Tools puede verla, así que sabrá que usas un medidor de terceros. Solo se envían hashes de nombres de personaje y servidores.",
-      "shareBossTimers": "Comparte los temporizadores de jefes de campo con otros jugadores a través de a2tools.app (y su socio Aion 2 Timers): los jefes de tu mapa al abrirlo y los jefes de campo que ves morir, y sus PV mientras luchas contra ellos. Solo se envían el servidor, los jefes, sus horas y PV.",
-      "shareSupplyRequests": "Comparte los tablones de solicitudes de suministros de tu servidor con el Profiteer de a2tools.app cuando cambian (tras cada reinicio): el servidor, los tablones y sus solicitudes. No se envía nada de tu personaje ni de su progreso.",
       "debugLogging": "Escribe un registro de diagnóstico que el desarrollador puede usar para encontrar problemas.",
       "saveRawPackets": "Graba el tráfico bruto del juego para informes de errores. El registro de depuración se activa con él.",
       "globalHotkeys": "Las teclas de abajo funcionan en cualquier momento, incluso con el juego en primer plano. Desactivado, quedan libres para otros programas. En Linux las registra el escritorio, que puede pedirte que las apruebes.",
@@ -582,7 +589,9 @@
       "clearOnZone": "Cuándo desaparece el último combate del medidor tras un cambio de zona. Todos los combates quedan en el Historial igualmente.",
       "hideWhenGameClosed": "El medidor se oculta mientras el juego no está abierto y vuelve cuando se inicia.",
       "hideWhenSolo": "El medidor se oculta mientras no estás en un grupo y vuelve cuando te unes a uno. El atajo de mostrar/ocultar lo sigue mostrando.",
-      "runAsAdmin": "Necesario para mostrar los FPS del juego. Windows lo pedirá cada vez que se inicie el medidor."
+      "hideOutOfCombat": "El medidor se oculta tras este tiempo fuera de combate y vuelve con el siguiente golpe. Sigue visible mientras Ajustes, Historial o Detalles están abiertos, o el ratón está encima.",
+      "runAsAdmin": "Necesario para mostrar los FPS del juego. Windows lo pedirá cada vez que se inicie el medidor.",
+      "shareData": "Comparte los temporizadores de jefes de campo y las Solicitudes de suministros de tu servidor con a2tools.app, para mantener A2Tools al día para todos: los jefes de tu mapa, los que ves morir y su vida, y los tablones de solicitudes tras cada reinicio. No se envía nada sobre tu personaje."
     },
     "globalHotkeys": "Usar atajos de teclado",
     "hotkeyConsent": {
@@ -647,7 +656,9 @@
       "search": "Buscar",
       "noMatch": "Ningún plugin coincide.",
       "permsTitle": "Puede:",
-      "permFps": "Mostrar los FPS del juego (en Windows, el medidor pide ejecutarse como administrador para ello)"
+      "permFps": "Mostrar los FPS del juego (en Windows, el medidor pide ejecutarse como administrador para ello)",
+      "testHint": "Versiones tempranas para que cualquiera las pruebe, firmadas como las demás. Pueden cambiar o tener detalles sin pulir: cuéntanos lo que encuentres.",
+      "testTitle": "Plugins de prueba"
     },
     "clearOnZone": {
       "label": "Vaciar el medidor",
@@ -659,7 +670,8 @@
     },
     "runAsAdmin": "Ejecutar como administrador",
     "runAsAdminTitle": "A2Tools - Ejecutar como administrador",
-    "runAsAdminAsk": "Para mostrar los FPS del juego, el medidor debe ejecutarse como administrador.\n\n¿Reiniciar el medidor como administrador ahora? Windows lo pedirá cada vez que se inicie el medidor. Puedes desactivarlo en Ajustes."
+    "runAsAdminAsk": "Para mostrar los FPS del juego, el medidor debe ejecutarse como administrador.\n\n¿Reiniciar el medidor como administrador ahora? Windows lo pedirá cada vez que se inicie el medidor. Puedes desactivarlo en Ajustes.",
+    "shareData": "Sincronizar datos útiles con A2Tools"
   },
   "support": {
     "button": "Apóyame",
@@ -685,7 +697,12 @@
       "btc": "Copiar la dirección BTC",
       "eth": "Copiar la dirección ETH",
       "usdc": "Copiar la dirección USDC"
-    }
+    },
+    "sponsorLabel": "Patrocinado",
+    "sponsorShort": "Reduce tu ping con ExitLag",
+    "sponsorCode": "Código",
+    "sponsorDisclosure": "Enlace de afiliado. A2 Tools recibe una comisión si te suscribes, lo que ayuda a mantener estas herramientas gratuitas.",
+    "more": "Más formas de donar en a2tools.app"
   },
   "battleTime": {
     "analysing": "Supervisando",
@@ -777,7 +794,9 @@
     "hint": "Los nombres de otros jugadores se ocultan y los muñecos de entrenamiento nunca se suben. Puedes cambiarlo cuando quieras en Ajustes.",
     "signIn": "Iniciar sesión",
     "later": "Ahora no",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "guest": "Sin cuenta",
+    "guestHint": "¿Sin cuenta? Tus combates pueden subirse igualmente y pasarán a ser tuyos si inicias sesión más tarde."
   },
   "npcapPrompt": {
     "ask": "A2Tools DPS Meter necesita Npcap para leer el tráfico de red del juego, y Npcap falta o no funciona.\n\n¿Instalarlo ahora? El medidor descarga el instalador de Npcap desde npcap.com y lo abre. Cuando Npcap esté instalado, el medidor empezará a capturar por sí solo.\n\nElige No para instalarlo tú mismo desde https://npcap.com/#download",

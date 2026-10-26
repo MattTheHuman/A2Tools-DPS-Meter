@@ -568,13 +568,28 @@
                       <div class="settingsDropdownMenu discordStatDropdownMenu" role="menu"></div>
                     </div>
                   </div>
-                  <label class="settingsToggle" title="When a boss fight ends it is uploaded to your account, with the visibility you chose on a2tools.app. Other players stay masked. Training dummies are never uploaded." data-i18n-title="settings.account.autoUploadHint">
+                  <label class="settingsToggle autoUploadRow" title="When a boss fight ends it is uploaded to your account, with the visibility you chose on a2tools.app. Other players stay masked. Training dummies are never uploaded." data-i18n-title="settings.account.autoUploadHint">
                     <span class="settingsToggleLabel settingsLabel" data-i18n="settings.account.autoUpload">Upload boss fights automatically</span>
                     <span class="settingsToggleControl">
                       <input type="checkbox" class="autoUploadCheckbox" />
                       <span class="settingsToggleTrack" aria-hidden="true"></span>
                     </span>
                   </label>
+                  <label class="settingsToggle guestUploadRow" style="display:none" title="When a boss fight ends it is uploaded to a2tools.app, public, without an account. Other players stay masked. Sign in later and the fights uploaded from this PC become yours." data-i18n-title="settings.account.guestUploadHint">
+                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.account.guestUpload">Upload boss fights without an account</span>
+                    <span class="settingsToggleControl">
+                      <input type="checkbox" class="guestUploadCheckbox" />
+                      <span class="settingsToggleTrack" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                  <div class="settingsRow guestClaimRow" style="display:none">
+                    <div class="settingsInfo">
+                      <div class="settingsHint guestClaimText" data-i18n="settings.account.guestClaimHint">Fights uploaded from this PC are kept for you. Sign in here to make them yours, or get a code to claim them from another device.</div>
+                    </div>
+                    <div class="settingsRowEnd">
+                      <button class="settingsAction guestClaimBtn" type="button" data-i18n="settings.account.guestClaimButton">Get a claim code</button>
+                    </div>
+                  </div>
                   <label class="settingsToggle" title="Supporters' names render gold. Cosmetic only — it never changes any number." data-i18n-title="settings.showSupporterColorsHint">
                     <span class="settingsToggleLabel settingsLabel" data-i18n="settings.showSupporterColors">Show supporter colours</span>
                     <span class="settingsToggleControl">
@@ -680,6 +695,18 @@
                       <span class="settingsToggleTrack" aria-hidden="true"></span>
                     </span>
                   </label>
+                  <div class="settingsRow settingsRowSelect">
+                    <div class="settingsInfo">
+                      <div class="settingsLabel" data-i18n="settings.hideOutOfCombat.label" title="The meter hides once you've been out of combat this long, and comes back with the next hit. It stays up while Settings, History or Details is open, or the mouse is over it." data-i18n-title="settings.tips.hideOutOfCombat">Hide out of combat</div>
+                    </div>
+                    <div class="settingsDropdownWrapper hideOutOfCombatDropdownWrapper">
+                      <button class="settingsDropdownBtn hideOutOfCombatDropdownBtn" type="button">
+                        <span class="settingsDropdownText">Off</span>
+                        <span class="settingsDropdownCaret" aria-hidden="true">▾</span>
+                      </button>
+                      <div class="settingsDropdownMenu hideOutOfCombatDropdownMenu" role="menu"></div>
+                    </div>
+                  </div>
                   <div class="settingsRow settingsRowSelect">
                     <div class="settingsInfo">
                       <div class="settingsLabel" data-i18n="settings.detailsMonitor.label" title="Opens the Details window on the chosen display and keeps it there." data-i18n-title="settings.tips.detailsMonitor">Details on second monitor</div>
@@ -1203,16 +1230,9 @@
                     </span>
                   </label>
                   <label class="settingsToggle">
-                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.shareBossTimers" title="Shares field boss timers with other players through a2tools.app (and its partner Aion 2 Timers): the bosses on your map when you open it, and the field bosses you see killed, and their HP while you fight them. Only the server, the bosses, their times and HP are sent." data-i18n-title="settings.tips.shareBossTimers">Share field boss timers</span>
+                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.shareData" title="Shares your server's field boss timers and Supply Requests with a2tools.app, to help keep A2Tools in sync for everyone: the bosses on your map, the ones you see killed and their HP, and the request boards after each reset. Nothing about your character is sent." data-i18n-title="settings.tips.shareData">Sync useful data to A2Tools</span>
                     <span class="settingsToggleControl">
-                      <input type="checkbox" class="shareBossTimersCheckbox" />
-                      <span class="settingsToggleTrack" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                  <label class="settingsToggle">
-                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.shareSupplyRequests" title="Shares your server's Supply Requests boards with a2tools.app's Profiteer when they change (after each reset): the server, the boards and their requests. Nothing about your character or its progress is sent." data-i18n-title="settings.tips.shareSupplyRequests">Share Supply Requests</span>
-                    <span class="settingsToggleControl">
-                      <input type="checkbox" class="shareSupplyRequestsCheckbox" />
+                      <input type="checkbox" class="shareDataCheckbox" />
                       <span class="settingsToggleTrack" aria-hidden="true"></span>
                     </span>
                   </label>
@@ -1540,6 +1560,7 @@
           <span data-i18n="settings.account.autoUpload">Upload boss fights automatically</span>
         </label>
         <div class="discordPromoHint" data-i18n="accountPromo.hint">Other players' names stay masked, and training dummies are never uploaded. You can change this any time in Settings.</div>
+        <div class="discordPromoHint" data-i18n="accountPromo.guestHint">No account? Fights still upload, and become yours when you sign in.</div>
         <div class="accountPromoCodeBox" style="display:none">
           <div class="discordPromoHint" data-i18n="settings.account.codePrompt">Approve this code in your browser:</div>
           <div class="accountPromoCode"></div>
@@ -1547,6 +1568,7 @@
         <div class="discordPromoHint accountPromoState"></div>
         <div class="accountPromoActions">
           <button class="accountPromoLater" type="button" data-i18n="accountPromo.later">Not now</button>
+          <button class="accountPromoLater accountPromoGuest" type="button" data-i18n="accountPromo.guest">No account</button>
           <button class="discordPromoDone accountPromoSignIn" type="button" data-i18n="accountPromo.signIn">Sign in</button>
         </div>
       </div>
@@ -1648,6 +1670,18 @@
           </button>
         </div>
         <div class="supportCopyStatus" role="status" aria-live="polite"></div>
+        <a class="supportMore" href="https://a2tools.app/#support" data-open-url data-i18n="support.more">More ways to donate on a2tools.app</a>
+        <a class="supportSponsor" href="https://www.exitlag.com/refer/A2TOOLS" data-open-url rel="sponsored">
+          <span class="supportSponsorLabel" data-i18n="support.sponsorLabel">Sponsored</span>
+          <span class="supportSponsorRow">
+            <img class="supportSponsorLogo" src="/src/assets/exitlag.png" alt="ExitLag" />
+            <span class="supportSponsorText">
+              <span class="supportSponsorTitle" data-i18n="support.sponsorShort">Reduce your ping with ExitLag</span>
+              <span class="supportSponsorCode"><span data-i18n="support.sponsorCode">Use code</span> <b>A2TOOLS</b></span>
+            </span>
+          </span>
+          <span class="supportSponsorNote" data-i18n="support.sponsorDisclosure">Affiliate link. A2 Tools earns a commission if you subscribe, which helps keep these tools free.</span>
+        </a>
       </div>
     </div>
     <script src="/src/js/tauriBridge.js?v=202b2"></script>

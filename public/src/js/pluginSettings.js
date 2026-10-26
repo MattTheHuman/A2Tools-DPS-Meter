@@ -303,9 +303,13 @@
         return;
       }
       if (!catalog) return refreshBar();
+      // Reviewed plugins, then the test plugins under their own heading:
+      // early versions, signed the same way, there for anyone to try.
       const offered = catalog.filter((e) => !e.installed);
-      for (const entry of offered) {
-        if (!matches(entry.name, entry.description, entry.id, entry.author)) continue;
+      const reviewed = offered.filter((e) => !e.test);
+      const tests = offered.filter((e) => e.test);
+      const rowFor = (entry) => {
+        if (!matches(entry.name, entry.description, entry.id, entry.author)) return;
         const details = [el("p", "pluginDescFull", entry.description || "")];
         if (entry.author) details.push(el("div", "pluginAuthor", t("settings.plugins.by", "by {author}", { author: entry.author })));
         details.push(permissionList(entry.permissions || []));
@@ -319,6 +323,21 @@
             details,
           }),
         );
+        if (entry.test) catalogList.lastElementChild?.classList.add("pluginTest");
+      };
+      reviewed.forEach(rowFor);
+      const shownBefore = catalogList.childElementCount;
+      if (tests.length) {
+        const head = el("div", "pluginTestHead");
+        head.append(
+          el("div", "pluginTestTitle", t("settings.plugins.testTitle", "Test plugins")),
+          el("div", "settingsHint", t("settings.plugins.testHint",
+            "Early versions for anyone to try, signed like the others. They may change or have rough edges: tell us what you find.")),
+        );
+        catalogList.append(head);
+        tests.forEach(rowFor);
+        // The heading only with a test plugin under it (a search can hide them all).
+        if (catalogList.childElementCount === shownBefore + 1) head.remove();
       }
       catalogStatus.textContent = offered.length ? "" : t("settings.plugins.catalogEmpty", "Every reviewed plugin is installed.");
       window.lucide?.createIcons?.({ root: catalogList });
