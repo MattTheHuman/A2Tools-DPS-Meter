@@ -734,6 +734,10 @@ struct Inner {
     login_abyss_points: Option<(u64, u64, i64)>,
     /// The Daily Duty board. See `parse_daily_duty_packet`.
     daily_duty: Option<DutyBoard>,
+    /// The entry list's time entries (kind `01`) by id: the time and when it
+    /// was seen (unix ms). An Abyss passage's usage time left (ms), the times
+    /// of others. Gone again as a count.
+    content_times: std::collections::BTreeMap<u32, (u64, i64)>,
 
     // Local player
     local_player_id: Option<i64>,
@@ -869,6 +873,7 @@ impl DataStorage {
                 login_kinah: None,
                 login_abyss_points: None,
                 daily_duty: None,
+                content_times: Default::default(),
                 local_player_id: None,
                 supporters: std::sync::Arc::new(crate::supporters::Roster::default()),
                 local_character_name: None,
@@ -1128,6 +1133,7 @@ impl DataStorage {
         }
         let known = inner.odyle_energy.is_some()
             || !inner.content_counts.is_empty()
+            || !inner.content_times.is_empty()
             || inner.daily_duty.is_some()
             || !inner.shop_limits.is_empty()
             || !inner.craft_counts.is_empty()
@@ -1531,18 +1537,28 @@ impl DataStorage {
         }
     }
 
-    /// The game's entry counts, without the energy (see `set_entry_list`).
+    /// The game's entry counts, without the energy or times (see
+    /// `set_entry_list`).
     pub fn set_content_counts(&self, counts: crate::capture::stream_processor::ContentCounts, whole_list: bool) {
-        self.set_entry_list(counts, None, whole_list);
+        let entries = crate::capture::stream_processor::ContentEntries { counts, times: Vec::new() };
+        self.set_entry_list(entries, None, whole_list, now_ms());
     }
 
-    /// The game's entry counts and the Odyle energy among them, at once: the
-    /// whole list (`whole_list`, at login and after a server transfer) or
-    /// the entries that changed. A whole list replaces the last character's
-    /// counts and energy, even one that didn't read (`counts` empty, no
-    /// `energy`). Logged, so the ids not yet known can be matched to what the
-    /// game shows.
-    pub fn set_entry_list(&self, counts: crate::capture::stream_processor::ContentCounts, energy: Option<(u32, u32)>, whole_list: bool) {
+    /// The game's entry counts, its times seen at `now` (unix ms) and the
+    /// Odyle energy among them, at once: the whole list (`whole_list`, at
+    /// login and after a server transfer) or the entries that changed. A
+    /// whole list replaces the last character's counts, times and energy,
+    /// even one that didn't read (no entries, no `energy`). A time sent again
+    /// unchanged keeps when it was first seen. Logged, so the ids not yet
+    /// known can be matched to what the game shows.
+    pub fn set_entry_list(
+        &self,
+        entries: crate::capture::stream_processor::ContentEntries,
+        energy: Option<(u32, u32)>,
+        whole_list: bool,
+        now: i64,
+    ) {
+        let crate::capture::stream_processor::ContentEntries { counts, times } = entries;
         let mut inner = self.inner.write();
         own_list(&mut inner, whole_list);
         if let Some((basic, charged)) = energy.filter(|&e| inner.odyle_energy != Some(e)) {
@@ -1567,15 +1583,32 @@ impl DataStorage {
             // login (held until its self record, `login_kinah`).
             inner.kinah_today = None;
             inner.abyss_points = None;
+            inner.content_times.clear();
             let list: Vec<String> = counts.iter().map(|(id, v)| format!("{id}={}+{}", v[0], v[1])).collect();
             tracing::debug!("Content counts: {}", list.join(" "));
         }
         for (id, v) in counts {
+            inner.content_times.remove(&id);
             if !whole_list && inner.content_counts.get(&id) != Some(&v) {
                 tracing::debug!("Content count {id}: {} (+{})", v[0], v[1]);
             }
             inner.content_counts.insert(id, v);
         }
+        for (id, time) in times {
+            inner.content_counts.remove(&id);
+            match inner.content_times.get(&id) {
+                Some(&(t, _)) if t == time => {}
+                _ => {
+                    tracing::info!("Content time {id}: {time}");
+                    inner.content_times.insert(id, (time, now));
+                }
+            }
+        }
+    }
+
+    /// The entry list's times by id: `(time, seen at unix ms)`.
+    pub fn content_times(&self) -> std::collections::BTreeMap<u32, (u64, i64)> {
+        self.inner.read().content_times.clone()
     }
 
     /// The entry counts, and Daily Duty as id 0 (no entry of the game's):
@@ -1585,7 +1618,7 @@ impl DataStorage {
     }
 
     /// The entry list as plugins see it, read at one moment: whose it is,
-    /// the Odyle energy and the counts.
+    /// the Odyle energy, the counts and the times.
     pub fn entry_list(&self) -> EntryList {
         let inner = self.inner.read();
         let now = now_ms();
@@ -1597,6 +1630,7 @@ impl DataStorage {
             crafts: inner.craft_counts.clone(),
             kinah_today: kinah_today_of(&inner, now),
             abyss_points: abyss_points_of(&inner, now),
+            times: inner.content_times.clone(),
         }
     }
 
@@ -3119,6 +3153,8 @@ pub struct EntryList {
     /// As `DataStorage::kinah_today_at` and `abyss_points_at`.
     pub kinah_today: Option<u64>,
     pub abyss_points: Option<(u64, u64)>,
+    /// `(time, seen at unix ms)` by id.
+    pub times: std::collections::BTreeMap<u32, (u64, i64)>,
 }
 
 /// The shop's limits at `now` (`DataStorage::shop_limits_at`).

@@ -437,8 +437,8 @@ fn boss_map_event(map: &crate::capture::boss_map::BossMap) -> Value {
 fn character(app: &tauri::AppHandle) -> Option<Value> {
     app.try_state::<AppState>().map(|s| {
         let p = s.data_storage.local_profile();
-        // Owner, energy, counts, shop limits, crafts, Kinah and Abyss Points
-        // from one moment: a login's list replaces them all at once.
+        // Owner, energy, counts, times, shop limits, crafts, Kinah and Abyss
+        // Points from one moment: a login's list replaces them all at once.
         let list = s.data_storage.entry_list();
         let theirs = matches!((list.owner.as_deref(), p.name.as_deref()), (Some(o), Some(n)) if o.trim() == n.trim());
         let odyle = list
@@ -479,6 +479,12 @@ fn character(app: &tauri::AppHandle) -> Option<Value> {
             // Theirs the same way, from the same snapshot.
             "kinahToday": list.kinah_today.filter(|_| theirs),
             "abyssPoints": list.abyss_points.filter(|_| theirs).map(|(p, l)| [p, l]),
+            // The entry list's time entries by id, `[time, seen at ms]`: the
+            // Abyss passages 10000001-10000003 each with its usage time left
+            // (ms) while it can still be run (a used one has none). The time
+            // is as the game last sent it: it counts down only while in use,
+            // and the game sends the change. Theirs the same way.
+            "contentTimes": Some(list.times).filter(|t| theirs && !t.is_empty()),
         })
     })
 }
