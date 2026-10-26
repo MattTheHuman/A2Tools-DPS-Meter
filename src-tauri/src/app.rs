@@ -1528,7 +1528,49 @@ async fn write_cached_icon(app: tauri::AppHandle, key: String, data: String) -> 
 
 
 #[cfg(feature = "online")]
+/// Look for an update (2.0.80 on): the meter fetches and checks the manifest
+/// itself (`update_check`: signature, newer than this version) and offers
+/// what it names. `ask` false: only whether there is one to offer (the green
+/// button in the title, which asks when clicked). Answers { state, latest }:
+/// "current", "offer" (ask false), "installing" (accepted) or "update" (one
+/// is out: declined, or this install's package manager updates it).
 #[tauri::command]
+async fn check_for_update(app: tauri::AppHandle, state: tauri::State<'_, AppState>, ask: Option<bool>) -> Result<serde_json::Value, String> {
+    let manifest = crate::update_check::fetch(&state.http).await?;
+    let current = env!("CARGO_PKG_VERSION");
+    let latest = manifest.version.trim_start_matches(['v', 'V']).to_string();
+    if !crate::update_check::newer(&latest, current) {
+        return Ok(serde_json::json!({ "state": "current", "latest": latest }));
+    }
+    let some = |s: String| Some(s).filter(|s| !s.is_empty());
+    let yes = show_update_window(
+        app,
+        current.to_string(),
+        latest.clone(),
+        manifest.msi_url,
+        some(manifest.arch_url),
+        some(manifest.deb_url),
+        some(manifest.rpm_url),
+        some(manifest.msi_sha256),
+        some(manifest.arch_sha256),
+        some(manifest.deb_sha256),
+        some(manifest.rpm_sha256),
+        ask,
+    )
+    .await?;
+    let state = match (ask, yes) {
+        (Some(false), true) => "offer",
+        (Some(false), false) => "update",
+        (_, true) => "installing",
+        (_, false) => "update",
+    };
+    Ok(serde_json::json!({ "state": state, "latest": latest }))
+}
+
+#[cfg(feature = "online")]
+/// Offer the update `check_for_update` found. Not a command any more: the
+/// page used to call it with a URL and hash of its own (security audit H1).
+#[allow(clippy::too_many_arguments)]
 async fn show_update_window(
     app: tauri::AppHandle,
     current: String,
@@ -1734,27 +1776,6 @@ async fn download_and_install_update(app: &tauri::AppHandle, url: &str, expected
 }
 
 #[cfg(feature = "online")]
-#[tauri::command]
-async fn fetch_url(state: tauri::State<'_, AppState>, url: String) -> Result<String, String> {
-    // The update manifest is all the page fetches through here: A2Tools' own
-    // hosts only, so it can't reach the LAN or any other site past the page's
-    // own rules (security audit M7).
-    if !["https://a2tools.app/", "https://cdn.a2tools.app/"].iter().any(|p| url.starts_with(p)) {
-        return Err("only a2tools.app".into());
-    }
-    state
-        .http
-        .get(&url)
-        .timeout(Duration::from_secs(15))
-        .send()
-        .await
-        .map_err(|e| e.to_string())?
-        .text()
-        .await
-        .map_err(|e| e.to_string())
-}
-
-#[cfg(feature = "online")]
 /// Where the supporter roster lives. The same bucket the installer is served
 /// from, so it costs no new infrastructure and is already cached at the edge.
 ///
@@ -1949,30 +1970,14 @@ async fn send_logs_to_dev() -> Result<serde_json::Value, String> {
 
 #[cfg(not(feature = "online"))]
 #[tauri::command]
-#[allow(clippy::too_many_arguments)]
-async fn show_update_window(
-    current: String,
-    latest: String,
-    msi_url: String,
-    arch_url: Option<String>,
-    deb_url: Option<String>,
-    rpm_url: Option<String>,
-    msi_sha256: Option<String>,
-    arch_sha256: Option<String>,
-    deb_sha256: Option<String>,
-    rpm_sha256: Option<String>,
-    ask: Option<bool>,
-) -> Result<bool, String> {
-    let _ = (current, latest, msi_url, arch_url, deb_url, rpm_url, msi_sha256, arch_sha256, deb_sha256, rpm_sha256, ask);
-    Ok(false)
+async fn check_for_update(ask: Option<bool>) -> Result<serde_json::Value, String> {
+    let _ = ask;
+    Err(NOT_IN_THIS_BUILD.into())
 }
 
 #[cfg(not(feature = "online"))]
 #[tauri::command]
-async fn fetch_url(url: String) -> Result<String, String> {
-    let _ = url;
-    Err(NOT_IN_THIS_BUILD.into())
-}
+fn guest_stop_sharing() {}
 
 /// Which optional parts this build has. `online` is false in the private
 /// build: the pages hide the account, uploads, Streaming, Discord activity,
@@ -4346,8 +4351,7 @@ pub fn run() {
             set_manual_device,
             replay_file,
             test_auto_hide,
-            fetch_url,
-            show_update_window,
+            check_for_update,
             build_features,
             guest_stop_sharing,
         ];

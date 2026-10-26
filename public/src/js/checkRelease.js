@@ -1,95 +1,28 @@
 (() => {
-  const CDN_MANIFEST = "https://a2tools.app/latest-v2.json";
-  const START_DELAY = 800,
-    RETRY = 500,
-    LIMIT = 5;
-
-  const parseVersion = (v) => {
-    const cleaned = String(v || "").trim().replace(/^v/i, "");
-    const [base, prerelease] = cleaned.split("-", 2);
-    const [a = 0, b = 0, c = 0] = String(base || "")
-      .split(".")
-      .map(Number);
-    return {
-      base,
-      prerelease: Boolean(prerelease),
-      value: a * 1e6 + b * 1e3 + c,
-    };
-  };
+  const START_DELAY = 800;
 
   // One check: "installing" (accepted in the update window), "update" (one
   // is out: declined, or this install's package manager updates it),
   // "current" or "failed". `latest`: the newest version, when known.
   // `ask` false: no window; "offer" when this install can take the update,
   // kept for `offer` (the green button in the meter's title).
+  // One check, done by the meter (2.0.80 on: it fetches the manifest, checks
+  // its signature and that it is newer, update_check.rs): "installing"
+  // (accepted in the update window), "update" (one is out: declined, or this
+  // install's package manager updates it), "current" or "failed". `latest`:
+  // the newest version, when known. `ask` false: no window; "offer" when this
+  // install can take the update, for `offer` (the green button in the title).
   const check = async ({ ask = true } = {}) => {
-    // Wait for the bridge AND for the async version fetch to complete
-    for (
-      let i = 0;
-      i < LIMIT && !(
-        window.dpsData?.getVersion &&
-        window.javaBridge?.openBrowser &&
-        String(window.dpsData.getVersion() || "").trim()
-      );
-      i++
-    ) {
-      await new Promise((r) => setTimeout(r, RETRY));
-    }
-    if (!(window.dpsData?.getVersion && window.javaBridge?.openBrowser)) {
-      return { state: "failed" };
-    }
-
-    const rawCurrent = String(window.dpsData.getVersion() || "").trim();
-    const current = rawCurrent.startsWith("v") ? rawCurrent : "v" + rawCurrent;
-    console.log("[A2Tools] Update check: current =", current);
-
-    let result;
+    const invoke = window.__TAURI__?.core?.invoke;
+    if (!invoke) return { state: "failed" };
     try {
-      const raw = await window.__TAURI__.core.invoke("fetch_url", { url: CDN_MANIFEST });
-      const m = JSON.parse(raw);
-      console.log("[A2Tools] Update manifest:", JSON.stringify(m));
-      const v = m.version?.startsWith("v") ? m.version : "v" + m.version;
-      // One package per platform; the backend picks the one it can install.
-      result = { latest: v, msi: m.msiUrl || "", arch: m.archUrl || "", deb: m.debUrl || "", rpm: m.rpmUrl || "" };
-      // SHA-256 of each package: the backend installs a download only when it matches.
-      result.hashes = { msi: m.msiSha256 || "", arch: m.archSha256 || "", deb: m.debSha256 || "", rpm: m.rpmSha256 || "" };
+      const found = await invoke("check_for_update", { ask });
+      if (found?.state === "offer") pending = true;
+      return { state: found?.state || "failed", latest: found?.latest ? `v${found.latest}` : undefined };
     } catch (e) {
       console.error("[A2Tools] Update check failed:", e);
       return { state: "failed" };
     }
-
-    const latest = result.latest;
-    const latestInfo = parseVersion(latest);
-    const currentInfo = parseVersion(current);
-    const hasUpdate =
-      latestInfo.value > currentInfo.value ||
-      (latestInfo.value === currentInfo.value &&
-        currentInfo.prerelease &&
-        !latestInfo.prerelease);
-
-    if (!hasUpdate) return { state: "current", latest };
-
-    console.log("[A2Tools] Update available:", current, "->", latest);
-    const args = {
-      current,
-      latest,
-      msiUrl: result.msi,
-      archUrl: result.arch,
-      debUrl: result.deb,
-      rpmUrl: result.rpm,
-      msiSha256: result.hashes.msi,
-      archSha256: result.hashes.arch,
-      debSha256: result.hashes.deb,
-      rpmSha256: result.hashes.rpm,
-    };
-    if (!ask) {
-      const offered = await window.__TAURI__.core.invoke("show_update_window", { ...args, ask: false });
-      if (!offered) return { state: "update", latest };
-      pending = args;
-      return { state: "offer", latest };
-    }
-    const accepted = await window.__TAURI__.core.invoke("show_update_window", args);
-    return { state: accepted ? "installing" : "update", latest };
   };
 
   let once = false;
@@ -121,7 +54,8 @@
   // it is installing.
   const offer = async () => {
     if (!pending) return false;
-    const accepted = await window.__TAURI__.core.invoke("show_update_window", pending);
+    const found = await check({ ask: true });
+    const accepted = found.state === "installing";
     if (accepted) pending = null;
     return accepted;
   };
