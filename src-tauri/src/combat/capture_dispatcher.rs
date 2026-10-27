@@ -4,11 +4,12 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use tokio::sync::mpsc;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::capture::captured_payload::CapturedPayload;
 use crate::capture::combat_port_detector::CombatPortDetector;
 use crate::capture::stream_assembler::StreamAssembler;
+use crate::capture::tcp_order::{Piece, TcpOrder};
 use crate::capture::stream_processor::StreamProcessor;
 use crate::combat::data_storage::DataStorage;
 use crate::combat::ping_tracker::PingTracker;
@@ -227,7 +228,7 @@ impl CaptureDispatcher {
 
     /// Run the dispatch loop, consuming packets from the channel.
     pub async fn run(&self, mut receiver: mpsc::Receiver<CapturedPayload>) {
-        let mut assemblers: HashMap<(u16, u16), (StreamAssembler, StreamProcessor)> = HashMap::new();
+        let mut assemblers: HashMap<(u16, u16), (StreamAssembler, StreamProcessor, TcpOrder)> = HashMap::new();
         // Per-flow count of signature-bearing packets seen while still unlocked, used
         // for the no-combat-needed signature lock (see SIGNATURE_LOCK_THRESHOLD).
         // Per-flow signature-rate tracker: (count_in_window, last_hit_ms).
@@ -440,21 +441,15 @@ impl CaptureDispatcher {
                 continue;
             }
 
-            // Log raw packet if packet logging is enabled
-            crate::logging::logger::log_packet(&cap);
-            // And keep it in memory for a while, so a boss fight can be shared
-            // without packet logging having been on. See `share::ring`.
-            crate::share::ring::record(&cap);
-
             // Get or create assembler
             let a = cap.src_port.min(cap.dst_port);
             let b = cap.src_port.max(cap.dst_port);
             let key = (a, b);
 
-            let (assembler, processor) = assemblers.entry(key).or_insert_with(|| {
+            let (assembler, processor, order) = assemblers.entry(key).or_insert_with(|| {
                 let mut proc = StreamProcessor::new(self.data_storage.clone(), self.skill_lookup.clone(), self.npc_lookup.clone());
                 proc.set_dot_skill_ids(self.dot_skill_ids.clone());
-                (StreamAssembler::new(), proc)
+                (StreamAssembler::new(), proc, TcpOrder::default())
             });
 
             if unlocked {
@@ -494,8 +489,48 @@ impl CaptureDispatcher {
                 }
                 at + capture_clock_offset.unwrap_or(0)
             });
+            // The server's bytes in its order (`tcp_order`): late segments put
+            // back, retransmitted bytes read once, a hole reported. A payload
+            // with no sequence number (0: a test's) is read as it comes.
+            let pieces = if cap.tcp_seq == 0 {
+                vec![Piece::Bytes(cap.data.clone())]
+            } else {
+                order.push(cap.tcp_seq, &cap.data, cap.captured_at_ms)
+            };
             processor.set_override_timestamp(captured_at);
-            let parsed = assembler.process_chunk(&cap.data, processor);
+            let mut parsed = false;
+            for piece in pieces {
+                match piece {
+                    Piece::Gap { missing } => {
+                        warn!(
+                            "{} bytes from port {} never reached the capture (on {}): reading on from the next whole packet",
+                            missing,
+                            cap.src_port,
+                            cap.device_name.as_deref().unwrap_or("?")
+                        );
+                        assembler.lose_bytes();
+                    }
+                    Piece::Bytes(data) => {
+                        let ordered = CapturedPayload {
+                            src_port: cap.src_port,
+                            dst_port: cap.dst_port,
+                            data,
+                            device_name: cap.device_name.clone(),
+                            captured_at_ms: cap.captured_at_ms,
+                            src_ip: cap.src_ip,
+                            dst_ip: cap.dst_ip,
+                            tcp_seq: cap.tcp_seq,
+                            tcp_ack: cap.tcp_ack,
+                        };
+                        // Log raw packet if packet logging is enabled
+                        crate::logging::logger::log_packet(&ordered);
+                        // And keep it in memory for a while, so a boss fight can be shared
+                        // without packet logging having been on. See `share::ring`.
+                        crate::share::ring::record(&ordered);
+                        parsed |= assembler.process_chunk(&ordered.data, processor);
+                    }
+                }
+            }
             processor.set_override_timestamp(None);
 
             let signature_locked =
