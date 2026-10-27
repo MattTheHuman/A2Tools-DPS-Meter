@@ -545,6 +545,72 @@ const createHistoryUI = ({ onOpenFight } = {}) => {
 
   const startMs = (f) => Number(f.startTimeMs) || 0;
 
+  // "3 hours ago", in the meter's language.
+  const ago = (ms) => {
+    const lang = window.i18n?.getLanguage?.() || "en";
+    let v = (Number(ms) - Date.now()) / 1000;
+    const steps = [["second", 60], ["minute", 60], ["hour", 24], ["day", 30], ["month", 12], ["year", Infinity]];
+    for (const [unit, size] of steps) {
+      if (Math.abs(v) < size) {
+        try {
+          return new Intl.RelativeTimeFormat(lang, { numeric: "auto" }).format(Math.round(v), unit);
+        } catch {
+          return formatDate(ms);
+        }
+      }
+      v /= size;
+    }
+    return formatDate(ms);
+  };
+
+  // A section at a glance: when it was last fought, its quickest fight and
+  // its most damage. No quickest where fights are cut off as players come and
+  // go (the open world, training): 00:05 there is no clear.
+  const groupSummary = (fights, { best = true } = {}) => {
+    const done = fights.filter((f) => !f.isLive && Number(f.durationMs) > 0);
+    const parts = [ago(Math.max(...fights.map(startMs)))];
+    if (best && done.length) {
+      const best = Math.min(...done.map((f) => Number(f.durationMs)));
+      parts.push(t("history.best", "Best {time}").replace("{time}", formatTime(best)));
+    }
+    const top = Math.max(...fights.map((f) => Number(f.totalDamage) || 0));
+    if (top > 0) parts.push(t("history.top", "Top {damage}").replace("{damage}", formatDamage(top)));
+    return parts.join(" · ");
+  };
+
+  // Rows shown before a "Show all" in a section, or a boss inside one.
+  const SHOWN_ROWS = 5;
+  // A list of fights: the most recent few, then the rest behind a button.
+  const rowsWithMore = (fights, rowOptions) => {
+    const frag = document.createDocumentFragment();
+    const list = document.createElement("div");
+    const fill = (all) => {
+      list.replaceChildren(...(all ? fights : fights.slice(0, SHOWN_ROWS)).map((f) => buildRow(f, rowOptions)));
+    };
+    fill(false);
+    frag.appendChild(list);
+    if (fights.length > SHOWN_ROWS) {
+      const more = document.createElement("button");
+      more.type = "button";
+      more.className = "historyShowAll";
+      let all = false;
+      const label = () => {
+        more.textContent = all
+          ? t("history.showFewer", "Show fewer")
+          : t("history.showAll", "Show all {n}").replace("{n}", fights.length);
+        more.setAttribute("aria-expanded", String(all));
+      };
+      label();
+      more.addEventListener("click", () => {
+        all = !all;
+        fill(all);
+        label();
+      });
+      frag.appendChild(more);
+    }
+    return frag;
+  };
+
   const buildGroup = (group) => {
     // Most recent run first within a section.
     group.fights.sort((a, b) => startMs(b) - startMs(a));
@@ -552,24 +618,30 @@ const createHistoryUI = ({ onOpenFight } = {}) => {
     const wrap = document.createElement("div");
     wrap.className = "historyGroup";
 
-    const header = document.createElement("div");
+    // A button: reached with Tab, and it says whether it is open.
+    const header = document.createElement("button");
+    header.type = "button";
     header.className = "historyGroupHeader";
 
     const chevron = document.createElement("span");
     chevron.className = "historyGroupChevron";
-    chevron.innerHTML = `<svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 0l5 6 5-6z" fill="currentColor"/></svg>`;
+    chevron.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>`;
 
-    const nameEl = document.createElement("div");
+    const titleEl = document.createElement("span");
+    titleEl.className = "historyGroupTitle";
+    const nameEl = document.createElement("span");
     nameEl.className = "historyGroupName";
     nameEl.textContent = group.name;
+    const summaryEl = document.createElement("span");
+    summaryEl.className = "historyGroupSummary";
+    summaryEl.textContent = groupSummary(group.fights, { best: group.byDungeon && !group.training && !group.openWorld });
+    titleEl.append(nameEl, summaryEl);
 
     const countEl = document.createElement("span");
     countEl.className = "historyGroupCount";
     countEl.textContent = fightCountLabel(group.fights.length);
 
-    header.appendChild(chevron);
-    header.appendChild(nameEl);
-    header.appendChild(countEl);
+    header.append(chevron, titleEl, countEl);
 
     const childWrap = document.createElement("div");
     childWrap.className = "historyGroupChildren";
@@ -577,30 +649,73 @@ const createHistoryUI = ({ onOpenFight } = {}) => {
     const renderChildren = () => {
       if (childWrap.childElementCount) return;
       const frag = document.createDocumentFragment();
-      group.fights.forEach((f) => frag.appendChild(buildRow(f, group.rowOptions)));
+      // A dungeon's bosses, each a small section of its own, the most recent
+      // first: its rows then lead with their date, not the boss's name again.
+      const bosses = new Map();
+      if (group.byDungeon) {
+        group.fights.forEach((f) => {
+          const key = f.bossName || `Boss #${f.targetId}`;
+          if (!bosses.has(key)) bosses.set(key, []);
+          bosses.get(key).push(f);
+        });
+      }
+      if (bosses.size > 1) {
+        bosses.forEach((fights, boss) => {
+          // A boss fought once: a row with its name, no heading over it.
+          if (fights.length === 1) {
+            frag.appendChild(buildRow(fights[0], { child: true }));
+            return;
+          }
+          const sub = document.createElement("div");
+          sub.className = "historySubGroup";
+          const subHead = document.createElement("div");
+          subHead.className = "historySubGroupHeader";
+          const subName = document.createElement("span");
+          subName.className = "historySubGroupName";
+          subName.textContent = boss;
+          const subMeta = document.createElement("span");
+          subMeta.className = "historySubGroupMeta";
+          subMeta.textContent = `${fightCountLabel(fights.length)} · ${groupSummary(fights)}`;
+          subHead.append(subName, subMeta);
+          sub.append(subHead, rowsWithMore(fights, { grouped: true }));
+          frag.appendChild(sub);
+        });
+      } else {
+        frag.appendChild(rowsWithMore(group.fights, bosses.size === 1 ? { grouped: true } : group.rowOptions));
+      }
       childWrap.appendChild(frag);
     };
 
-    const expanded = expandedGroups.has(group.name);
-    header.classList.toggle("expanded", expanded);
-    childWrap.style.display = expanded ? "" : "none";
-    if (expanded) renderChildren();
-
-    header.addEventListener("click", () => {
-      const nowExpanded = !expandedGroups.has(group.name);
-      if (nowExpanded) {
+    const setOpen = (open) => {
+      if (open) {
         expandedGroups.add(group.name);
         renderChildren();
       } else {
         expandedGroups.delete(group.name);
       }
-      header.classList.toggle("expanded", nowExpanded);
-      childWrap.style.display = nowExpanded ? "" : "none";
+      header.classList.toggle("expanded", open);
+      header.setAttribute("aria-expanded", String(open));
+      childWrap.style.display = open ? "" : "none";
+    };
+    setOpen(expandedGroups.has(group.name));
+    header.addEventListener("click", () => {
+      setOpen(!expandedGroups.has(group.name));
+      syncExpandAll();
     });
+    wrap.setOpen = setOpen;
 
     wrap.appendChild(header);
     wrap.appendChild(childWrap);
     return wrap;
+  };
+
+  // Expand all / Collapse all, above the sections.
+  let groupEls = [];
+  let expandAllBtn = null;
+  const syncExpandAll = () => {
+    if (!expandAllBtn) return;
+    const anyClosed = groupEls.some((g) => !expandedGroups.has(g.groupName));
+    expandAllBtn.textContent = anyClosed ? t("history.expandAll", "Expand all") : t("history.collapseAll", "Collapse all");
   };
 
   // A dungeon section's title: the dungeon and its difficulty, or Open world.
@@ -619,20 +734,46 @@ const createHistoryUI = ({ onOpenFight } = {}) => {
     visible.forEach((f) => {
       // Keyed by what the header says, so two instance ids with the same name
       // and difficulty share one section.
-      const key = byDungeon ? dungeonTitle(f.dungeonId, f.mobCode) : (f.bossName || `Boss #${f.targetId}`);
+      // Training dummies are a section of their own, not the open world's.
+      const training = byDungeon && !!f.isTrain;
+      const key = training
+        ? t("history.training", "Training")
+        : byDungeon ? dungeonTitle(f.dungeonId, f.mobCode) : (f.bossName || `Boss #${f.targetId}`);
       let g = groups.get(key);
       if (!g) {
-        g = { name: key, fights: [], rowOptions: byDungeon ? { child: true } : { grouped: true } };
+        g = {
+          name: key, fights: [], byDungeon, training,
+          openWorld: byDungeon && !training && !(Number(f.dungeonId) > 0),
+          rowOptions: byDungeon ? { child: true } : { grouped: true },
+        };
         groups.set(key, g);
       }
       g.fights.push(f);
     });
-    // Sections ordered by their most recent run.
+    // Sections ordered by their most recent run; training last.
     const ordered = [...groups.values()].sort(
-      (a, b) => Math.max(...b.fights.map(startMs)) - Math.max(...a.fights.map(startMs))
+      (a, b) => (a.training - b.training) || (Math.max(...b.fights.map(startMs)) - Math.max(...a.fights.map(startMs)))
     );
     const frag = document.createDocumentFragment();
-    ordered.forEach((g) => frag.appendChild(buildGroup(g)));
+    const tools = document.createElement("div");
+    tools.className = "historyGroupTools";
+    expandAllBtn = document.createElement("button");
+    expandAllBtn.type = "button";
+    expandAllBtn.className = "historyExpandAll";
+    expandAllBtn.addEventListener("click", () => {
+      const open = groupEls.some((g) => !expandedGroups.has(g.groupName));
+      groupEls.forEach((g) => g.setOpen(open));
+      syncExpandAll();
+    });
+    tools.appendChild(expandAllBtn);
+    frag.appendChild(tools);
+    groupEls = ordered.map((g) => {
+      const el = buildGroup(g);
+      el.groupName = g.name;
+      return el;
+    });
+    groupEls.forEach((el) => frag.appendChild(el));
+    syncExpandAll();
     listEl.appendChild(frag);
   };
 

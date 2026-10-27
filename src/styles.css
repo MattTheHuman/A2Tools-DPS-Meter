@@ -5765,6 +5765,110 @@ body.isHistoryWindow .historyPanel .historyHeader .closeX {
   letter-spacing: 0.08em;
   color: var(--hud-sub);
 }
+/* The header is a button now (Tab, Enter, and it says open or closed):
+   the button's own look goes, the section's stays. */
+.historyPanel button.historyGroupHeader {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: 10px 14px;
+}
+.historyPanel button.historyGroupHeader:focus-visible {
+  outline: 2px solid var(--accent, #8fc2ff);
+  outline-offset: -2px;
+}
+/* A chevron that points right when closed and down when open. */
+.historyPanel .historyGroupChevron {
+  color: var(--hud-sub);
+  transform: rotate(0deg);
+}
+.historyPanel .historyGroupHeader.expanded .historyGroupChevron {
+  transform: rotate(90deg);
+}
+/* The name, and under it what the section holds at a glance. */
+.historyPanel .historyGroupTitle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.historyPanel .historyGroupSummary {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--hud-sub);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* A boss inside a dungeon's section: its name and count, then its rows. */
+.historyPanel .historySubGroup + .historySubGroup {
+  border-top: 1px solid var(--hud-hairline);
+}
+.historyPanel .historySubGroupHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 14px 4px 34px;
+}
+.historyPanel .historySubGroupName {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--title);
+}
+.historyPanel .historySubGroupMeta {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--hud-sub);
+}
+/* "Show all 11", under a section's first rows. */
+.historyPanel .historyShowAll {
+  display: block;
+  margin: 4px 14px 8px 34px;
+  padding: 4px 10px;
+  border: 1px solid var(--pane-field-border);
+  border-radius: 4px;
+  background: var(--pane-field-bg);
+  color: var(--title);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.historyPanel .historyShowAll:hover {
+  border-color: var(--hud-sub);
+}
+.historyPanel .historyShowAll:focus-visible,
+.historyPanel .historyExpandAll:focus-visible {
+  outline: 2px solid var(--accent, #8fc2ff);
+  outline-offset: 1px;
+}
+/* Expand all / Collapse all, above the sections. */
+.historyPanel .historyGroupTools {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 14px 2px;
+}
+.historyPanel .historyExpandAll {
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--hud-sub);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.historyPanel .historyExpandAll:hover {
+  color: var(--title);
+  background: rgba(255, 255, 255, 0.06);
+}
 /* A rail down the left of a group's children, so a long list still says
    which section you are inside without scrolling back to the header. */
 .historyPanel .historyGroupChildren {
