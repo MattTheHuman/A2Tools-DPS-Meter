@@ -383,6 +383,12 @@ pub fn set_main_anchor(anchor: crate::platform::meter_anchor::Anchor) {
     super::focus::set_main_anchor(anchor);
 }
 
+/// Whether the overlay's next resize keeps its edge, or grows it for a moment
+/// (a panel, the promo): the KWin script has it before the resize.
+pub fn anchor_next_resize(anchored: bool) {
+    super::focus::anchor_next_resize(anchored);
+}
+
 /// Whether `hide_in_place` has this window hidden.
 pub fn is_hidden_in_place(window: &tauri::WebviewWindow) -> bool {
     hidden_in_place().lock().unwrap_or_else(|p| p.into_inner()).contains(window.label())

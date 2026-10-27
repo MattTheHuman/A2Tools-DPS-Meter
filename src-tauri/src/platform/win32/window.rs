@@ -174,6 +174,10 @@ pub fn set_size_and_position(window: &tauri::WebviewWindow, size: tauri::Size, p
 /// (`meter_anchor::resize`), KWin only on KDE Wayland.
 pub fn set_main_anchor(_anchor: crate::platform::meter_anchor::Anchor) {}
 
+/// Whether the overlay's next resize keeps its edge: for KWin on KDE Wayland
+/// only; here `resize_window` moves it itself.
+pub fn anchor_next_resize(_anchored: bool) {}
+
 /// Whether Settings offers "Meter stays fixed at": always here, where the
 /// meter places its own windows.
 pub fn meter_anchor_available() -> bool {

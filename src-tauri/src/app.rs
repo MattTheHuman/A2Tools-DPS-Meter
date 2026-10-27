@@ -2084,9 +2084,16 @@ fn resize_window(
         None => tauri::Size::Logical(tauri::LogicalSize { width, height }),
     };
     // A tooltip, the details panel or the promo grows the window for a moment
-    // without moving it (`preserve_anchor` false). Where the meter does not
-    // place its own windows, the KWin script keeps the edge (KDE Wayland).
-    if !platform::window::places_own_windows() || !preserve_anchor.unwrap_or(true) {
+    // without moving it (`preserve_anchor` false).
+    let anchored = preserve_anchor.unwrap_or(true);
+    // Where the meter does not place its own windows, the KWin script keeps
+    // the edge (KDE Wayland), told first whether this resize keeps it.
+    if !platform::window::places_own_windows() {
+        platform::window::anchor_next_resize(anchored);
+        platform::window::set_size(&window, size);
+        return;
+    }
+    if !anchored {
         platform::window::set_size(&window, size);
         return;
     }
