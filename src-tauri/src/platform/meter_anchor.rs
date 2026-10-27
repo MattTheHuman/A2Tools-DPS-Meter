@@ -55,8 +55,10 @@ pub fn physical_size(window: &tauri::WebviewWindow, size: &tauri::Size) -> Optio
     }
 }
 
-/// How much of the top edge must stay on a work area to grab the header.
-const GRAB: i32 = 24;
+/// How much of the window must stay above a work area's bottom to grab the
+/// header: as much as the KWin script asks of a window it puts back
+/// (`onScreen` in `linux/focus.rs`).
+const GRAB: i32 = 32;
 
 /// A work area: x, y, width, height in physical pixels.
 type Area = (i32, i32, i32, i32);
@@ -124,7 +126,8 @@ pub fn resize(window: &tauri::WebviewWindow, size: tauri::Size, anchor: Anchor, 
             (a.position.x, a.position.y, a.size.width as i32, a.size.height as i32)
         })
         .collect();
-    let y = anchored_y(anchor, old_pos.x, outer.width as i32, old_pos.y, old_height, new_height, &areas);
+    // At its new width: the old one can be a tooltip's, on its way out.
+    let y = anchored_y(anchor, old_pos.x, new_size.width as i32, old_pos.y, old_height, new_height, &areas);
     if y == old_pos.y {
         window::set_size(window, size);
     } else {

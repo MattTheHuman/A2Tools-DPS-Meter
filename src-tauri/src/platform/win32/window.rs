@@ -144,6 +144,8 @@ pub fn set_size(window: &tauri::WebviewWindow, size: tauri::Size) {
     let _ = window.set_size(size);
 }
 
+/// Size and move a window in one `SetWindowPos` (`meter_anchor::resize`), so
+/// no frame is drawn grown the wrong way.
 pub fn set_size_and_position(window: &tauri::WebviewWindow, size: tauri::Size, pos: tauri::PhysicalPosition<i32>) {
     let Some(hwnd) = hwnd_of(window) else {
         let _ = window.set_size(size);
@@ -168,9 +170,12 @@ pub fn set_size_and_position(window: &tauri::WebviewWindow, size: tauri::Size, p
     }
 }
 
-/// Linux/KWin-specific placement hint. No-op on Windows.
-pub fn set_main_anchor(_anchor: &str) {}
+/// The edge the overlay keeps: the meter moves it itself here
+/// (`meter_anchor::resize`), KWin only on KDE Wayland.
+pub fn set_main_anchor(_anchor: crate::platform::meter_anchor::Anchor) {}
 
+/// Whether Settings offers "Meter stays fixed at": always here, where the
+/// meter places its own windows.
 pub fn meter_anchor_available() -> bool {
     true
 }

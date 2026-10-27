@@ -89,9 +89,10 @@ pub struct AppState {
     /// The LAN stream overlay for OBS on another PC; off unless enabled.
     #[cfg(feature = "online")]
     pub stream_overlay: crate::stream_overlay::Manager,
-    /// The overlay height that anchor-aware resizes are measured from.
-    /// Updated only by anchored resizes; temporary tooltip/details growth
-    /// leaves this untouched so shrinking back cannot drift.
+    /// The overlay's height when it was last anchored (Settings → Meter stays
+    /// fixed at), which the next anchored resize goes from: not its height
+    /// now, which a tooltip, the details panel or the promo can have grown
+    /// for a moment. Starts as the saved `window.h`.
     pub anchored_height: std::sync::atomic::AtomicI32,
 }
 
@@ -269,7 +270,9 @@ fn save_window_place(app: &tauri::AppHandle, title: &str, (x, y, w, h): (i32, i3
 }
 
 /// Where a window belongs, for the window manager to put it (#76). The
-/// overlay sizes itself to its content, so it gets its place only.
+/// overlay sizes itself to its content, so it gets its place, and its height
+/// there only for the edge it keeps (Settings → Meter stays fixed at): with
+/// Bottom, its bottom goes back where it was.
 fn load_window_place(app: &tauri::AppHandle, title: &str) -> Option<(i32, i32, i32, i32)> {
     let label = window_titled(app, title)?;
     // On X11 the meter places its windows itself; KWin puts back only a
@@ -287,7 +290,7 @@ fn load_window_place(app: &tauri::AppHandle, title: &str) -> Option<(i32, i32, i
         Some((x, y, w, h))
     };
     match placed(&label) {
-        Some((x, y, w, h)) => Some(if label == "main" { (x, y, 0, 0) } else { (x, y, w, h) }),
+        Some((x, y, w, h)) => Some(if label == "main" { (x, y, 0, h) } else { (x, y, w, h) }),
         // A plugin's widget never moved: beside its others, not mid-screen.
         None => crate::plugins::widgets::place_beside_others(app, &label, placed).map(|(x, y)| (x, y, 0, 0)),
     }
@@ -1167,7 +1170,7 @@ fn update_settings(
             apply_all_targets_window(&state, &value);
         }
         if key == METER_ANCHOR_KEY {
-            platform::window::set_main_anchor(platform::meter_anchor::Anchor::from_setting(Some(&value)).name());
+            platform::window::set_main_anchor(platform::meter_anchor::Anchor::from_setting(Some(&value)));
         }
         if key == GLOBAL_HOTKEYS_KEY {
             apply_global_hotkeys(&app);
@@ -2081,8 +2084,8 @@ fn resize_window(
         None => tauri::Size::Logical(tauri::LogicalSize { width, height }),
     };
     // A tooltip, the details panel or the promo grows the window for a moment
-    // without moving it (`preserve_anchor` false), and on KDE native Wayland
-    // the KWin script keeps the anchor.
+    // without moving it (`preserve_anchor` false). Where the meter does not
+    // place its own windows, the KWin script keeps the edge (KDE Wayland).
     if !platform::window::places_own_windows() || !preserve_anchor.unwrap_or(true) {
         platform::window::set_size(&window, size);
         return;
@@ -3671,9 +3674,9 @@ pub fn run() {
             // uploads on by itself, audit H3).
             let new_install = !app_data_dir.join("settings.json").exists();
             let settings = Settings::new(app_data_dir.clone());
-            platform::window::set_main_anchor(
-                platform::meter_anchor::Anchor::from_setting(settings.get(METER_ANCHOR_KEY).as_deref()).name(),
-            );
+            platform::window::set_main_anchor(platform::meter_anchor::Anchor::from_setting(
+                settings.get(METER_ANCHOR_KEY).as_deref(),
+            ));
             let startup_height = settings
                 .get(WINDOW_HEIGHT_KEY)
                 .and_then(|v| v.trim().parse::<i32>().ok())
@@ -3759,9 +3762,6 @@ pub fn run() {
                     if let Err(e) = platform::window_detector::watch_focus(move || auto_hide_now(&focus_app)) {
                         tracing::warn!("Cannot follow the active window: {e}");
                     }
-                    // The meter anchor is offered on KDE Wayland once KWin runs
-                    // the script: a page that asked before is told again.
-                    let _ = handle.emit("build-features", build_features());
                     // Each rule checked at every start and put back when
                     // missing: KWin can drop rules it did not write itself,
                     // and a rule added once and never again left the overlay

@@ -6,12 +6,15 @@
 //! On Wayland it also keeps the meter's windows where they were left (#76):
 //! no application may place its own windows there, but a KWin script may.
 //! The script reports where each of the meter's windows was moved or resized
-//! to, and puts each back there when it appears again.
+//! to, and puts each back there when it appears again. It also keeps the
+//! overlay's top, centre or bottom in place as it fits its rows (Settings →
+//! Meter stays fixed at).
 
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
 use crate::platform::kwin_rules::OVERLAY_TITLE;
+use crate::platform::meter_anchor::Anchor;
 
 const SERVICE: &str = "app.a2tools.DpsMeter";
 const PATH: &str = "/Focus";
@@ -22,7 +25,8 @@ const PLUGIN: &str = "a2tools-dps-meter-focus";
 /// doubles, which an integer argument would refuse. KWin 6 has
 /// `windowActivated` and `windowAdded`, KWin 5 `clientActivated` and
 /// `clientAdded`. `__PID__` is the meter's process id: only its windows are
-/// placed.
+/// placed. `__OVERLAY_TITLE__` is the overlay's title and `__ANCHOR__` the
+/// edge it keeps (`set_main_anchor`).
 const SCRIPT: &str = r#"// A2Tools DPS Meter: tells the meter which window is active, so it can hide
 // while the game is not in front, and keeps the meter's own windows where
 // they were left. Loaded by the meter at each start.
@@ -86,9 +90,15 @@ function onScreen(r) {
 // centre where it was, so the overlay, 300 px tall at first, came down
 // 120 px once it shrank to its rows (a CachyOS player, 2026-10-19).
 var HOLD_MS = 4000;
-function anchor(caption, then) {
-    callDBus(SERVICE, PATH, IFACE, "Anchor", String(caption), function (answer) {
-        then(String(answer || "middle"));
+// The edge the overlay keeps as it fits its rows (Settings → Meter stays
+// fixed at): "top", "middle" or "bottom", written in at load. The meter
+// answers "Anchor" only once its edge is not this one, so a changed setting
+// is here at once and no resize waits on D-Bus for it.
+var mainAnchor = "__ANCHOR__";
+function followAnchor() {
+    callDBus(SERVICE, PATH, IFACE, "Anchor", mainAnchor, function (answer) {
+        mainAnchor = String(answer);
+        followAnchor();
     });
 }
 function place(w) {
@@ -96,8 +106,19 @@ function place(w) {
         var p = String(answer).split(",").map(Number);
         if (p.length !== 4 || p.some(isNaN)) return;
         var g = w.frameGeometry;
+        // The overlay sizes itself: its height here is the one it had at
+        // this place, for the edge it keeps, not a size to give it.
+        var main = String(w.caption) === "__OVERLAY_TITLE__";
         // A width or height of 0: the window keeps its own size.
-        var r = { x: p[0], y: p[1], width: p[2] > 0 ? p[2] : g.width, height: p[3] > 0 ? p[3] : g.height };
+        var r = { x: p[0], y: p[1], width: p[2] > 0 ? p[2] : g.width, height: p[3] > 0 && !main ? p[3] : g.height };
+        // The overlay's top and bottom edges where it was left. It appears
+        // 300 px tall and then fits its rows, so the bottom is where it was
+        // left, not 300 px below the top: with Bottom, each start moved the
+        // overlay down by the difference.
+        var seen = Math.round(r.height);
+        var bottom = r.y + (main && p[3] > 0 ? p[3] : seen);
+        if (main && mainAnchor === "bottom") r.y = bottom - seen;
+        var base = { top: r.y, bottom: bottom };
         if (!onScreen(r)) return;
         w.frameGeometry = r;
         // Moved by a resize while held: back to its place, at its new size.
@@ -105,18 +126,6 @@ function place(w) {
         var until = Date.now() + HOLD_MS;
         var held = false;
         var userMove = false;
-        // The meter's main overlay keeps its top/middle/bottom anchor while
-        // its own auto-resize changes its height.
-        var main = String(w.caption) === "__OVERLAY_TITLE__";
-        var base = { top: Math.round(r.y), bottom: Math.round(r.y + r.height) };
-        var mainAnchor = "middle";
-        var anchorFreshUntil = 0;
-        if (main) {
-            anchor(w.caption, function (mode) {
-                mainAnchor = mode;
-                anchorFreshUntil = Date.now() + 1000;
-            });
-        }
         var start = w.interactiveMoveResizeStarted || w.clientStartUserMovedResized;
         if (start) {
             start.connect(function () {
@@ -129,8 +138,9 @@ function place(w) {
             done.connect(function () {
                 userMove = false;
                 var now = w.frameGeometry;
+                seen = Math.round(now.height);
                 base.top = Math.round(now.y);
-                base.bottom = base.top + Math.round(now.height);
+                base.bottom = base.top + seen;
             });
         }
         w.frameGeometryChanged.connect(function () {
@@ -145,29 +155,24 @@ function place(w) {
                 return;
             }
             var x = Math.round(now.x), y = Math.round(now.y), h = Math.round(now.height);
-            // Moved, not resized (the meter placing it): that is its place now.
-            if (h === base.bottom - base.top) {
-                base.top = y;
-                base.bottom = y + h;
-                return;
+            var holding = Date.now() <= until;
+            var resized = h !== seen;
+            seen = h;
+            // Held, it stays at its place as any window does, with its edge
+            // kept. After, a resize keeps the edge (Centre: KWin keeps the
+            // centre itself), and a move by KWin is its place now.
+            var wantX = holding ? r.x : x;
+            var wantY = holding ? r.y : y;
+            if (holding || resized) {
+                if (mainAnchor === "top") wantY = base.top;
+                else if (mainAnchor === "bottom") wantY = base.bottom - h;
             }
-            // A script cannot be called, so a changed setting is asked for,
-            // without waiting for it, at most once a second while it resizes.
-            if (Date.now() > anchorFreshUntil) {
-                anchorFreshUntil = Date.now() + 1000;
-                anchor(w.caption, function (mode) { mainAnchor = mode; });
-            }
-            var wantY;
-            if (mainAnchor === "top") wantY = base.top;
-            else if (mainAnchor === "bottom") wantY = base.bottom - h;
-            else if (Date.now() <= until) wantY = r.y;
-            else wantY = y; // KWin keeps the centre itself.
             base.top = wantY;
             base.bottom = wantY + h;
             // Scale rounding can report +/- 1 px between events.
-            if (Math.abs(y - wantY) <= 1) return;
+            if (Math.abs(x - wantX) <= 1 && Math.abs(y - wantY) <= 1) return;
             held = true;
-            w.frameGeometry = { x: x, y: wantY, width: now.width, height: now.height };
+            w.frameGeometry = { x: wantX, y: wantY, width: now.width, height: now.height };
             held = false;
         });
     });
@@ -210,6 +215,7 @@ function gone(w) {
 }
 if (workspace.windowRemoved) workspace.windowRemoved.connect(gone);
 else if (workspace.clientRemoved) workspace.clientRemoved.connect(gone);
+followAnchor();
 if (workspace.windowActivated) {
     workspace.windowActivated.connect(onActivated);
     report(workspace.activeWindow);
@@ -246,8 +252,16 @@ static X11_IN_WAYLAND: AtomicBool = AtomicBool::new(false);
 /// The script is running, so KWin puts each of the meter's windows back where
 /// it was each time it appears (`place` in the script).
 static PLACING: AtomicBool = AtomicBool::new(false);
-/// 0 top, 1 middle (default), 2 bottom.
+/// The edge the overlay keeps as it fits its rows (Settings → Meter stays
+/// fixed at): 0 top, 1 middle, 2 bottom. The script has it from the start and
+/// is told when it changes (`Focus::anchor`).
 static MAIN_ANCHOR: AtomicU8 = AtomicU8::new(1);
+/// Wakes a held `Focus::anchor` when the setting changes.
+static ANCHOR_CHANGED: std::sync::LazyLock<tokio::sync::Notify> = std::sync::LazyLock::new(tokio::sync::Notify::new);
+/// How long `Focus::anchor` holds the script's call before it answers with
+/// the edge unchanged: KWin gives up on a D-Bus call after 25 s and then never
+/// calls the script back, which would not hear of a change again.
+const ANCHOR_HOLD: std::time::Duration = std::time::Duration::from_secs(20);
 
 /// Keep the meter's windows where they were left, through KWin (#76). Only
 /// in a Wayland session: under X11 the meter places its own windows, as on
@@ -274,13 +288,24 @@ pub fn kwin_places_windows() -> bool {
     PLACING.load(Ordering::Relaxed) && PLACES.get().is_some() && !X11_IN_WAYLAND.load(Ordering::Relaxed)
 }
 
-pub fn set_main_anchor(anchor: &str) {
-    let v = match anchor.trim().to_ascii_lowercase().as_str() {
-        "top" => 0,
-        "bottom" => 2,
-        _ => 1,
+/// The edge the overlay keeps on KDE Wayland, where the script keeps it. A
+/// held `Focus::anchor` answers at once.
+pub fn set_main_anchor(anchor: Anchor) {
+    let v = match anchor {
+        Anchor::Top => 0,
+        Anchor::Middle => 1,
+        Anchor::Bottom => 2,
     };
     MAIN_ANCHOR.store(v, Ordering::Relaxed);
+    ANCHOR_CHANGED.notify_waiters();
+}
+
+fn main_anchor() -> Anchor {
+    match MAIN_ANCHOR.load(Ordering::Relaxed) {
+        0 => Anchor::Top,
+        2 => Anchor::Bottom,
+        _ => Anchor::Middle,
+    }
 }
 
 /// 0: not known (no report yet, or not KDE). 1: the game or one of the
@@ -394,7 +419,8 @@ impl Focus {
     }
 
     /// Where one of the meter's windows belongs, `"x,y,width,height"`, or ""
-    /// to leave it where KWin put it.
+    /// to leave it where KWin put it. The overlay's height is the one it had
+    /// there, for the edge it keeps; it sizes itself.
     fn placement(&self, caption: String) -> String {
         PLACES
             .get()
@@ -403,16 +429,21 @@ impl Focus {
             .unwrap_or_default()
     }
 
-    /// The configured growth anchor for the main overlay.
-    fn anchor(&self, caption: String) -> String {
-        if caption.trim() != OVERLAY_TITLE {
-            return "middle".into();
+    /// The edge the overlay keeps (Settings → Meter stays fixed at), once it
+    /// is not `known`, the one the script has: at once, when
+    /// `set_main_anchor` changes it, or unchanged after ANCHOR_HOLD, for the
+    /// script to ask again. So the script hears of a change as it is made,
+    /// rather than asking at each resize.
+    async fn anchor(&self, known: String) -> String {
+        let changed = ANCHOR_CHANGED.notified();
+        if main_anchor().name() == known {
+            // zbus runs this on its own executor, which has no timer.
+            let _ = tauri::async_runtime::spawn(async move {
+                let _ = tokio::time::timeout(ANCHOR_HOLD, changed).await;
+            })
+            .await;
         }
-        match MAIN_ANCHOR.load(Ordering::Relaxed) {
-            0 => "top".into(),
-            2 => "bottom".into(),
-            _ => "middle".into(),
-        }
+        main_anchor().name().into()
     }
 }
 
@@ -457,7 +488,8 @@ pub fn watch(on_change: impl Fn() + Send + Sync + 'static) -> Result<(), String>
     let path = dir.join("a2tools-dps-meter-focus.js");
     let script = SCRIPT
         .replace("__PID__", &std::process::id().to_string())
-        .replace("__OVERLAY_TITLE__", OVERLAY_TITLE);
+        .replace("__OVERLAY_TITLE__", OVERLAY_TITLE)
+        .replace("__ANCHOR__", main_anchor().name());
     std::fs::write(&path, script).map_err(|e| format!("writing the script: {e}"))?;
 
     let kwin = zbus::blocking::Proxy::new(&connection, "org.kde.KWin", "/Scripting", "org.kde.kwin.Scripting")
@@ -495,5 +527,21 @@ mod tests {
         assert_eq!(classify(0, "aion2.exe", ""), Who::Game);
         assert_eq!(classify(std::process::id(), "a2tools-dps-meter", "A2Tools DPS Meter"), Who::Meter);
         assert_eq!(classify(0, "firefox", "Mozilla Firefox"), Who::Other);
+    }
+
+    #[test]
+    fn the_script_hears_of_a_changed_anchor_at_once() {
+        set_main_anchor(Anchor::Top);
+        // Not the edge the script has: answered at once.
+        assert_eq!(tauri::async_runtime::block_on(Focus.anchor("middle".into())), "top");
+        // The one it has: held until the setting changes.
+        let change = std::thread::spawn(|| {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            set_main_anchor(Anchor::Bottom);
+        });
+        let asked = std::time::Instant::now();
+        assert_eq!(tauri::async_runtime::block_on(Focus.anchor("top".into())), "bottom");
+        assert!(asked.elapsed() < ANCHOR_HOLD);
+        change.join().unwrap();
     }
 }

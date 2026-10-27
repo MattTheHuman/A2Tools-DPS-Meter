@@ -377,9 +377,9 @@ pub fn places_own_windows() -> bool {
     super::focus::places_own_windows()
 }
 
-/// The meter growth anchor the KWin placement script keeps while the window
-/// auto-resizes on native Wayland.
-pub fn set_main_anchor(anchor: &str) {
+/// The edge the overlay keeps as it fits its rows (Settings → Meter stays
+/// fixed at), for the KWin script, which keeps it on native Wayland.
+pub fn set_main_anchor(anchor: crate::platform::meter_anchor::Anchor) {
     super::focus::set_main_anchor(anchor);
 }
 
@@ -438,11 +438,16 @@ pub fn set_size(window: &tauri::WebviewWindow, size: tauri::Size) {
     let _ = window.set_size(size);
 }
 
+/// Size and move a window (`meter_anchor::resize`). Two requests here: Tauri
+/// has no call for both.
 pub fn set_size_and_position(window: &tauri::WebviewWindow, size: tauri::Size, pos: tauri::PhysicalPosition<i32>) {
     set_size(window, size);
     let _ = window.set_position(tauri::Position::Physical(pos));
 }
 
+/// Whether Settings offers "Meter stays fixed at": where the meter places its
+/// own windows (XWayland), or KWin keeps the edge (KDE Wayland, the script
+/// running). Not in an X11 session, nor on native Wayland elsewhere.
 pub fn meter_anchor_available() -> bool {
     places_own_windows() || super::focus::kwin_places_windows()
 }

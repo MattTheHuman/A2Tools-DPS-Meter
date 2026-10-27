@@ -57,7 +57,7 @@ function element(tag = "div") {
   return node;
 }
 
-async function pair({ holdLanguage = null } = {}) {
+async function pair({ holdLanguage = null, features = null } = {}) {
   const values = new Map(Object.entries({
     "dpsMeter.betaUi": "true", "dpsMeter.slimMode": "false", "dpsMeter.theme": "aion2",
     "dpsMeter.playerLimit": "6", "dpsMeter.meterFillOpacity": "80", "dpsMeter.windowOpacity": "40",
@@ -107,7 +107,10 @@ async function pair({ holdLanguage = null } = {}) {
       nodes.set(`.${name}DropdownBtn`, button);
       nodes.set(`.${name}DropdownMenu`, menu);
       nodes.set(`.${name}DropdownWrapper`, wrapper);
-      dropdowns.set(name, { button, text, menu });
+      const row = element();
+      row.appendChild(wrapper);
+      button.closest = (selector) => selector === ".settingsRow" ? row : null;
+      dropdowns.set(name, { button, text, menu, row });
     }
     for (const [name, min, max] of [["meterOpacity", 10, 100], ["windowOpacity", 0, 100]]) {
       const input = element("input");
@@ -165,6 +168,7 @@ async function pair({ holdLanguage = null } = {}) {
           }
           if (["reset_dps", "restart_target_selection"].includes(command)) assert.fail(`combat reset by ${view}`);
           if (command === "get_settings") return Promise.resolve(Object.fromEntries(values));
+          if (command === "build_features") return Promise.resolve(features);
           if (command === "tool_window_ready") return Promise.resolve(true);
           if (command === "get_available_devices" || command === "list_monitors") return Promise.resolve([]);
           return Promise.resolve(null);
@@ -284,17 +288,35 @@ test("both layout dropdown choices (Standard, Slim) round-trip to main classes a
 
 test("meter anchor dropdown syncs across windows and persists only once", async () => {
   const fixture = await pair();
-  fixture.settings.pick("meterAnchor", "top");
+  fixture.settings.pick("meterAnchor", "bottom");
   await settle();
   for (const surface of [fixture.main, fixture.settings]) {
-    assert.equal(surface.app.settingsSelections.meterAnchor, "top");
-    assertSelected(surface, "meterAnchor", "top");
+    assert.equal(surface.app.settingsSelections.meterAnchor, "bottom");
+    assertSelected(surface, "meterAnchor", "bottom");
     surface.assertCombatIntact();
   }
   const writes = fixture.writes().filter((call) => call.args.key === "dpsMeter.meterAnchor");
   assert.equal(writes.length, 1);
   assert.equal(writes[0].view, "settings");
-  assert.equal(fixture.values.get("dpsMeter.meterAnchor"), "top");
+  assert.equal(fixture.values.get("dpsMeter.meterAnchor"), "bottom");
+});
+
+test("an unset meter anchor shows the edge the platform kept before, and saves nothing", async () => {
+  // Top where the meter places its own windows, Centre on KDE Wayland.
+  for (const edge of ["top", "middle"]) {
+    const fixture = await pair({ features: { online: true, meterAnchor: true, meterAnchorDefault: edge } });
+    for (const surface of [fixture.main, fixture.settings]) {
+      assert.equal(surface.app.settingsSelections.meterAnchor, edge);
+      assertSelected(surface, "meterAnchor", edge);
+    }
+    assert.equal(fixture.settings.dropdowns.get("meterAnchor").row.hidden, false);
+    assert.equal(fixture.values.has("dpsMeter.meterAnchor"), false, "the default is not written");
+  }
+});
+
+test("the meter anchor is not offered where it would do nothing", async () => {
+  const fixture = await pair({ features: { online: true, meterAnchor: false, meterAnchorDefault: "middle" } });
+  assert.equal(fixture.settings.dropdowns.get("meterAnchor").row.hidden, true);
 });
 
 test("a slim layout refits a long boss name after applying the new density", async () => {

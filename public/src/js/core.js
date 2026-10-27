@@ -1,7 +1,10 @@
 const SETTING_CHOICES = {
   defaultMeterMode: { allowed: ["bossTargets", "lastHitByMe", "allTargets", "trainTargets"], fallback: "bossTargets" },
   allTargetsWindowMs: { allowed: ["30000", "60000", "120000", "180000", "300000"], fallback: "120000" },
-  meterAnchor: { allowed: ["top", "middle", "bottom"], fallback: "middle" },
+  // The edge the meter keeps as rows come and go. Unset, the one it kept
+  // before there was a choice: its top where it places its own windows, its
+  // centre on KDE Wayland, where KWin keeps it (app.rs build_features).
+  meterAnchor: { allowed: ["top", "middle", "bottom"], fallback: "top" },
   // How often the backend sends DPS (app.rs DPS_RATES_MS).
   updateRateMs: { allowed: ["100", "200", "250", "500"], fallback: "200" },
   trainSelectionMode: { allowed: ["all", "highestDamage"], fallback: "all" },
@@ -37,11 +40,6 @@ const THEME_PREVIEWS = {
 const pickSettingChoice = (name, value) => {
   const { allowed, fallback } = SETTING_CHOICES[name];
   return allowed.includes(String(value)) ? String(value) : fallback;
-};
-const pickMeterAnchorChoice = (value, fallback = "middle") => {
-  const { allowed } = SETTING_CHOICES.meterAnchor;
-  const normalizedFallback = allowed.includes(String(fallback)) ? String(fallback) : "middle";
-  return allowed.includes(String(value)) ? String(value) : normalizedFallback;
 };
 
 // Settings whose change in the Settings window must redraw the meter, mapped to
@@ -2805,9 +2803,7 @@ class DpsApp {
     this.trainSelectionModeDropdownMenu = document.querySelector(".trainSelectionModeDropdownMenu");
     this.meterAnchorDropdownBtn = document.querySelector(".meterAnchorDropdownBtn");
     this.meterAnchorDropdownMenu = document.querySelector(".meterAnchorDropdownMenu");
-    this.meterAnchorRow = typeof this.meterAnchorDropdownBtn?.closest === "function"
-      ? this.meterAnchorDropdownBtn.closest(".settingsRow")
-      : null;
+    this.meterAnchorRow = this.meterAnchorDropdownBtn?.closest?.(".settingsRow") || null;
     this.defaultMeterModeDropdownBtn = document.querySelector(".defaultMeterModeDropdownBtn");
     this.defaultMeterModeDropdownMenu = document.querySelector(".defaultMeterModeDropdownMenu");
     this.resetDetectBtn = document.querySelector(".resetDetectBtn");
@@ -2873,16 +2869,6 @@ class DpsApp {
         window.javaBridge?.openBrowser?.(link.href);
       });
     }
-    const applyMeterAnchorBuild = (build) => {
-      this.updateMeterAnchorVisibility(build?.meterAnchor !== false);
-      this.defaultMeterAnchor = pickMeterAnchorChoice(build?.meterAnchorDefault, this.defaultMeterAnchor);
-      if (!this.safeGetSetting(this.storageKeys.meterAnchor)) {
-        this.settingsSelections.meterAnchor = this.defaultMeterAnchor;
-        this.syncSettingsDropdownSelection(this.meterAnchorDropdownBtn, this.meterAnchorDropdownMenu, this.defaultMeterAnchor);
-      }
-    };
-    Promise.resolve(window.a2BuildReady).then(applyMeterAnchorBuild);
-    window.addEventListener("a2-build-changed", (event) => applyMeterAnchorBuild(event.detail));
     this.kofiButton = document.querySelector(".kofiButton");
     this.kofiWidget = document.querySelector(".kofiWidget");
     this.quitButton = document.querySelector(".quitButton");
@@ -2904,12 +2890,20 @@ class DpsApp {
       defaultMeterMode: "bossTargets",
       allTargetsWindowMs: "120000",
       trainSelectionMode: "all",
-      meterAnchor: pickMeterAnchorChoice(window.a2Build?.meterAnchorDefault, "middle"),
+      meterAnchor: "top",
       partyStat: "combatPower",
       discordStat: "off",
       barTexture: "none",
     };
-    this.defaultMeterAnchor = this.settingsSelections.meterAnchor;
+    // "Meter stays fixed at" only where the meter can keep an edge, and
+    // unset, the edge this platform kept (app.rs build_features).
+    Promise.resolve(window.a2BuildReady).then((build) => {
+      if (build?.meterAnchorDefault === "middle") SETTING_CHOICES.meterAnchor.fallback = "middle";
+      const anchor = pickSettingChoice("meterAnchor", this.safeGetSetting(this.storageKeys.meterAnchor));
+      this.settingsSelections.meterAnchor = anchor;
+      this.syncSettingsDropdownSelection(this.meterAnchorDropdownBtn, this.meterAnchorDropdownMenu, anchor);
+      this.updateMeterAnchorVisibility(build?.meterAnchor !== false);
+    });
 
     // The meter already applied these settings. Opening a form must not change
     // the live combat selection or resend saved parameters to the backend.
@@ -3058,8 +3052,7 @@ class DpsApp {
     this.syncPreviewPartyStat();
     this.settingsSelections.discordStat = pickSettingChoice("discordStat", this.safeGetSetting(this.storageKeys.discordStat));
     this.settingsSelections.clearOnZone = pickSettingChoice("clearOnZone", this.safeGetSetting(this.storageKeys.clearOnZone));
-    this.defaultMeterAnchor = pickMeterAnchorChoice(window.a2Build?.meterAnchorDefault, this.settingsSelections.meterAnchor);
-    this.settingsSelections.meterAnchor = pickMeterAnchorChoice(this.safeGetSetting(this.storageKeys.meterAnchor), this.defaultMeterAnchor);
+    this.settingsSelections.meterAnchor = pickSettingChoice("meterAnchor", this.safeGetSetting(this.storageKeys.meterAnchor));
     this.settingsSelections.hideOutOfCombat = pickSettingChoice("hideOutOfCombat", this.safeGetSetting(this.storageKeys.hideOutOfCombat));
     this.barTexture = pickSettingChoice("barTexture", this.safeGetSetting(this.storageKeys.barTexture));
     this.settingsSelections.barTexture = this.barTexture;
@@ -5354,9 +5347,7 @@ class DpsApp {
     if (isSet(language)) this.applyRemoteSettingChange(this.storageKeys.language, language);
     this.settingsSelections.language = this.i18n?.getLanguage?.() || this.settingsSelections.language;
     for (const name of Object.keys(SETTING_CHOICES)) {
-      this.settingsSelections[name] = name === "meterAnchor"
-        ? pickMeterAnchorChoice(get(name), this.defaultMeterAnchor)
-        : pickSettingChoice(name, get(name));
+      this.settingsSelections[name] = pickSettingChoice(name, get(name));
     }
     this.trainSelectionMode = this.settingsSelections.trainSelectionMode;
     this.detailsMonitor = this.getDetailsMonitorSetting();
@@ -6049,9 +6040,7 @@ class DpsApp {
     };
     for (const [name, control] of Object.entries(choices)) {
       if (key !== this.storageKeys[name]) continue;
-      const normalized = name === "meterAnchor"
-        ? pickMeterAnchorChoice(value, this.defaultMeterAnchor)
-        : pickSettingChoice(name, value);
+      const normalized = pickSettingChoice(name, value);
       this.settingsSelections ||= {};
       this.settingsSelections[name] = normalized;
       if (name === "defaultMeterMode") {

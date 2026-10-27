@@ -11,36 +11,22 @@
   // Which optional parts this build has (app.rs build_features). The private
   // build, compiled without online features, has no account, uploads, update
   // check, Send Logs to Dev, Discord activity or stream overlay: html.a2-offline
-  // hides them (styles.css) and the code below skips them.
-  window.a2Build = { online: true, meterAnchorDefault: "middle" };
-  const applyBuild = (features) => {
-    window.a2Build = {
-      online: features?.online !== false,
-      devSupporter: features?.devSupporter === true,
-      meterAnchor: features?.meterAnchor !== false,
-      meterAnchorDefault: features?.meterAnchorDefault === "top" ? "top" : "middle",
-    };
-    document.documentElement.classList.toggle("a2-offline", !window.a2Build.online);
-    return window.a2Build;
-  };
+  // hides them (styles.css) and the code below skips them. It also says where
+  // Settings offers "Meter stays fixed at", and the edge kept while it is unset.
+  window.a2Build = { online: true };
   window.a2BuildReady = invoke("build_features")
-    .then(applyBuild)
+    .then((features) => {
+      window.a2Build = {
+        online: features?.online !== false,
+        devSupporter: features?.devSupporter === true,
+        meterAnchor: features?.meterAnchor !== false,
+        meterAnchorDefault: features?.meterAnchorDefault,
+      };
+      document.documentElement.classList.toggle("a2-offline", !window.a2Build.online);
+      return window.a2Build;
+    })
     .catch(() => window.a2Build);
   const { listen } = window.__TAURI__.event;
-  // On KDE Wayland the meter anchor is offered only once KWin runs the
-  // script, which can be after this page asked (app.rs "build-features").
-  const buildChanged = (features) => {
-    const before = window.a2Build?.meterAnchor;
-    applyBuild(features);
-    if (window.a2Build.meterAnchor !== before) {
-      window.dispatchEvent(new CustomEvent("a2-build-changed", { detail: window.a2Build }));
-    }
-  };
-  Promise.resolve(listen("build-features", (event) => buildChanged(event.payload)))
-    .then(() => window.a2BuildReady)
-    .then(() => invoke("build_features"))
-    .then(buildChanged)
-    .catch(() => {});
   const { open: shellOpen } = window.__TAURI__.opener;
 
   // The backend enables compositor resizing on GNOME and KDE.
