@@ -28,6 +28,20 @@ const MAX_FIELDS: usize = 32;
 const MAX_LIST: u64 = 4096;
 /// How deep lists may nest.
 const MAX_DEPTH: u8 = 2;
+/// Frame types no decoder may read, for any plugin: another player coming
+/// into view (`44 36`, `45 36`) and players' movement (`1e`-`20 37`,
+/// `28`-`2a 37`). A plugin may tell you about your game, never that someone
+/// is near.
+const REFUSED_OPCODES: [[u8; 2]; 8] = [
+    [0x44, 0x36],
+    [0x45, 0x36],
+    [0x1e, 0x37],
+    [0x1f, 0x37],
+    [0x20, 0x37],
+    [0x28, 0x37],
+    [0x29, 0x37],
+    [0x2a, 0x37],
+];
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct DecoderSpec {
@@ -90,6 +104,9 @@ impl Decoder {
         let opcode: [u8; 2] = bytes
             .try_into()
             .map_err(|_| format!("decoder {}: opcode must be two bytes", spec.name))?;
+        if REFUSED_OPCODES.contains(&opcode) {
+            return Err(format!("decoder {}: frames {} can't be read by plugins", spec.name, spec.opcode));
+        }
         check_fields(&spec.fields, 0).map_err(|e| format!("decoder {}: {e}", spec.name))?;
         if let Some(field) = &spec.self_field {
             let ok = spec.fields.iter().any(|f| {
@@ -239,6 +256,16 @@ mod tests {
         assert_eq!(levels[0]["pet"], 1001);
         assert_eq!(levels[134]["pet"], 1135);
         assert_eq!(levels[134]["level"], 3);
+    }
+
+    #[test]
+    fn other_players_records_are_refused() {
+        for opcode in ["45 36", "44 36", "29 37", "2A 37"] {
+            let json = format!(r#"{{"name":"x","opcode":"{opcode}","fields":[{{"name":"id","type":"varint"}}]}}"#);
+            assert!(Decoder::compile(&serde_json::from_str(&json).unwrap()).is_err(), "{opcode}");
+        }
+        // Monsters' spawns are still read (Pet Soul Tracker).
+        spec(r#"{"name":"x","opcode":"41 36","fields":[{"name":"id","type":"varint"}]}"#);
     }
 
     #[test]
