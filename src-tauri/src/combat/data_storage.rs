@@ -1354,7 +1354,9 @@ impl DataStorage {
 
     /// `name`'s home server, as a self or loot record states it.
     pub fn note_player_server(&self, name: &str, server_id: u16) {
-        if !(1000..3000).contains(&server_id) {
+        // Only a server that exists: a misread one stuck to a player and went
+        // out with their boss reports (2258 for ten days, 2026-10-27).
+        if !crate::capture::servers::exists(server_id) {
             return;
         }
         let mut inner = self.inner.write();
@@ -1372,7 +1374,7 @@ impl DataStorage {
     /// Your home server, as your own self record states it; 0 for a record
     /// that states none (a tutorial character), which forgets the last one.
     pub fn note_self_server(&self, server_id: u16) {
-        if server_id == 0 || (1000..3000).contains(&server_id) {
+        if server_id == 0 || crate::capture::servers::exists(server_id) {
             self.inner.write().self_server = server_id;
         }
     }
