@@ -674,7 +674,8 @@
       "permFps": "Show the game's frame rate (on Windows, the meter asks to run as administrator for it)",
       "testHint": "Early versions for anyone to try, signed like the others. They may change or have rough edges: tell us what you find.",
       "testTitle": "Test plugins",
-      "autoUpdate": "Update plugins automatically"
+      "autoUpdate": "Update plugins automatically",
+      "whatsNew": "What's new in {version}"
     },
     "clearOnZone": {
       "label": "Clear the meter",

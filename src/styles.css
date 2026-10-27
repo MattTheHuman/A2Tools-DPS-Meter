@@ -8856,6 +8856,31 @@ html.a2-offline .historyUploadBtn {
   line-height: 1.45;
   color: rgba(255, 255, 255, 0.78);
 }
+/* What's new: the notes of the update waiting or just installed, first in
+   a plugin's details. */
+.settingsPanel .pluginWhatsNew {
+  margin: 0 0 10px;
+  padding: 7px 10px;
+  border-left: 3px solid var(--settings-accent, #22b8cf);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--settings-accent, #22b8cf) 10%, transparent);
+}
+.settingsPanel .pluginWhatsNewTitle {
+  margin-bottom: 4px;
+  font-weight: 600;
+  color: #fff;
+}
+.settingsPanel .pluginWhatsNewList {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.85);
+}
+.settingsPanel .pluginWhatsNewVersion {
+  margin-right: 6px;
+  color: rgba(255, 255, 255, 0.55);
+  font-variant-numeric: tabular-nums;
+}
 .settingsPanel .pluginAuthor {
   margin: -6px 0 10px;
   color: rgba(255, 255, 255, 0.45);

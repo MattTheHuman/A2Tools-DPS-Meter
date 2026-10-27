@@ -662,7 +662,8 @@
       "permFps": "Die Bildrate des Spiels anzeigen (unter Windows bittet das Meter dafür, als Administrator zu laufen)",
       "testHint": "Frühe Versionen zum Ausprobieren für alle, signiert wie die anderen. Sie können sich noch ändern oder Ecken und Kanten haben: Sag uns, was dir auffällt.",
       "testTitle": "Test-Plugins",
-      "autoUpdate": "Plugins auto-aktualisieren"
+      "autoUpdate": "Plugins auto-aktualisieren",
+      "whatsNew": "Neu in {version}"
     },
     "clearOnZone": {
       "label": "Meter leeren",

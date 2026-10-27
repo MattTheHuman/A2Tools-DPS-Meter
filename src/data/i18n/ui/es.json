@@ -662,7 +662,8 @@
       "permFps": "Mostrar los FPS del juego (en Windows, el medidor pide ejecutarse como administrador para ello)",
       "testHint": "Versiones tempranas para que cualquiera las pruebe, firmadas como las demás. Pueden cambiar o tener detalles sin pulir: cuéntanos lo que encuentres.",
       "testTitle": "Plugins de prueba",
-      "autoUpdate": "Autoactualizar plugins"
+      "autoUpdate": "Autoactualizar plugins",
+      "whatsNew": "Novedades de la {version}"
     },
     "clearOnZone": {
       "label": "Vaciar el medidor",

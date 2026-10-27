@@ -662,7 +662,8 @@
       "permFps": "Afficher les FPS du jeu (sous Windows, le compteur demande à s'exécuter en tant qu'administrateur pour cela)",
       "testHint": "Des versions précoces que tout le monde peut essayer, signées comme les autres. Elles peuvent changer ou avoir des défauts : dis-nous ce que tu trouves.",
       "testTitle": "Plugins de test",
-      "autoUpdate": "Mise à jour auto des plugins"
+      "autoUpdate": "Mise à jour auto des plugins",
+      "whatsNew": "Nouveautés de la {version}"
     },
     "clearOnZone": {
       "label": "Vider le compteur",

@@ -941,6 +941,21 @@ pub struct PluginUpdate {
 }
 
 /// A newer reviewed version in the catalog, for an installed plugin.
+/// One version's notes ("what's new"): its version, and the text by
+/// language ("en" always), as a plugin's changes.json gives them through the
+/// signed catalog.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Change {
+    pub version: String,
+    #[serde(flatten)]
+    pub text: std::collections::BTreeMap<String, String>,
+}
+
+/// A note in `lang`, else in English.
+pub fn change_text<'a>(change: &'a Change, lang: &str) -> &'a str {
+    change.text.get(lang).or_else(|| change.text.get("en")).map(String::as_str).unwrap_or("")
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginAvailable {
@@ -950,6 +965,9 @@ pub struct PluginAvailable {
     pub to: String,
     /// Permissions the new version asks for that the installed one did not.
     pub new_permissions: Vec<String>,
+    /// What the versions since the installed one added ("what's new").
+    #[serde(default)]
+    pub changes: Vec<Change>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -997,6 +1015,7 @@ fn newer_entries(catalog: catalog::Catalog, host: &PluginHost) -> Vec<(PluginAva
                     from: p.version.clone(),
                     to: entry.version.clone(),
                     new_permissions: entry.permissions.iter().filter(|x| !p.permissions.contains(x)).cloned().collect(),
+                    changes: catalog::changes_between(entry, &p.version, &entry.version),
                 };
                 (available, entry.clone())
             })
@@ -1062,6 +1081,8 @@ const LANGUAGES: [&str; 10] = ["de", "en", "es", "fr", "ja", "ko", "pt", "ru", "
 /// words them, `settings.plugins.perm*`).
 #[cfg_attr(not(feature = "online"), allow(dead_code))]
 struct PromptTexts {
+    /// The language the texts are in (a version's notes are shown in it).
+    lang: String,
     title: String,
     one: String,
     many: String,
@@ -1112,6 +1133,7 @@ fn prompt_texts(data_dir: Option<&Path>, lang: &str) -> PromptTexts {
     let prompt = |key: &str, fallback: &str| text(&["pluginUpdatePrompt"], key, fallback);
     let perm = |key: &str, fallback: &str| text(&["settings", "plugins"], key, fallback);
     PromptTexts {
+        lang: lang.to_string(),
         title: prompt("title", "A2Tools - Plugin Update"),
         one: prompt("one", "A plugin update is available:"),
         many: prompt("many", "Plugin updates are available:"),
@@ -1158,6 +1180,13 @@ fn update_prompt(t: &PromptTexts, updates: &[&PluginAvailable]) -> String {
     let mut text = format!("{}\n", if updates.len() == 1 { &t.one } else { &t.many });
     for u in updates {
         text.push_str(&format!("\n{} {} → {}", u.name, u.from, u.to));
+        // What's new: each version's notes, newest first.
+        for c in &u.changes {
+            let note = change_text(c, &t.lang);
+            if !note.is_empty() {
+                text.push_str(&format!("\n    – {note}"));
+            }
+        }
         if !u.new_permissions.is_empty() {
             text.push_str(&format!("\n    {}", t.also_asks));
             for p in &u.new_permissions {
@@ -1353,6 +1382,8 @@ pub struct CatalogItem {
     /// A test plugin: Settings lists it only once installed, and installs it
     /// by id ("Install a test plugin").
     pub test: bool,
+    /// What its recent versions added, newest first.
+    pub changes: Vec<Change>,
 }
 
 /// The reviewed plugins on offer, from the signed catalog.
@@ -1379,6 +1410,7 @@ pub async fn plugin_catalog(app: tauri::AppHandle) -> Result<Vec<CatalogItem>, S
                 author: e.author,
                 permissions: e.permissions,
                 source: e.source,
+                changes: e.changes,
             })
             .collect())
     }
@@ -2403,6 +2435,7 @@ mod tests {
             from: from.into(),
             to: to.into(),
             new_permissions: new_permissions.iter().map(|p| p.to_string()).collect(),
+            changes: Vec::new(),
         }
     }
 
@@ -2444,6 +2477,23 @@ mod tests {
         assert!(two.contains("Plugin b 2.0 → 2.1\n    The new version also asks to:\n    • Save its own data on this computer\n    • Read your own game data: pets"));
         let de = update_prompt(&prompt_texts(Some(&data), "de"), &[&b]);
         assert!(de.contains("Jetzt aktualisieren?") && de.contains("Deine eigenen Spieldaten lesen: pets"), "{de}");
+    }
+
+    /// What's new: each version's notes under its update, in the player's
+    /// language, or English where there's none in it.
+    #[test]
+    fn the_start_prompt_says_what_each_update_adds() {
+        let data = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/data");
+        let note = |version: &str, pairs: &[(&str, &str)]| super::Change {
+            version: version.into(),
+            text: pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
+        };
+        let mut a = available("a", "1.0.0", "1.2.0", &["storage"]);
+        a.changes = vec![note("1.2.0", &[("en", "Rows line up"), ("de", "Zeilen in einer Linie")]), note("1.1.0", &[("en", "A new voice")])];
+        let en = update_prompt(&prompt_texts(Some(&data), "en"), &[&a]);
+        assert!(en.contains("Plugin a 1.0.0 → 1.2.0\n    – Rows line up\n    – A new voice\n    The new version also asks to:"), "{en}");
+        let de = update_prompt(&prompt_texts(Some(&data), "de"), &[&a]);
+        assert!(de.contains("– Zeilen in einer Linie\n    – A new voice"), "{de}");
     }
 
     #[test]
