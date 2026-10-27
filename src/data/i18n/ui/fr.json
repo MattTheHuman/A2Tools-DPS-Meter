@@ -652,7 +652,7 @@
       "permNone": "Rien d'autre qu'afficher sa fenêtre",
       "enabled": "Activé",
       "enabledTip": "Activé : démarre avec le compteur. Désactivé : reste installé mais ne s'exécute pas.",
-      "showMeter": "Afficher le DPS meter",
+      "showMeter": "Afficher le compteur",
       "hideClosed": "Masquer quand AION2 est fermé",
       "hideUnfocused": "Masquer quand AION2 n'est pas au premier plan",
       "inDock": "Dans le dock des plugins (désactivé : sa propre fenêtre)",
@@ -662,7 +662,7 @@
       "permFps": "Afficher les FPS du jeu (sous Windows, le compteur demande à s'exécuter en tant qu'administrateur pour cela)",
       "testHint": "Des versions précoces que tout le monde peut essayer, signées comme les autres. Elles peuvent changer ou avoir des défauts : dis-nous ce que tu trouves.",
       "testTitle": "Plugins de test",
-      "autoUpdate": "Mettre à jour les plugins automatiquement"
+      "autoUpdate": "Mise à jour auto des plugins"
     },
     "clearOnZone": {
       "label": "Vider le compteur",

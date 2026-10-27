@@ -659,7 +659,7 @@
       "permNone": "除显示窗口外不做其他事",
       "enabled": "启用",
       "enabledTip": "开启：随计量器启动。关闭：保持安装，但不运行。",
-      "showMeter": "显示 DPS 统计",
+      "showMeter": "显示统计",
       "hideClosed": "AION2 关闭时隐藏",
       "hideUnfocused": "AION2 不在前台时隐藏",
       "inDock": "放入插件停靠栏（关闭：单独窗口）",

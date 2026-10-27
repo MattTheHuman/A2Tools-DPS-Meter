@@ -652,7 +652,7 @@
       "permNone": "Nada além de mostrar sua janela",
       "enabled": "Ativado",
       "enabledTip": "Ligado: inicia com o medidor. Desligado: continua instalado, mas não é executado.",
-      "showMeter": "Mostrar o medidor de DPS",
+      "showMeter": "Mostrar o medidor",
       "hideClosed": "Ocultar enquanto o AION2 estiver fechado",
       "hideUnfocused": "Ocultar quando o AION2 não estiver em foco",
       "inDock": "No dock de plugins (desligado: janela própria)",
@@ -662,7 +662,7 @@
       "permFps": "Mostrar o FPS do jogo (no Windows, o medidor pede para ser executado como administrador para isso)",
       "testHint": "Versões iniciais para qualquer um experimentar, assinadas como as outras. Podem mudar ou ter arestas: conte o que encontrar.",
       "testTitle": "Plugins de teste",
-      "autoUpdate": "Atualizar plugins automaticamente"
+      "autoUpdate": "Autoatualizar plugins"
     },
     "clearOnZone": {
       "label": "Limpar o medidor",

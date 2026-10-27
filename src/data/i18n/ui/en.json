@@ -664,7 +664,7 @@
       "permNone": "Nothing beyond showing its window",
       "enabled": "Enabled",
       "enabledTip": "On: starts with the meter. Off: stays installed but doesn't run.",
-      "showMeter": "Show the DPS meter",
+      "showMeter": "Show the meter",
       "hideClosed": "Hide while AION2 is closed",
       "hideUnfocused": "Hide when AION2 isn't focused",
       "inDock": "In the plugin dock (off: its own window)",

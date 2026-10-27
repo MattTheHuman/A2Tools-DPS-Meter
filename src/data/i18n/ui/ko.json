@@ -659,7 +659,7 @@
       "permNone": "창을 표시하는 것 외에는 없음",
       "enabled": "사용",
       "enabledTip": "켜짐: 미터와 함께 시작됩니다. 꺼짐: 설치된 상태로 남지만 실행되지 않습니다.",
-      "showMeter": "DPS 미터 표시",
+      "showMeter": "미터 표시",
       "hideClosed": "AION2가 꺼져 있으면 숨기기",
       "hideUnfocused": "AION2가 활성 창이 아닐 때 숨기기",
       "inDock": "플러그인 독에 넣기 (끄면: 별도 창)",

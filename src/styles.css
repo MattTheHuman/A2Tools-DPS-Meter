@@ -8356,8 +8356,8 @@ html.a2-offline .historyUploadBtn {
    the window is too narrow for both. */
 .settingsPanel .pluginTopToggles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  column-gap: 28px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  column-gap: 20px;
 }
 /* A developer-folder plugin, in the installed list. */
 .settingsPanel .pluginUnreviewedTag {
