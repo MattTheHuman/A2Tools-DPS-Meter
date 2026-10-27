@@ -566,7 +566,9 @@
       "confirm": "Send your debug log and your most recent packet logs to the A2 Tools developer?\n\nThe debug log records what the meter did. Packet logs are raw game traffic recorded while packet logging was on. Both can include character names. Only the developer can open them, and they are deleted after 30 days.",
       "sending": "Sending...",
       "sent": "Sent. Your report code is {code}: give it to the developer on Discord.",
-      "failed": "Could not send: {error}"
+      "failed": "Could not send: {error}",
+      "files": "These files will be sent:",
+      "contents": "Packet logs can include chat and other players' names."
     },
     "barGap": {
       "label": "Bar spacing"
@@ -612,7 +614,8 @@
       "hideWhenSolo": "The meter hides while you're not in a party, and comes back when you join one. The Show/Hide keybind still brings it up.",
       "hideOutOfCombat": "The meter hides once you've been out of combat this long, and comes back with the next hit. It stays up while Settings, History or Details is open, or the mouse is over it.",
       "runAsAdmin": "Needed to show the game's frame rate. Windows asks each time the meter starts.",
-      "shareData": "Shares your server's field boss timers and Supply Requests with a2tools.app, to help keep A2Tools in sync for everyone: the bosses on your map, the ones you see killed and their HP, and the request boards after each reset. Nothing about your character is sent."
+      "shareData": "Shares your server's field boss timers and Supply Requests with a2tools.app, to help keep A2Tools in sync for everyone: the bosses on your map, the ones you see killed and their HP, and the request boards after each reset. Nothing about your character is sent.",
+      "pluginAutoUpdate": "When the meter starts, plugin updates install by themselves, in the background. An update that asks for something new still waits for your yes."
     },
     "globalHotkeys": "Use keybinds",
     "hotkeyConsent": {
@@ -670,7 +673,7 @@
       "permNone": "Nothing beyond showing its window",
       "enabled": "Enabled",
       "enabledTip": "On: starts with the meter. Off: stays installed but doesn't run.",
-      "showMeter": "Show the DPS meter",
+      "showMeter": "Show the meter",
       "hideClosed": "Hide while AION2 is closed",
       "hideUnfocused": "Hide when AION2 isn't focused",
       "inDock": "In the plugin dock (off: its own window)",
@@ -679,7 +682,9 @@
       "permsTitle": "It can:",
       "permFps": "Show the game's frame rate (on Windows, the meter asks to run as administrator for it)",
       "testHint": "Early versions for anyone to try, signed like the others. They may change or have rough edges: tell us what you find.",
-      "testTitle": "Test plugins"
+      "testTitle": "Test plugins",
+      "autoUpdate": "Update plugins automatically",
+      "whatsNew": "What's new in {version}"
     },
     "clearOnZone": {
       "label": "Clear the meter",
@@ -848,5 +853,38 @@
     "settings": "Meter settings",
     "opacity": "Background opacity",
     "failed": "This plugin could not start: {error}"
+  },
+  "sharing": {
+    "title": "Help build the leaderboards?",
+    "sub": "Pick one to start. You can change it any time in Settings → Privacy.",
+    "shareTitle": "Share fights anonymously",
+    "recommended": "Recommended",
+    "shareText": "Your boss fights join a2tools.app's public logs with every name hidden. No account needed.",
+    "noTitle": "Don't share",
+    "noText": "Nothing about your fights leaves this PC.",
+    "signInBefore": "Want your fights under your name?",
+    "signIn": "Sign in with A2 Tools",
+    "signInAfter": "Fights shared before then move to your account.",
+    "previewTitle": "How a shared fight appears on a2tools.app",
+    "never": "Your PC's name and your character's full name are never sent.",
+    "policy": "Privacy policy",
+    "continue": "Continue"
+  },
+  "sharingNotice": {
+    "title": "Your fights help build the leaderboards",
+    "text": "Boss fights you finish are shared with a2tools.app with every name hidden, yours too (e.g. Na***a). No account needed, and you can stop any time in Settings → Privacy.",
+    "stop": "Stop sharing",
+    "details": "Details",
+    "keep": "Keep sharing",
+    "stopped": "Sharing stopped. The fights you shared before are being removed from a2tools.app."
+  },
+  "privacy": {
+    "title": "Privacy",
+    "intro": "What this meter shares with a2tools.app. Each one is your choice.",
+    "share": "Share boss fights anonymously",
+    "shareHint": "When a boss fight ends it joins a2tools.app's public logs and leaderboards. Every name is hidden, yours too. No account needed.",
+    "signedIn": "Signed in: your boss fights upload to your A2 Tools account (see A2 Tools Account).",
+    "never": "Never sent: chat, your PC's name, your character's full name. Send Logs to Dev (Advanced) sends logs only when you press it.",
+    "policy": "Full privacy policy"
   }
 }

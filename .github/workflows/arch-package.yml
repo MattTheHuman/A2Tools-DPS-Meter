@@ -29,6 +29,11 @@ on:
         required: false
         default: main
 
+# Builds and tests only: nothing here writes to the repository (security
+# audit M13). Uploaded artifacts need no extra permission.
+permissions:
+  contents: read
+
 jobs:
   # Packs the binaries the .deb job built instead of compiling them again
   # (that took 3.5 of its 4.5 minutes). They are built on Ubuntu 22.04, whose
@@ -322,7 +327,7 @@ jobs:
           # Ubuntu's distrobox (1.7) is older than SteamOS's; use a current one.
           # The runner image ships podman; install it only if that changes.
           command -v podman || { sudo apt-get update && sudo apt-get install -y podman; }
-          curl -s https://raw.githubusercontent.com/89luca89/distrobox/main/install | sh -s -- --prefix ~/.local
+          curl -fsS https://raw.githubusercontent.com/89luca89/distrobox/1.8.2.5/install | sh -s -- --prefix ~/.local
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           export PATH="$HOME/.local/bin:$PATH"
           distrobox version

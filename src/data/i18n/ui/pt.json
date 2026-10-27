@@ -546,7 +546,9 @@
       "confirm": "Enviar seu log de depuração e seus logs de pacotes mais recentes ao desenvolvedor do A2 Tools?\n\nO log de depuração registra o que o medidor fez. Logs de pacotes são o tráfego bruto do jogo gravado enquanto o registro de pacotes estava ligado. Ambos podem incluir nomes de personagens. Só o desenvolvedor pode abri-los, e eles são apagados após 30 dias.",
       "sending": "Enviando...",
       "sent": "Enviado. Seu código de relatório é {code}: passe para o desenvolvedor no Discord.",
-      "failed": "Não foi possível enviar: {error}"
+      "failed": "Não foi possível enviar: {error}",
+      "files": "Estes arquivos serão enviados:",
+      "contents": "Os registros de pacotes podem incluir o chat e nomes de outros jogadores."
     },
     "barGap": {
       "label": "Espaçamento das barras"
@@ -591,7 +593,8 @@
       "hideWhenSolo": "O medidor se oculta enquanto você não está em um grupo e volta quando você entra em um. O atalho de mostrar/ocultar ainda o exibe.",
       "hideOutOfCombat": "O medidor se oculta após esse tempo fora de combate e volta no próximo golpe. Ele continua visível enquanto Configurações, Histórico ou Detalhes estiverem abertos, ou com o mouse sobre ele.",
       "runAsAdmin": "Necessário para mostrar o FPS do jogo. O Windows pergunta toda vez que o medidor inicia.",
-      "shareData": "Compartilha os timers de chefes de campo e os Pedidos de suprimentos do seu servidor com o a2tools.app, para manter o A2Tools atualizado para todos: os chefes no seu mapa, os que você vê serem derrotados e o HP deles, e os quadros de pedidos após cada reinício. Nada sobre o seu personagem é enviado."
+      "shareData": "Compartilha os timers de chefes de campo e os Pedidos de suprimentos do seu servidor com o a2tools.app, para manter o A2Tools atualizado para todos: os chefes no seu mapa, os que você vê serem derrotados e o HP deles, e os quadros de pedidos após cada reinício. Nada sobre o seu personagem é enviado.",
+      "pluginAutoUpdate": "Ao iniciar o medidor, as atualizações de plugins se instalam sozinhas, em segundo plano. Uma atualização que pede algo novo continua esperando sua confirmação."
     },
     "globalHotkeys": "Usar atalhos de teclado",
     "hotkeyConsent": {
@@ -649,7 +652,7 @@
       "permNone": "Nada além de mostrar sua janela",
       "enabled": "Ativado",
       "enabledTip": "Ligado: inicia com o medidor. Desligado: continua instalado, mas não é executado.",
-      "showMeter": "Mostrar o medidor de DPS",
+      "showMeter": "Mostrar o medidor",
       "hideClosed": "Ocultar enquanto o AION2 estiver fechado",
       "hideUnfocused": "Ocultar quando o AION2 não estiver em foco",
       "inDock": "No dock de plugins (desligado: janela própria)",
@@ -658,7 +661,9 @@
       "permsTitle": "Ele pode:",
       "permFps": "Mostrar o FPS do jogo (no Windows, o medidor pede para ser executado como administrador para isso)",
       "testHint": "Versões iniciais para qualquer um experimentar, assinadas como as outras. Podem mudar ou ter arestas: conte o que encontrar.",
-      "testTitle": "Plugins de teste"
+      "testTitle": "Plugins de teste",
+      "autoUpdate": "Autoatualizar plugins",
+      "whatsNew": "Novidades da {version}"
     },
     "clearOnZone": {
       "label": "Limpar o medidor",
@@ -827,5 +832,38 @@
     "settings": "Configurações do medidor",
     "opacity": "Opacidade do fundo",
     "failed": "Este plugin não pôde iniciar: {error}"
+  },
+  "sharing": {
+    "title": "Ajudar a montar os rankings?",
+    "sub": "Escolha uma para começar. Dá para mudar quando quiser em Configurações → Privacidade.",
+    "shareTitle": "Compartilhar lutas anonimamente",
+    "recommended": "Recomendado",
+    "shareText": "Suas lutas contra chefes entram nos registros públicos do a2tools.app com todos os nomes ocultos. Não precisa de conta.",
+    "noTitle": "Não compartilhar",
+    "noText": "Nada das suas lutas sai deste PC.",
+    "signInBefore": "Quer suas lutas com o seu nome?",
+    "signIn": "Entrar com A2 Tools",
+    "signInAfter": "As lutas compartilhadas antes passam para a sua conta.",
+    "previewTitle": "Como uma luta compartilhada aparece no a2tools.app",
+    "never": "O nome do seu PC e o nome completo do seu personagem nunca são enviados.",
+    "policy": "Política de privacidade",
+    "continue": "Continuar"
+  },
+  "sharingNotice": {
+    "title": "Suas lutas ajudam a montar os rankings",
+    "text": "As lutas contra chefes que você termina são compartilhadas com o a2tools.app com todos os nomes ocultos, inclusive o seu (ex.: Na***a). Não precisa de conta, e você pode parar quando quiser em Configurações → Privacidade.",
+    "stop": "Parar de compartilhar",
+    "details": "Detalhes",
+    "keep": "Continuar compartilhando",
+    "stopped": "Compartilhamento parado. As lutas que você compartilhou antes estão sendo removidas do a2tools.app."
+  },
+  "privacy": {
+    "title": "Privacidade",
+    "intro": "O que este medidor compartilha com o a2tools.app. Cada item é escolha sua.",
+    "share": "Compartilhar lutas contra chefes anonimamente",
+    "shareHint": "Ao fim de uma luta contra chefe, ela entra nos registros públicos e rankings do a2tools.app. Todos os nomes ficam ocultos, inclusive o seu. Não precisa de conta.",
+    "signedIn": "Conectado: suas lutas contra chefes vão para a sua conta A2 Tools (veja Conta A2 Tools).",
+    "never": "Nunca enviado: o chat, o nome do seu PC, o nome completo do seu personagem. Enviar registros ao dev (Avançado) só envia quando você aperta.",
+    "policy": "Política de privacidade completa"
   }
 }

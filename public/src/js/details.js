@@ -177,14 +177,16 @@ const createDetailsUI = ({
     const escape = (text) => String(text).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
     const placeHtml = place ? ` <span class="fightTitleDungeon">${escape(place)}</span>` : "";
     const tierBadge = tier
-      ? ` <span class="difficultyBadge difficulty-${tier.key}">${escape(tier.label)}</span>`
+      ? ` <span class="difficultyBadge difficulty-${escape(tier.key)}">${escape(tier.label)}</span>`
       : "";
     // How long the fight took (everyone's combat time), once known.
     const time = (lastUnfilteredDetails || lastDetails)?.combatTime;
     const timeHtml = time
       ? ` <span class="fightTitleTime" title="${escape(labelText("details.stats.combatTime", "Combat Time"))}">${escape(time)}</span>`
       : "";
-    detailsFightTitleEl.innerHTML = `${fightVs} <span class="fightTitleBossName">${bossName}</span>${placeHtml}${tierBadge}${timeHtml}${suffix}`;
+    // The boss name can be a player's nickname (a fresh window shows the
+    // clicked row's name): escaped like the rest (security audit M8).
+    detailsFightTitleEl.innerHTML = `${escape(fightVs)} <span class="fightTitleBossName">${escape(bossName)}</span>${placeHtml}${tierBadge}${timeHtml}${escape(suffix)}`;
   };
 
   // Deaths in the fight: the selected players' (the fight's own details are

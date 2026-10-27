@@ -78,7 +78,19 @@ pub struct Entry {
     /// From the test catalog (set here, not in the file).
     #[serde(default, skip_deserializing)]
     pub test: bool,
+    /// What its recent versions added, newest first (its manifest's
+    /// `changes`, checked by the catalog's builder). A meter before this
+    /// field reads the catalog as before.
+    #[serde(default)]
+    pub changes: Vec<super::Change>,
 }
+
+/// The notes of `entry`'s versions after `from`, up to and with `to`.
+pub fn changes_between(entry: &Entry, from: &str, to: &str) -> Vec<super::Change> {
+    entry.changes.iter().filter(|c| newer(&c.version, from) && !newer(&c.version, to)).cloned().collect()
+}
+
+
 
 fn hex_bytes(text: &str) -> Option<Vec<u8>> {
     let text = text.trim();
@@ -242,6 +254,23 @@ pub fn newer(candidate: &str, current: &str) -> bool {
 mod tests {
     use super::*;
     use ed25519_dalek::{Signer, SigningKey};
+
+    /// A version's notes come with its entry; an entry without them (every
+    /// catalog before) reads as before.
+    #[test]
+    fn whats_new_comes_with_an_entry() {
+        let json = r#"{"format":1,"plugins":[
+            {"id":"a","name":"A","version":"1.2.0","apiVersion":2,"files":{},
+             "changes":[{"version":"1.2.0","en":"Rows line up","de":"Zeilen"},{"version":"1.1.0","en":"A voice"},{"version":"1.0.0","en":"First"}]},
+            {"id":"b","name":"B","version":"1.0.0","apiVersion":2,"files":{}}]}"#;
+        let catalog: Catalog = serde_json::from_str(json).unwrap();
+        let a = &catalog.plugins[0];
+        let since = changes_between(a, "1.0.0", "1.2.0");
+        assert_eq!(since.iter().map(|c| c.version.as_str()).collect::<Vec<_>>(), ["1.2.0", "1.1.0"]);
+        assert_eq!(super::super::change_text(&since[0], "de"), "Zeilen");
+        assert_eq!(super::super::change_text(&since[1], "de"), "A voice", "English when there's none in the language");
+        assert!(catalog.plugins[1].changes.is_empty());
+    }
 
     fn signed(catalog: &str) -> (String, String) {
         let key = SigningKey::from_bytes(&[7u8; 32]);

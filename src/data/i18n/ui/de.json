@@ -546,7 +546,9 @@
       "confirm": "Dein Debug-Log und deine neuesten Paket-Logs an den A2-Tools-Entwickler senden?\n\nDas Debug-Log zeichnet auf, was das Meter getan hat. Paket-Logs sind der rohe Spielverkehr, aufgezeichnet während die Paketaufzeichnung an war. Beide können Charakternamen enthalten. Nur der Entwickler kann sie öffnen, und sie werden nach 30 Tagen gelöscht.",
       "sending": "Wird gesendet...",
       "sent": "Gesendet. Dein Berichtscode ist {code}: gib ihn dem Entwickler auf Discord.",
-      "failed": "Senden fehlgeschlagen: {error}"
+      "failed": "Senden fehlgeschlagen: {error}",
+      "files": "Diese Dateien werden gesendet:",
+      "contents": "Paket-Logs können Chat und Namen anderer Spieler enthalten."
     },
     "barGap": {
       "label": "Balkenabstand"
@@ -591,7 +593,8 @@
       "hideWhenSolo": "Das Meter wird ausgeblendet, solange du in keiner Gruppe bist, und erscheint wieder, wenn du einer beitrittst. Die Tastenkombination zum Ein-/Ausblenden holt es trotzdem hervor.",
       "hideOutOfCombat": "Das Meter wird ausgeblendet, wenn du so lange nicht im Kampf warst, und erscheint mit dem nächsten Treffer wieder. Solange Einstellungen, Verlauf oder Details offen sind oder die Maus darüber ist, bleibt es sichtbar.",
       "runAsAdmin": "Nötig, um die Bildrate des Spiels anzuzeigen. Windows fragt bei jedem Start des Meters nach.",
-      "shareData": "Teilt die Feldboss-Timer und Versorgungsaufträge deines Servers mit a2tools.app, damit A2Tools für alle aktuell bleibt: die Bosse auf deiner Karte, die du besiegt siehst, und ihre HP, sowie die Auftragstafeln nach jedem Reset. Nichts über deinen Charakter wird gesendet."
+      "shareData": "Teilt die Feldboss-Timer und Versorgungsaufträge deines Servers mit a2tools.app, damit A2Tools für alle aktuell bleibt: die Bosse auf deiner Karte, die du besiegt siehst, und ihre HP, sowie die Auftragstafeln nach jedem Reset. Nichts über deinen Charakter wird gesendet.",
+      "pluginAutoUpdate": "Beim Start des Meters installieren sich Plugin-Updates im Hintergrund von selbst. Ein Update, das etwas Neues verlangt, wartet weiter auf dein Ja."
     },
     "globalHotkeys": "Tastenkürzel verwenden",
     "hotkeyConsent": {
@@ -649,7 +652,7 @@
       "permNone": "Nichts außer sein Fenster anzuzeigen",
       "enabled": "Aktiviert",
       "enabledTip": "An: startet mit dem Meter. Aus: bleibt installiert, läuft aber nicht.",
-      "showMeter": "DPS-Meter anzeigen",
+      "showMeter": "Meter anzeigen",
       "hideClosed": "Ausblenden, wenn AION2 geschlossen ist",
       "hideUnfocused": "Ausblenden, wenn AION2 nicht im Vordergrund ist",
       "inDock": "Im Plugin-Dock (aus: eigenes Fenster)",
@@ -658,7 +661,9 @@
       "permsTitle": "Es darf:",
       "permFps": "Die Bildrate des Spiels anzeigen (unter Windows bittet das Meter dafür, als Administrator zu laufen)",
       "testHint": "Frühe Versionen zum Ausprobieren für alle, signiert wie die anderen. Sie können sich noch ändern oder Ecken und Kanten haben: Sag uns, was dir auffällt.",
-      "testTitle": "Test-Plugins"
+      "testTitle": "Test-Plugins",
+      "autoUpdate": "Plugins auto-aktualisieren",
+      "whatsNew": "Neu in {version}"
     },
     "clearOnZone": {
       "label": "Meter leeren",
@@ -827,5 +832,38 @@
     "settings": "Meter-Einstellungen",
     "opacity": "Hintergrund-Deckkraft",
     "failed": "Dieses Plugin konnte nicht starten: {error}"
+  },
+  "sharing": {
+    "title": "Bei den Bestenlisten mithelfen?",
+    "sub": "Wähle eins, um zu starten. Unter Einstellungen → Datenschutz jederzeit änderbar.",
+    "shareTitle": "Kämpfe anonym teilen",
+    "recommended": "Empfohlen",
+    "shareText": "Deine Bosskämpfe kommen in die öffentlichen Logs von a2tools.app, mit allen Namen verborgen. Kein Konto nötig.",
+    "noTitle": "Nicht teilen",
+    "noText": "Nichts über deine Kämpfe verlässt diesen PC.",
+    "signInBefore": "Deine Kämpfe unter deinem Namen?",
+    "signIn": "Mit A2 Tools anmelden",
+    "signInAfter": "Vorher geteilte Kämpfe gehen in dein Konto über.",
+    "previewTitle": "So erscheint ein geteilter Kampf auf a2tools.app",
+    "never": "Der Name deines PCs und der volle Name deines Charakters werden nie gesendet.",
+    "policy": "Datenschutzerklärung",
+    "continue": "Weiter"
+  },
+  "sharingNotice": {
+    "title": "Deine Kämpfe helfen bei den Bestenlisten",
+    "text": "Abgeschlossene Bosskämpfe werden mit a2tools.app geteilt, mit allen Namen verborgen, auch deinem (z. B. Na***a). Kein Konto nötig, und du kannst es jederzeit unter Einstellungen → Datenschutz beenden.",
+    "stop": "Nicht mehr teilen",
+    "details": "Details",
+    "keep": "Weiter teilen",
+    "stopped": "Teilen beendet. Deine bisher geteilten Kämpfe werden von a2tools.app entfernt."
+  },
+  "privacy": {
+    "title": "Datenschutz",
+    "intro": "Was dieses Meter mit a2tools.app teilt. Jedes davon ist deine Wahl.",
+    "share": "Bosskämpfe anonym teilen",
+    "shareHint": "Nach einem Bosskampf kommt er in die öffentlichen Logs und Bestenlisten von a2tools.app. Alle Namen sind verborgen, auch deiner. Kein Konto nötig.",
+    "signedIn": "Angemeldet: Deine Bosskämpfe werden in dein A2-Tools-Konto hochgeladen (siehe A2 Tools Konto).",
+    "never": "Nie gesendet: Chat, der Name deines PCs, der volle Name deines Charakters. Logs an Entwickler senden (Erweitert) sendet nur, wenn du es drückst.",
+    "policy": "Vollständige Datenschutzerklärung"
   }
 }

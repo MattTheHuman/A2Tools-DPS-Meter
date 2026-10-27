@@ -12,6 +12,8 @@ pub mod framing;
 pub mod packet_accumulator;
 pub mod stream_assembler;
 pub mod stream_processor;
+pub mod servers;
+pub mod tcp_order;
 
 // Live capture. pcap needs libloading, the port detector reads the wall clock,
 // and the file replay drives them both — none of which exist on wasm32.

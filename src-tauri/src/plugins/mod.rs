@@ -68,10 +68,9 @@ pub const DISABLED_KEY: &str = "dpsMeter.pluginsDisabled";
 /// Plugins whose windows and widgets hide while AION2 is closed, a JSON
 /// array of ids (Settings → Plugins).
 pub const HIDE_CLOSED_KEY: &str = "dpsMeter.pluginsHideClosed";
-/// Plugins whose windows and widgets hide with the meter when AION2 isn't
-/// in front (the meter's "Hide when AION2 isn't focused"), a JSON array of
-/// ids. Off by default: an alert's icon is most use while the game isn't in
-/// front.
+/// Plugins whose windows and widgets hide when AION2 isn't in front, a JSON
+/// array of ids, whether or not the meter itself hides then. Off by default:
+/// an alert's icon is most use while the game isn't in front.
 pub const HIDE_UNFOCUSED_KEY: &str = "dpsMeter.pluginsHideUnfocused";
 /// Whether AION2 is open, as the plugin event loop last looked.
 static GAME_OPEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
@@ -89,6 +88,11 @@ fn listed(app: &tauri::AppHandle, key: &str) -> Vec<String> {
         .and_then(|s| s.settings.get(key))
         .and_then(|s| serde_json::from_str(&s).ok())
         .unwrap_or_default()
+}
+
+/// Whether any plugin hides when AION2 isn't in front.
+pub fn any_hide_unfocused(app: &tauri::AppHandle) -> bool {
+    !listed(app, HIDE_UNFOCUSED_KEY).is_empty()
 }
 
 /// The plugins that hide while AION2 is closed.
@@ -119,6 +123,30 @@ fn window_plugins(app: &tauri::AppHandle, label: &str) -> Vec<String> {
 /// Whether there are plugins and every one is in `list`.
 fn all_listed(ids: &[String], list: &[String]) -> bool {
     !ids.is_empty() && ids.iter().all(|id| list.contains(id))
+}
+
+/// The app commands a plugin's page may call: those its host page, the
+/// dock, the frame's SDK and its widgets use. Every other command is refused
+/// to a plugin window, the dock and widgets (`allowed_from`), so a plugin
+/// that got hold of the IPC still couldn't open links, read files, change
+/// settings or start an update (security audit H2, 2026-10-26). Add a command
+/// here when a plugin page starts using it.
+const PLUGIN_SURFACE_COMMANDS: &[&str] = &[
+    "dock_close", "dock_fold", "dock_hello", "meter_shown", "open_settings_at", "open_settings_window",
+    "open_url", "plugin_abyss_siege", "plugin_boss_follow", "plugin_boss_timers", "plugin_close",
+    "plugin_fps_admin", "plugin_fps_watch", "plugin_hello", "plugin_set_docked", "plugin_storage_get",
+    "plugin_storage_set", "plugin_widget_area", "plugin_widget_close", "plugin_widget_drag",
+    "plugin_widget_hello", "plugin_widget_open", "plugin_widget_place", "plugin_widget_post",
+    "plugin_widget_send", "plugin_widget_where", "plugin_widgets_lock", "plugin_widgets_locked",
+    "plugin_window", "plugin_window_fit", "set_meter_shown", "start_tool_drag",
+];
+
+/// Whether the window `label` may call the app command `command`: any of the
+/// meter's own windows anything, a plugin's window, the dock or a widget only
+/// `PLUGIN_SURFACE_COMMANDS`.
+pub fn allowed_from(label: &str, command: &str) -> bool {
+    let plugin_surface = is_plugin_window(label) || widgets::parse_label(label).is_some();
+    !plugin_surface || PLUGIN_SURFACE_COMMANDS.contains(&command)
 }
 
 /// Whether a window (`label`) is one of the meter's plugin windows: a
@@ -264,7 +292,7 @@ fn view(app: &tauri::AppHandle, host: &PluginHost) -> PluginsView {
 }
 
 /// The plugins turned off.
-fn disabled(app: &tauri::AppHandle) -> Vec<String> {
+pub(crate) fn disabled(app: &tauri::AppHandle) -> Vec<String> {
     app.try_state::<AppState>()
         .and_then(|s| s.settings.get(DISABLED_KEY))
         .and_then(|s| serde_json::from_str(&s).ok())
@@ -303,6 +331,10 @@ pub async fn plugin_set_enabled(app: tauri::AppHandle, id: String, enabled: bool
             let _ = window.close();
         }
         dock::sync(&app, None);
+        // Its icons go with it. Closing its own window took them (on the
+        // window's going), but one in the plugin dock has none to close, and
+        // Event Timers' icons stayed on screen after it was turned off.
+        widgets::close_all(&app, &id);
     }
     tracing::info!("Plugins: {id} {}", if enabled { "enabled" } else { "disabled" });
     let host = host(&app)?;
@@ -909,6 +941,21 @@ pub struct PluginUpdate {
 }
 
 /// A newer reviewed version in the catalog, for an installed plugin.
+/// One version's notes ("what's new"): its version, and the text by
+/// language ("en" always), as a plugin's changes.json gives them through the
+/// signed catalog.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Change {
+    pub version: String,
+    #[serde(flatten)]
+    pub text: std::collections::BTreeMap<String, String>,
+}
+
+/// A note in `lang`, else in English.
+pub fn change_text<'a>(change: &'a Change, lang: &str) -> &'a str {
+    change.text.get(lang).or_else(|| change.text.get("en")).map(String::as_str).unwrap_or("")
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginAvailable {
@@ -918,6 +965,9 @@ pub struct PluginAvailable {
     pub to: String,
     /// Permissions the new version asks for that the installed one did not.
     pub new_permissions: Vec<String>,
+    /// What the versions since the installed one added ("what's new").
+    #[serde(default)]
+    pub changes: Vec<Change>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -965,6 +1015,7 @@ fn newer_entries(catalog: catalog::Catalog, host: &PluginHost) -> Vec<(PluginAva
                     from: p.version.clone(),
                     to: entry.version.clone(),
                     new_permissions: entry.permissions.iter().filter(|x| !p.permissions.contains(x)).cloned().collect(),
+                    changes: catalog::changes_between(entry, &p.version, &entry.version),
                 };
                 (available, entry.clone())
             })
@@ -1011,6 +1062,11 @@ pub async fn plugin_check_updates(app: tauri::AppHandle) -> Result<UpdateCheck, 
 /// Plugin updates the person said No to at start, a JSON object of id →
 /// version: that version is not offered again (a newer one is).
 pub const DECLINED_UPDATES_KEY: &str = "dpsMeter.pluginUpdatesDeclined";
+/// Settings → Plugins, "Update plugins automatically": off unless turned on.
+/// On, the updates found when the meter starts are installed without asking,
+/// but for any that asks for something new, which waits for the player's
+/// yes as before.
+pub const AUTO_UPDATE_KEY: &str = "dpsMeter.pluginAutoUpdate";
 /// How long after start the catalog is asked, so the check stays out of the
 /// way of startup.
 #[cfg(feature = "online")]
@@ -1025,6 +1081,8 @@ const LANGUAGES: [&str; 10] = ["de", "en", "es", "fr", "ja", "ko", "pt", "ru", "
 /// words them, `settings.plugins.perm*`).
 #[cfg_attr(not(feature = "online"), allow(dead_code))]
 struct PromptTexts {
+    /// The language the texts are in (a version's notes are shown in it).
+    lang: String,
     title: String,
     one: String,
     many: String,
@@ -1075,6 +1133,7 @@ fn prompt_texts(data_dir: Option<&Path>, lang: &str) -> PromptTexts {
     let prompt = |key: &str, fallback: &str| text(&["pluginUpdatePrompt"], key, fallback);
     let perm = |key: &str, fallback: &str| text(&["settings", "plugins"], key, fallback);
     PromptTexts {
+        lang: lang.to_string(),
         title: prompt("title", "A2Tools - Plugin Update"),
         one: prompt("one", "A plugin update is available:"),
         many: prompt("many", "Plugin updates are available:"),
@@ -1121,6 +1180,13 @@ fn update_prompt(t: &PromptTexts, updates: &[&PluginAvailable]) -> String {
     let mut text = format!("{}\n", if updates.len() == 1 { &t.one } else { &t.many });
     for u in updates {
         text.push_str(&format!("\n{} {} → {}", u.name, u.from, u.to));
+        // What's new: each version's notes, newest first.
+        for c in &u.changes {
+            let note = change_text(c, &t.lang);
+            if !note.is_empty() {
+                text.push_str(&format!("\n    – {note}"));
+            }
+        }
         if !u.new_permissions.is_empty() {
             text.push_str(&format!("\n    {}", t.also_asks));
             for p in &u.new_permissions {
@@ -1145,8 +1211,10 @@ pub fn find_updates_at_start(app: &tauri::AppHandle) {
         // At start, then every 6 hours for a meter left running for days.
         // Each check replaces what the title offers: updates installed from
         // Settings meanwhile drop out of it.
+        let mut at_start = true;
         loop {
-            find_updates(&app).await;
+            find_updates(&app, at_start).await;
+            at_start = false;
             tokio::time::sleep(UPDATE_RECHECK).await;
         }
     });
@@ -1156,9 +1224,11 @@ pub fn find_updates_at_start(app: &tauri::AppHandle) {
 #[cfg(feature = "online")]
 const UPDATE_RECHECK: std::time::Duration = std::time::Duration::from_secs(6 * 60 * 60);
 
-/// Look for plugin updates once, and have the meter's title offer them.
+/// Look for plugin updates once, and have the meter's title offer them; at
+/// start, with automatic updates on, install the ones that need no new
+/// permission first.
 #[cfg(feature = "online")]
-async fn find_updates(app: &tauri::AppHandle) {
+async fn find_updates(app: &tauri::AppHandle, at_start: bool) {
     let Ok(host) = host(app) else { return };
     let Some(state) = app.try_state::<AppState>() else { return };
     let catalog = match catalog::fetch(&state.http).await {
@@ -1175,12 +1245,47 @@ async fn find_updates(app: &tauri::AppHandle) {
         let names = updates.iter().map(|(u, _)| format!("{} {} → {}", u.id, u.from, u.to)).collect::<Vec<_>>().join(", ");
         tracing::info!("Plugins: updates available: {names}");
     }
+    let auto = at_start && state.settings.get(AUTO_UPDATE_KEY).as_deref() == Some("true");
+    let updates = if auto { install_quietly(app, &host, updates).await } else { updates };
     let had = !pending_updates().lock().unwrap_or_else(|p| p.into_inner()).is_empty();
     if updates.is_empty() && !had {
         return;
     }
     *pending_updates().lock().unwrap_or_else(|p| p.into_inner()) = updates;
     tell_pending(app);
+}
+
+/// Install `updates` without asking, one after another, in the background
+/// task that found them: the meter's own threads (capture, the DPS window,
+/// plugin events) never wait on it. An update that asks for a permission its
+/// plugin doesn't have, or one that fails, is left to offer as before.
+#[cfg(feature = "online")]
+async fn install_quietly(
+    app: &tauri::AppHandle,
+    host: &Arc<PluginHost>,
+    updates: Vec<(PluginAvailable, catalog::Entry)>,
+) -> Vec<(PluginAvailable, catalog::Entry)> {
+    let mut left = Vec::new();
+    let mut done = Vec::new();
+    for (u, entry) in updates {
+        if !u.new_permissions.is_empty() {
+            left.push((u, entry));
+            continue;
+        }
+        match install_entry(app, host, &entry).await {
+            Ok(()) => done.push(format!("{} {} → {}", u.id, u.from, u.to)),
+            Err(e) => {
+                tracing::info!("Plugins: automatic update of {} failed: {e}", u.id);
+                left.push((u, entry));
+            }
+        }
+    }
+    if !done.is_empty() {
+        tracing::info!("Plugins: updated automatically: {}", done.join(", "));
+        // Settings, if open, shows the new versions.
+        let _ = app.emit_to("settings", "plugins-changed", ());
+    }
+    left
 }
 
 /// The updates found at start and not yet offered.
@@ -1277,6 +1382,8 @@ pub struct CatalogItem {
     /// A test plugin: Settings lists it only once installed, and installs it
     /// by id ("Install a test plugin").
     pub test: bool,
+    /// What its recent versions added, newest first.
+    pub changes: Vec<Change>,
 }
 
 /// The reviewed plugins on offer, from the signed catalog.
@@ -1303,6 +1410,7 @@ pub async fn plugin_catalog(app: tauri::AppHandle) -> Result<Vec<CatalogItem>, S
                 author: e.author,
                 permissions: e.permissions,
                 source: e.source,
+                changes: e.changes,
             })
             .collect())
     }
@@ -2300,7 +2408,22 @@ fn percent_decode(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{base64, content_policy, inline_page, inlined_policy, with_meter_fonts, prompt_texts, should_start, take_ready};
+    #[test]
+    fn plugin_windows_reach_only_their_own_commands() {
+        for label in ["plugin-ping", "plugins-dock", "pw_ping_ping"] {
+            assert!(allowed_from(label, "plugin_storage_get"), "{label}");
+            assert!(allowed_from(label, "open_url"), "{label}");
+            for cmd in ["show_update_window", "send_logs_to_dev", "plugin_add_folder", "plugin_install", "update_settings", "capture_screenshot", "set_run_as_admin"] {
+                assert!(!allowed_from(label, cmd), "{label} {cmd}");
+            }
+        }
+        for label in ["main", "settings", "history", "details-123"] {
+            assert!(allowed_from(label, "plugin_add_folder"), "{label}");
+            assert!(allowed_from(label, "show_update_window"), "{label}");
+        }
+    }
+
+    use super::{allowed_from, base64, content_policy, inline_page, inlined_policy, with_meter_fonts, prompt_texts, should_start, take_ready};
     use super::{update_prompt, updates_to_offer, within_reach, Pending, PluginAvailable, PluginInfo, LANGUAGES, SETTLE};
     use std::collections::{HashMap, HashSet};
     use std::time::{Duration, Instant};
@@ -2312,6 +2435,7 @@ mod tests {
             from: from.into(),
             to: to.into(),
             new_permissions: new_permissions.iter().map(|p| p.to_string()).collect(),
+            changes: Vec::new(),
         }
     }
 
@@ -2353,6 +2477,23 @@ mod tests {
         assert!(two.contains("Plugin b 2.0 → 2.1\n    The new version also asks to:\n    • Save its own data on this computer\n    • Read your own game data: pets"));
         let de = update_prompt(&prompt_texts(Some(&data), "de"), &[&b]);
         assert!(de.contains("Jetzt aktualisieren?") && de.contains("Deine eigenen Spieldaten lesen: pets"), "{de}");
+    }
+
+    /// What's new: each version's notes under its update, in the player's
+    /// language, or English where there's none in it.
+    #[test]
+    fn the_start_prompt_says_what_each_update_adds() {
+        let data = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../src/data");
+        let note = |version: &str, pairs: &[(&str, &str)]| super::Change {
+            version: version.into(),
+            text: pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
+        };
+        let mut a = available("a", "1.0.0", "1.2.0", &["storage"]);
+        a.changes = vec![note("1.2.0", &[("en", "Rows line up"), ("de", "Zeilen in einer Linie")]), note("1.1.0", &[("en", "A new voice")])];
+        let en = update_prompt(&prompt_texts(Some(&data), "en"), &[&a]);
+        assert!(en.contains("Plugin a 1.0.0 → 1.2.0\n    – Rows line up\n    – A new voice\n    The new version also asks to:"), "{en}");
+        let de = update_prompt(&prompt_texts(Some(&data), "de"), &[&a]);
+        assert!(de.contains("– Zeilen in einer Linie\n    – A new voice"), "{de}");
     }
 
     #[test]

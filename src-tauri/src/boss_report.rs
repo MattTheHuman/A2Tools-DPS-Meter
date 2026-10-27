@@ -233,6 +233,12 @@ pub fn hp_request(server_id: u16, bosses: &[BossHp]) -> Option<serde_json::Value
 /// What it finds also goes to the fight records (`note_host_server`), so a
 /// fight then is saved, and its log filed, under that server too.
 pub(crate) fn report_server(state: &AppState) -> u16 {
+    let server = guess_report_server(state);
+    // Never a server that doesn't exist: nothing is sent until one is known.
+    if crate::capture::servers::exists(server) { server } else { 0 }
+}
+
+fn guess_report_server(state: &AppState) -> u16 {
     let own = state.data_storage.own_server();
     // Only a real game server's address names a server. Through a ping
     // reducer (ExitLag and the like) the game talks to a tunnel on this PC

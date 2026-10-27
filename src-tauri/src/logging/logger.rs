@@ -54,7 +54,7 @@ fn open_debug_log(path: &std::path::Path) -> Option<DebugFileWriter> {
         let _ = std::fs::remove_file(&previous);
         let _ = std::fs::rename(path, &previous);
     }
-    let file = std::fs::OpenOptions::new().create(true).append(true).open(path).ok()?;
+    let file = crate::platform::atomic_file::private(std::fs::OpenOptions::new().create(true).append(true)).open(path).ok()?;
     let bytes_written = file.metadata().map(|m| m.len()).unwrap_or(0);
     Some(DebugFileWriter { writer: std::io::BufWriter::new(file), bytes_written, path: path.to_path_buf() })
 }
@@ -200,10 +200,7 @@ fn open_packet_file(log_dir: &std::path::Path) -> Option<(std::io::BufWriter<std
         path = log_dir.join(format!("packets_{}_{}.txt", stamp, nth));
         nth += 1;
     }
-    let file = std::fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
+    let file = crate::platform::atomic_file::private(std::fs::OpenOptions::new().create(true).write(true).truncate(true))
         .open(&path)
         .ok()?;
     let mut writer = std::io::BufWriter::new(file);

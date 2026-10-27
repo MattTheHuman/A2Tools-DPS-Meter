@@ -10,6 +10,10 @@ window.A2_PLUGIN_ICONS = Object.freeze({
   "heal-alert": ["heart-pulse", 350],
   "mantra-watch": ["orbit", 215],
   "hidden-cubes": ["box", 300],
+  // Calls a boss's mechanics out loud; yellow, as its callout text.
+  "boss-telegraph": ["megaphone", 75],
+  // Every character you play, side by side.
+  "alt-roster": ["users", 160],
 });
 
 // A plugin's glyph (a Lucide name) or null, and its hue.

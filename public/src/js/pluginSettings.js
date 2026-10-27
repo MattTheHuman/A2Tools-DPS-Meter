@@ -11,6 +11,17 @@
     return text;
   };
 
+  // Update plugins automatically (src-tauri/src/plugins AUTO_UPDATE_KEY):
+  // off unless turned on; the meter reads it when it starts.
+  const AUTO_UPDATE_KEY = "dpsMeter.pluginAutoUpdate";
+  const autoUpdate = document.querySelector(".pluginAutoUpdateCheckbox");
+  if (autoUpdate) {
+    autoUpdate.checked = window.javaBridge?.getSetting?.(AUTO_UPDATE_KEY) === "true";
+    autoUpdate.addEventListener("change", () => {
+      window.javaBridge?.setSetting?.(AUTO_UPDATE_KEY, autoUpdate.checked ? "true" : "false");
+    });
+  }
+
   const start = () => {
     const toggle = document.querySelector(".pluginDevModeCheckbox");
     const devRow = document.querySelector(".pluginDevRow");
@@ -35,8 +46,69 @@
     // Plugins the last update changed, by id → the version before; marked
     // green until Settings closes.
     const updatedFrom = new Map();
-    // Newer reviewed versions, by id → { to, newPermissions }.
+    // Newer reviewed versions, by id → { to, newPermissions, changes }.
     const available = new Map();
+
+    // What's new. Each plugin's version when Settings last showed it, kept
+    // in settings: a plugin updated since (automatically, or from the
+    // title's button) is marked, its notes shown, until Settings has been
+    // opened once. The first time, the versions are only noted down.
+    const SEEN_KEY = "dpsMeter.pluginsSeen";
+    let seen = null;
+    try {
+      seen = JSON.parse(window.javaBridge?.getSetting?.(SEEN_KEY) || "null");
+    } catch {
+      seen = null;
+    }
+    const firstLook = !seen || typeof seen !== "object";
+    if (firstLook) seen = {};
+    // By id → the version Settings last showed (this window's).
+    const updatedSince = new Map();
+    const noteSeen = (plugins) => {
+      let changed = false;
+      for (const p of plugins) {
+        if (!p.reviewed || p.error) continue;
+        const was = seen[p.id];
+        if (!firstLook && was && newerVersion(p.version, was) && !updatedSince.has(p.id)) updatedSince.set(p.id, was);
+        if (was !== p.version) {
+          seen[p.id] = p.version;
+          changed = true;
+        }
+      }
+      if (changed) window.javaBridge?.setSetting?.(SEEN_KEY, JSON.stringify(seen));
+    };
+    // "1.2.10" after "1.2.9".
+    function newerVersion(a, b) {
+      const parts = (v) => String(v || "").split(".").map((n) => parseInt(n, 10) || 0);
+      const x = parts(a);
+      const y = parts(b);
+      for (let i = 0; i < Math.max(x.length, y.length); i++) {
+        if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+      }
+      return false;
+    }
+    // The notes of a plugin's versions after `from`, up to `to`, newest first,
+    // from the signed catalog (or an update's own).
+    const notesOf = (id, from, to, own) => {
+      const all = own || (catalog || []).find((e) => e.id === id)?.changes || [];
+      return all.filter((c) => newerVersion(c.version, from) && !newerVersion(c.version, to));
+    };
+    const noteText = (c) => c[window.i18n?.getLanguage?.() || "en"] || c.en || "";
+    // "What's new in 1.4.2", and each version's note.
+    const whatsNew = (notes, version) => {
+      const box = el("div", "pluginWhatsNew");
+      box.append(el("div", "pluginWhatsNewTitle", t("settings.plugins.whatsNew", "What's new in {version}", { version })));
+      const items = el("ul", "pluginWhatsNewList");
+      for (const c of notes) {
+        const text = noteText(c);
+        if (!text) continue;
+        const li = el("li", null, text);
+        if (notes.length > 1) li.prepend(el("span", "pluginWhatsNewVersion", c.version));
+        items.append(li);
+      }
+      box.append(items);
+      return box;
+    };
 
     // A permission, in plain words.
     const describe = (permission) => {
@@ -349,6 +421,8 @@
       if (!catalog) catalogStatus.textContent = t("settings.plugins.catalogLoading", "Loading the plugin list…");
       try {
         catalog = await invoke("plugin_catalog");
+        // The installed list again, with each one's notes.
+        render();
       } catch (e) {
         catalog = null;
         catalogList.replaceChildren();
@@ -396,12 +470,19 @@
       toggle.checked = !!view.devMode;
       devRow.hidden = !view.devMode;
       list.replaceChildren();
+      noteSeen(view.plugins || []);
+      // The first plugin updated since Settings was last open shows its
+      // notes without a click.
+      if (openId == null) {
+        const first = (view.plugins || []).find((p) => updatedSince.has(p.id) && notesOf(p.id, updatedSince.get(p.id), p.version).length);
+        if (first) openId = first.id;
+      }
       for (const p of view.plugins || []) {
         if (!matches(p.name, p.description, p.id)) continue;
         const tags = [];
-        const wasUpdated = !p.error && updatedFrom.has(p.id);
+        const wasUpdated = !p.error && (updatedFrom.has(p.id) || updatedSince.has(p.id));
         if (wasUpdated) {
-          const from = updatedFrom.get(p.id);
+          const from = updatedFrom.has(p.id) ? updatedFrom.get(p.id) : updatedSince.get(p.id);
           const badge = icon("circle-arrow-up");
           badge.className = "pluginUpdatedIcon";
           badge.setAttribute("role", "img");
@@ -436,6 +517,14 @@
         // Its details: the whole description, when it hides, what it may
         // do, and Remove.
         const details = [];
+        // What's new: in the update waiting, or in the one just installed.
+        if (!p.error && p.reviewed) {
+          const from = updatedFrom.has(p.id) ? updatedFrom.get(p.id) : updatedSince.get(p.id);
+          const notes = newer
+            ? notesOf(p.id, p.version, newer.to, newer.changes)
+            : from != null ? notesOf(p.id, from, p.version) : [];
+          if (notes.length) details.push(whatsNew(notes, newer ? newer.to : p.version));
+        }
         if (p.error) details.push(el("p", "pluginDescFull pluginError", p.error));
         else if (p.description) details.push(el("p", "pluginDescFull", p.description));
         if (!p.reviewed && p.path) details.push(el("div", "pluginAuthor", p.path));

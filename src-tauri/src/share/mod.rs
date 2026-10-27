@@ -594,6 +594,38 @@ pub struct SliceMeta {
     pub gave_up: bool,
 }
 
+/// The real uploader name of each fight this PC uploaded, for a guest's
+/// fights to be named again when the player signs in here: a guest uploads
+/// them masked (`upload_detailed`), and only this PC still knows the names.
+/// `{log, actorId, name}` each, at most `max`; the site applies only those
+/// that were the merged guest's.
+pub fn uploaded_names(app_data_dir: &Path, max: usize) -> Vec<serde_json::Value> {
+    let Ok(dir) = std::fs::read_dir(slices_dir(app_data_dir)) else { return Vec::new() };
+    let history = crate::history::fight_history::FightHistoryManager::new(app_data_dir.to_path_buf());
+    let mut out = Vec::new();
+    for entry in dir.flatten() {
+        if out.len() >= max {
+            break;
+        }
+        let path = entry.path();
+        if path.extension().and_then(|e| e.to_str()) != Some("json") {
+            continue;
+        }
+        let Some(id) = path.file_stem().and_then(|s| s.to_str()) else { continue };
+        let meta = read_meta(app_data_dir, id);
+        let (Some(url), Some(actor)) = (meta.url, meta.uploader_actor_id) else { continue };
+        let Some(log) = url.split_once("/logs/").and_then(|(_, rest)| rest.split(['?', '#', '/']).next()).filter(|l| !l.is_empty()) else {
+            continue;
+        };
+        let Ok(record) = history.load_fight(id) else { continue };
+        let Some(name) = record.actors.iter().find(|a| a.actor_id == actor).map(|a| a.nickname.trim().to_string()).filter(|n| !n.is_empty()) else {
+            continue;
+        };
+        out.push(serde_json::json!({ "log": log, "actorId": actor, "name": name.chars().take(32).collect::<String>() }));
+    }
+    out
+}
+
 fn read_meta(app_data_dir: &Path, id: &str) -> SliceMeta {
     std::fs::read_to_string(meta_path(app_data_dir, id))
         .ok()
@@ -739,7 +771,7 @@ pub const AUTO_UPLOAD_KEY: &str = "dpsMeter.autoUpload";
 /// the key.
 pub fn auto_uploads(settings: &crate::config::settings::Settings) -> bool {
     settings.get(AUTO_UPLOAD_KEY).as_deref() == Some("true")
-        || settings.get(crate::account::guest::GUEST_UPLOAD_KEY).as_deref() == Some("true")
+        || crate::account::guest::uploads(settings)
 }
 
 #[cfg(feature = "online")]
@@ -919,7 +951,7 @@ pub async fn upload_detailed(
         // Not signed in: as a guest, when the player chose to upload without
         // an account (account::guest), claimable once they sign in.
         crate::account::secret::Stored::Missing
-            if settings.get(crate::account::guest::GUEST_UPLOAD_KEY).as_deref() == Some("true") =>
+            if crate::account::guest::uploads(settings) =>
         {
             as_guest = true;
             crate::account::guest::token(client, app_data_dir).await.map_err(|e| UploadFailure {
@@ -950,10 +982,17 @@ pub async fn upload_detailed(
     };
 
     let meta = read_meta(app_data_dir, &record.id);
+    // A guest's upload names nobody, its uploader included: every name goes
+    // masked as the site shows them (Na***a), so a full name never leaves
+    // this PC without an account. Signed in, the account's fights carry the
+    // names (the site masks the party's).
     let names: HashMap<String, String> = record
         .actors
         .iter()
-        .map(|a| (a.actor_id.to_string(), a.nickname.clone()))
+        .map(|a| {
+            let name = if as_guest { crate::entity::fight_record::obscure_nickname(&a.nickname) } else { a.nickname.clone() };
+            (a.actor_id.to_string(), name)
+        })
         .collect();
     let body = serde_json::json!({
         "slice": base64(&compressed),

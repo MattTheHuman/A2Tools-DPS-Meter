@@ -464,6 +464,7 @@
                 <button class="settingsNavItem" type="button" role="tab" id="settingsTab-streaming" aria-controls="settingsSection-streaming" aria-selected="false" tabindex="-1" data-section="streaming"><i data-lucide="cast" aria-hidden="true"></i><span data-i18n="settings.streamOverlay.title">Streaming</span></button>
                 <button class="settingsNavItem" type="button" role="tab" id="settingsTab-keybinds" aria-controls="settingsSection-keybinds" aria-selected="false" tabindex="-1" data-section="keybinds"><i data-lucide="keyboard" aria-hidden="true"></i><span data-i18n="settings.keybinds">Keybinds</span></button>
                 <button class="settingsNavItem" type="button" role="tab" id="settingsTab-plugins" aria-controls="settingsSection-plugins" aria-selected="false" tabindex="-1" data-section="plugins"><i data-lucide="puzzle" aria-hidden="true"></i><span data-i18n="settings.plugins.title">Plugins</span></button>
+                <button class="settingsNavItem" type="button" role="tab" id="settingsTab-privacy" aria-controls="settingsSection-privacy" aria-selected="false" tabindex="-1" data-section="privacy"><i data-lucide="shield" aria-hidden="true"></i><span data-i18n="privacy.title">Privacy</span></button>
                 <button class="settingsNavItem" type="button" role="tab" id="settingsTab-advanced" aria-controls="settingsSection-advanced" aria-selected="false" tabindex="-1" data-section="advanced"><i data-lucide="sliders-horizontal" aria-hidden="true"></i><span data-i18n="settings.advanced">Advanced</span></button>
               </div>
               <div class="settingsVersionRow">
@@ -572,13 +573,6 @@
                     <span class="settingsToggleLabel settingsLabel" data-i18n="settings.account.autoUpload">Upload boss fights automatically</span>
                     <span class="settingsToggleControl">
                       <input type="checkbox" class="autoUploadCheckbox" />
-                      <span class="settingsToggleTrack" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                  <label class="settingsToggle guestUploadRow" style="display:none" title="When a boss fight ends it is uploaded to a2tools.app, public, without an account. Other players stay masked. Sign in later and the fights uploaded from this PC become yours." data-i18n-title="settings.account.guestUploadHint">
-                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.account.guestUpload">Upload boss fights without an account</span>
-                    <span class="settingsToggleControl">
-                      <input type="checkbox" class="guestUploadCheckbox" />
                       <span class="settingsToggleTrack" aria-hidden="true"></span>
                     </span>
                   </label>
@@ -1124,13 +1118,22 @@
               <section class="settingsSection" id="settingsSection-plugins" role="tabpanel" aria-labelledby="settingsTab-plugins" data-section="plugins" hidden>
                 <h2 class="settingsSectionTitle" data-i18n="settings.plugins.title">Plugins</h2>
                 <div class="settingsGroupBody">
-                  <label class="settingsToggle showMeterToggle">
-                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.plugins.showMeter" title="Off: only your plugins show. The meter keeps reading combat and uploading in the background. Bring it back here, with the show/hide hotkey, or with the meter button on a plugin window." data-i18n-title="settings.tips.showMeter">Show the DPS meter</span>
-                    <span class="settingsToggleControl">
-                      <input type="checkbox" class="showMeterCheckbox" checked />
-                      <span class="settingsToggleTrack" aria-hidden="true"></span>
-                    </span>
-                  </label>
+                  <div class="pluginTopToggles">
+                    <label class="settingsToggle showMeterToggle">
+                      <span class="settingsToggleLabel settingsLabel" data-i18n="settings.plugins.showMeter" title="Off: only your plugins show. The meter keeps reading combat and uploading in the background. Bring it back here, with the show/hide hotkey, or with the meter button on a plugin window." data-i18n-title="settings.tips.showMeter">Show the meter</span>
+                      <span class="settingsToggleControl">
+                        <input type="checkbox" class="showMeterCheckbox" checked />
+                        <span class="settingsToggleTrack" aria-hidden="true"></span>
+                      </span>
+                    </label>
+                    <label class="settingsToggle pluginAutoUpdateToggle">
+                      <span class="settingsToggleLabel settingsLabel" data-i18n="settings.plugins.autoUpdate" title="When the meter starts, plugin updates install by themselves, in the background. An update that asks for something new still waits for your yes." data-i18n-title="settings.tips.pluginAutoUpdate">Update plugins automatically</span>
+                      <span class="settingsToggleControl">
+                        <input type="checkbox" class="pluginAutoUpdateCheckbox" />
+                        <span class="settingsToggleTrack" aria-hidden="true"></span>
+                      </span>
+                    </label>
+                  </div>
                   <div class="pluginBar">
                     <div class="pluginTabs" role="tablist">
                       <button class="pluginTab isActive" type="button" role="tab" aria-selected="true" data-tab="installed"><span data-i18n="settings.plugins.installed">Installed</span><span class="pluginTabCount pluginInstalledCount"></span></button>
@@ -1181,6 +1184,38 @@
                   </div>
                 </div>
               </section>
+              <section class="settingsSection" id="settingsSection-privacy" role="tabpanel" aria-labelledby="settingsTab-privacy" data-section="privacy" hidden>
+                <h2 class="settingsSectionTitle" data-i18n="privacy.title">Privacy</h2>
+                <p class="settingsHint privacyIntro" data-i18n="privacy.intro">What this meter shares with a2tools.app. Each one is your choice.</p>
+                <div class="settingsGroupBody privacyGroup">
+                  <label class="settingsToggle guestUploadRow" style="display:none" title="When a boss fight ends it joins a2tools.app's public logs and leaderboards. Every name is hidden, yours too. No account needed." data-i18n-title="privacy.shareHint" data-i18n-title="settings.account.guestUploadHint">
+                    <span class="settingsToggleLabel settingsLabel" data-i18n="privacy.share">Share boss fights anonymously</span>
+                    <span class="settingsToggleControl">
+                      <input type="checkbox" class="guestUploadCheckbox" />
+                      <span class="settingsToggleTrack" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                  <div class="settingsHint privacyRowHint guestUploadRow" style="display:none" data-i18n="privacy.shareHint">When a boss fight ends it joins a2tools.app's public logs and leaderboards. Every name is hidden, yours too. No account needed.</div>
+                  <div class="settingsHint privacyRowHint privacySignInLine guestUploadRow" style="display:none"><span data-i18n="sharing.signInBefore">Want your fights under your name?</span> <button class="linkButton privacySignInBtn" type="button" data-i18n="sharing.signIn">Sign in with A2 Tools</button>. <span data-i18n="sharing.signInAfter">Fights shared before then move to your account.</span></div>
+                  <div class="settingsHint privacyRowHint privacySignedIn" style="display:none" data-i18n="privacy.signedIn">Signed in: your boss fights upload to your A2 Tools account (see A2 Tools Account).</div>
+                  <label class="settingsToggle">
+                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.partyPresence" title="Party members who also use A2Tools see a small A2 tag beside your name, and you see theirs. Anyone in your party using A2Tools can see it, so they'll know you use a third-party meter. Only hashes of character names and servers are sent." data-i18n-title="settings.tips.partyPresence">Show A2Tools users in my party</span>
+                    <span class="settingsToggleControl">
+                      <input type="checkbox" class="partyPresenceCheckbox" />
+                      <span class="settingsToggleTrack" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                  <label class="settingsToggle">
+                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.shareData" title="Shares your server's field boss timers and Supply Requests with a2tools.app, to help keep A2Tools in sync for everyone: the bosses on your map, the ones you see killed and their HP, and the request boards after each reset. Nothing about your character is sent." data-i18n-title="settings.tips.shareData">Sync useful data to A2Tools</span>
+                    <span class="settingsToggleControl">
+                      <input type="checkbox" class="shareDataCheckbox" />
+                      <span class="settingsToggleTrack" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                </div>
+                <div class="privacyNever" data-i18n="privacy.never">Never sent: chat, your PC's name, your character's full name. Send Logs to Dev (Advanced) sends logs only when you press it.</div>
+                <div class="privacyLinks"><button class="settingsAction privacyPolicyBtn" type="button" data-i18n="privacy.policy">Full privacy policy</button></div>
+              </section>
               <section class="settingsSection" id="settingsSection-advanced" role="tabpanel" aria-labelledby="settingsTab-advanced" data-section="advanced" hidden>
                 <h2 class="settingsSectionTitle" data-i18n="settings.advanced">Advanced</h2>
                 <div class="settingsGroupBody">
@@ -1222,20 +1257,6 @@
                   </div>
                 </div>
                 <div class="settingsGroupBody shareBossTimersRow">
-                  <label class="settingsToggle">
-                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.partyPresence" title="Party members who also use A2Tools see a small A2 tag beside your name, and you see theirs. Anyone in your party using A2Tools can see it, so they'll know you use a third-party meter. Only hashes of character names and servers are sent." data-i18n-title="settings.tips.partyPresence">Show A2Tools users in my party</span>
-                    <span class="settingsToggleControl">
-                      <input type="checkbox" class="partyPresenceCheckbox" />
-                      <span class="settingsToggleTrack" aria-hidden="true"></span>
-                    </span>
-                  </label>
-                  <label class="settingsToggle">
-                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.shareData" title="Shares your server's field boss timers and Supply Requests with a2tools.app, to help keep A2Tools in sync for everyone: the bosses on your map, the ones you see killed and their HP, and the request boards after each reset. Nothing about your character is sent." data-i18n-title="settings.tips.shareData">Sync useful data to A2Tools</span>
-                    <span class="settingsToggleControl">
-                      <input type="checkbox" class="shareDataCheckbox" />
-                      <span class="settingsToggleTrack" aria-hidden="true"></span>
-                    </span>
-                  </label>
                   <label class="settingsToggle runAsAdminRow" hidden>
                     <span class="settingsToggleLabel settingsLabel" data-i18n="settings.runAsAdmin" title="Needed to show the game's frame rate. Windows asks each time the meter starts." data-i18n-title="settings.tips.runAsAdmin">Run as administrator</span>
                     <span class="settingsToggleControl">
@@ -1540,36 +1561,48 @@
         <button class="discordPromoDone partyPromoDone" type="button" data-i18n="discordPromo.done">Done</button>
       </div>
     </div>
-    <div class="discordPromo accountPromo" id="accountPromo" aria-hidden="true">
-      <div
-        class="discordPromoCard"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="accountPromoTitle">
-        <button
-          class="discordPromoClose accountPromoClose"
-          type="button"
-          data-i18n-aria-label="accountPromo.close"
-          aria-label="Close">
-          ×
+    <!-- Sharing (2.0.80): asked once, before anything uploads without an
+         account. B: the choice, for anyone not asked yet; C: a notice for
+         those already sharing (core.js maybeShowSharing). -->
+    <div class="discordPromo accountPromo sharingPrompt" id="accountPromo" aria-hidden="true">
+      <div class="discordPromoCard sharingCard" role="dialog" aria-modal="true" aria-labelledby="accountPromoTitle">
+        <div class="discordPromoTitle" id="accountPromoTitle" data-i18n="sharing.title">Help build the leaderboards?</div>
+        <div class="discordPromoHint" data-i18n="sharing.sub">Pick one to start. You can change it any time in Settings → Privacy.</div>
+        <button class="sharingChoice isPicked" type="button" data-share="true" aria-pressed="true">
+          <span class="sharingChoiceTitle"><span data-i18n="sharing.shareTitle">Share fights anonymously</span> <span class="sharingTag" data-i18n="sharing.recommended">Recommended</span></span>
+          <span class="sharingChoiceText" data-i18n="sharing.shareText">Your boss fights join a2tools.app's public logs with every name hidden. No account needed.</span>
         </button>
-        <div class="discordPromoTitle" id="accountPromoTitle" data-i18n="accountPromo.title">Keep your boss fights on a2tools.app</div>
-        <div class="discordPromoText" data-i18n="accountPromo.text">Create a free account or sign in, and every boss fight is saved online: a link to share each one, your logs on any device, and your place on the leaderboard.</div>
-        <label class="discordPromoToggle">
-          <input type="checkbox" class="accountPromoCheckbox" checked />
-          <span data-i18n="settings.account.autoUpload">Upload boss fights automatically</span>
-        </label>
-        <div class="discordPromoHint" data-i18n="accountPromo.hint">Other players' names stay masked, and training dummies are never uploaded. You can change this any time in Settings.</div>
-        <div class="discordPromoHint" data-i18n="accountPromo.guestHint">No account? Fights still upload, and become yours when you sign in.</div>
+        <button class="sharingChoice" type="button" data-share="false" aria-pressed="false">
+          <span class="sharingChoiceTitle" data-i18n="sharing.noTitle">Don't share</span>
+          <span class="sharingChoiceText" data-i18n="sharing.noText">Nothing about your fights leaves this PC.</span>
+        </button>
+        <div class="discordPromoHint sharingSignIn"><span data-i18n="sharing.signInBefore">Want your fights under your name?</span> <button class="linkButton accountPromoSignIn" type="button" data-i18n="sharing.signIn">Sign in with A2 Tools</button>. <span data-i18n="sharing.signInAfter">Fights shared before then move to your account.</span></div>
         <div class="accountPromoCodeBox" style="display:none">
           <div class="discordPromoHint" data-i18n="settings.account.codePrompt">Approve this code in your browser:</div>
           <div class="accountPromoCode"></div>
         </div>
         <div class="discordPromoHint accountPromoState"></div>
+        <div class="sharingPreview" aria-hidden="true">
+          <div class="sharingPreviewTitle" data-i18n="sharing.previewTitle">How a shared fight appears on a2tools.app</div>
+          <div class="sharingPreviewRow"><span class="sharingDot" style="background:#4FD1C5"></span><span>Na***a</span><span>1.13m</span></div>
+          <div class="sharingPreviewRow"><span class="sharingDot" style="background:#9b6bff"></span><span>Ah*i</span><span>821k</span></div>
+          <div class="sharingPreviewRow"><span class="sharingDot" style="background:#5d8bff"></span><span>Ar***a</span><span>686k</span></div>
+        </div>
+        <div class="discordPromoHint" data-i18n="sharing.never">Your PC's name and your character's full name are never sent.</div>
         <div class="accountPromoActions">
-          <button class="accountPromoLater" type="button" data-i18n="accountPromo.later">Not now</button>
-          <button class="accountPromoLater accountPromoGuest" type="button" data-i18n="accountPromo.guest">No account</button>
-          <button class="discordPromoDone accountPromoSignIn" type="button" data-i18n="accountPromo.signIn">Sign in</button>
+          <button class="linkButton sharingPolicy" type="button" data-i18n="sharing.policy">Privacy policy</button>
+          <button class="discordPromoDone sharingContinue" type="button" data-i18n="sharing.continue">Continue</button>
+        </div>
+      </div>
+    </div>
+    <div class="discordPromo sharingNotice" id="sharingNotice" aria-hidden="true">
+      <div class="discordPromoCard" role="dialog" aria-modal="true" aria-labelledby="sharingNoticeTitle">
+        <div class="discordPromoTitle" id="sharingNoticeTitle" data-i18n="sharingNotice.title">Your fights help build the leaderboards</div>
+        <div class="discordPromoText sharingNoticeText" data-i18n="sharingNotice.text">Boss fights you finish are shared with a2tools.app with every name hidden, yours too (e.g. Na***a). No account needed, and you can stop any time in Settings → Privacy.</div>
+        <div class="accountPromoActions">
+          <button class="accountPromoLater sharingStop" type="button" data-i18n="sharingNotice.stop">Stop sharing</button>
+          <button class="accountPromoLater sharingDetails" type="button" data-i18n="sharingNotice.details">Details</button>
+          <button class="discordPromoDone sharingKeep" type="button" data-i18n="sharingNotice.keep">Keep sharing</button>
         </div>
       </div>
     </div>

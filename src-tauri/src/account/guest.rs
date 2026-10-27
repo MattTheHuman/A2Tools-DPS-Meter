@@ -23,8 +23,19 @@ use std::time::Duration;
 
 use super::{base_url, secret};
 
-/// Settings' "Upload fights without an account": off unless turned on.
+/// Settings' "Share boss fights anonymously" (uploading without an account).
 pub const GUEST_UPLOAD_KEY: &str = "dpsMeter.guestUpload";
+
+/// Set once the player has been asked about sharing (2.0.80 on): the first
+/// run's choice answered, or the notice to those already sharing shown.
+/// Until then nothing uploads without an account, whatever the switch says.
+pub const SHARING_ASKED_KEY: &str = "dpsMeter.sharingAsked";
+
+/// Whether fights upload without an account now: chosen, and asked.
+pub fn uploads(settings: &crate::config::settings::Settings) -> bool {
+    settings.get(GUEST_UPLOAD_KEY).as_deref() == Some("true")
+        && settings.get(SHARING_ASKED_KEY).as_deref() == Some("true")
+}
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 
@@ -85,6 +96,48 @@ pub fn has_guest(app_data_dir: &Path) -> bool {
     secret::guest_path(app_data_dir).exists()
 }
 
+/// Set while this PC's guest uploads are still to be deleted from
+/// a2tools.app: the player stopped sharing (2.0.80 on). Tried again at each
+/// start until the site says they're gone.
+pub const DELETE_PENDING_KEY: &str = "dpsMeter.guestDeletePending";
+
+/// Delete every fight this PC uploaded as a guest, and the guest with them
+/// (`DELETE /api/guest/logs`), then forget the guest key. Some(n) when it is
+/// done (n deleted; 0 when there was nothing, or the guest was already gone
+/// or claimed by an account), None to try again later (no network, the site
+/// busy).
+pub async fn delete_uploads(client: &reqwest::Client, app_data_dir: &Path) -> Option<u64> {
+    let secret::Stored::Token(guest) = secret::load_guest(app_data_dir) else { return Some(0) };
+    let response = client
+        .delete(format!("{}/api/guest/logs", base_url()))
+        .timeout(REQUEST_TIMEOUT)
+        .header("authorization", format!("Bearer {guest}"))
+        .send()
+        .await
+        .ok()?;
+    let status = response.status().as_u16();
+    let text = response.text().await.unwrap_or_default();
+    match status {
+        200..=299 => {
+            let deleted = serde_json::from_str::<serde_json::Value>(&text).ok().and_then(|v| v["deleted"].as_u64()).unwrap_or(0);
+            secret::clear_guest(app_data_dir);
+            tracing::info!("Guest uploads deleted from a2tools.app: {deleted} fights");
+            Some(deleted)
+        }
+        // Gone already (an earlier try got through), claimed by an account,
+        // or not a guest: nothing of this guest's is left to delete.
+        401 | 403 => {
+            secret::clear_guest(app_data_dir);
+            tracing::info!("Guest uploads: nothing left to delete ({status})");
+            Some(0)
+        }
+        _ => {
+            tracing::info!("Could not delete the guest uploads now ({status}); trying again later");
+            None
+        }
+    }
+}
+
 /// Make this meter's guest fights the signed-in account's, and forget the
 /// guest key. Some(n) fights claimed; None when it couldn't be done now (it's
 /// tried again at the next start).
@@ -96,7 +149,9 @@ pub async fn merge_into_account(client: &reqwest::Client, app_data_dir: &Path) -
         .timeout(REQUEST_TIMEOUT)
         .header("authorization", format!("Bearer {account}"))
         .header("content-type", "application/json")
-        .body(serde_json::json!({ "guestToken": guest }).to_string())
+        // With the real names of this PC's uploads: a guest's fights went up
+        // masked, and the site names them again once they are the account's.
+        .body(serde_json::json!({ "guestToken": guest, "names": crate::share::uploaded_names(app_data_dir, 2000) }).to_string())
         .send()
         .await
         .ok()?;

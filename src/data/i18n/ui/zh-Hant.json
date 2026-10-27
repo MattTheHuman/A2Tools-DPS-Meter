@@ -553,7 +553,9 @@
       "confirm": "要將你的除錯日誌和最近的封包日誌傳送給 A2 Tools 開發者嗎？\n\n除錯日誌記錄了計量器的運作情況。封包日誌是開啟封包記錄期間錄下的原始遊戲流量。兩者都可能包含角色名稱。只有開發者能開啟它們，30 天後會被刪除。",
       "sending": "傳送中...",
       "sent": "已傳送。你的回報代碼是 {code}，請在 Discord 上告訴開發者。",
-      "failed": "無法傳送：{error}"
+      "failed": "無法傳送：{error}",
+      "files": "將傳送以下檔案：",
+      "contents": "封包日誌可能包含聊天內容和其他玩家的名字。"
     },
     "barGap": {
       "label": "條形間距"
@@ -598,7 +600,8 @@
       "hideWhenSolo": "不在隊伍中時隱藏計量器，加入隊伍後再次顯示。顯示/隱藏快捷鍵仍可隨時開啟它。",
       "hideOutOfCombat": "脫離戰鬥達到該時長後隱藏計量器，下一次命中時再次顯示。設定、歷史紀錄或詳情視窗開啟時，或滑鼠停在計量器上時不會隱藏。",
       "runAsAdmin": "顯示遊戲幀率需要此項。每次啟動計量器時 Windows 都會詢問。",
-      "shareData": "將你所在伺服器的野外首領計時和補給委託分享給 a2tools.app，讓大家的 A2Tools 保持同步：你地圖上的首領、你看到被擊殺的首領及其血量，以及每次重置後的委託板。不會傳送任何關於你角色的資訊。"
+      "shareData": "將你所在伺服器的野外首領計時和補給委託分享給 a2tools.app，讓大家的 A2Tools 保持同步：你地圖上的首領、你看到被擊殺的首領及其血量，以及每次重置後的委託板。不會傳送任何關於你角色的資訊。",
+      "pluginAutoUpdate": "計量器啟動時，外掛更新會在背景自動安裝。要求新權限的更新仍會等待你的同意。"
     },
     "globalHotkeys": "使用快捷鍵",
     "hotkeyConsent": {
@@ -656,7 +659,7 @@
       "permNone": "除顯示視窗外不做其他事",
       "enabled": "啟用",
       "enabledTip": "開啟：隨計量器啟動。關閉：保持安裝，但不執行。",
-      "showMeter": "顯示 DPS 統計",
+      "showMeter": "顯示統計",
       "hideClosed": "AION2 關閉時隱藏",
       "hideUnfocused": "AION2 不在前景時隱藏",
       "inDock": "放入外掛停靠欄（關閉：獨立視窗）",
@@ -665,7 +668,9 @@
       "permsTitle": "可以:",
       "permFps": "顯示遊戲幀率（在 Windows 上，計量器會為此要求以系統管理員身分執行）",
       "testHint": "任何人都可以試用的早期版本，和其他外掛一樣經過簽署。它們可能會變動或尚不完善：發現問題請告訴我們。",
-      "testTitle": "測試外掛"
+      "testTitle": "測試外掛",
+      "autoUpdate": "自動更新外掛",
+      "whatsNew": "{version} 的新內容"
     },
     "clearOnZone": {
       "label": "清空統計",
@@ -834,5 +839,38 @@
     "settings": "計量器設定",
     "opacity": "背景不透明度",
     "failed": "此外掛無法啟動：{error}"
+  },
+  "sharing": {
+    "title": "幫忙建立排行榜嗎？",
+    "sub": "選一項開始。隨時可在 設定 → 隱私 中變更。",
+    "shareTitle": "匿名分享戰鬥",
+    "recommended": "推薦",
+    "shareText": "你的首領戰會加入 a2tools.app 的公開紀錄，所有名字都會隱藏。無需帳號。",
+    "noTitle": "不分享",
+    "noText": "你的戰鬥資訊不會離開這台電腦。",
+    "signInBefore": "想用自己的名字上傳戰鬥？",
+    "signIn": "登入 A2 Tools",
+    "signInAfter": "之前分享的戰鬥會轉入你的帳號。",
+    "previewTitle": "分享的戰鬥在 a2tools.app 上的樣子",
+    "never": "絕不會傳送電腦名稱和角色的完整名字。",
+    "policy": "隱私權政策",
+    "continue": "繼續"
+  },
+  "sharingNotice": {
+    "title": "你的戰鬥正在幫忙建立排行榜",
+    "text": "你完成的首領戰會分享到 a2tools.app，所有名字都會隱藏，包括你的（例如 Na***a）。無需帳號，隨時可在 設定 → 隱私 中停止。",
+    "stop": "停止分享",
+    "details": "詳情",
+    "keep": "繼續分享",
+    "stopped": "已停止分享。先前分享的戰鬥正在從 a2tools.app 刪除。"
+  },
+  "privacy": {
+    "title": "隱私",
+    "intro": "本計量器與 a2tools.app 分享的內容。每一項都由你決定。",
+    "share": "匿名分享首領戰",
+    "shareHint": "首領戰結束後會加入 a2tools.app 的公開紀錄和排行榜。所有名字都會隱藏，包括你的。無需帳號。",
+    "signedIn": "已登入：首領戰會上傳到你的 A2 Tools 帳號（見 A2 Tools 帳號）。",
+    "never": "絕不傳送：聊天、電腦名稱、角色的完整名字。「傳送紀錄給開發者」（進階）只在你按下時才傳送。",
+    "policy": "完整隱私權政策"
   }
 }

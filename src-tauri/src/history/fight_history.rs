@@ -18,7 +18,21 @@ const MAX_HISTORY_FIGHTS: usize = 500;
 /// drive prefix. Fight ids and icon keys come from the webview and become
 /// file names under the app data directory.
 pub fn is_plain_name(name: &str) -> bool {
-    !name.is_empty() && !name.contains(['/', '\\', ':', '\0']) && !name.contains("..")
+    !name.is_empty() && !name.contains(['/', '\\', ':', '\0']) && !name.contains("..") && !windows_reserved(name)
+}
+
+/// A name Windows keeps for a device (`CON`, `NUL`, `COM1`...), with or
+/// without an extension, or one ending in a dot or space, which Windows
+/// trims: neither is the file it looks like (security audit L9).
+fn windows_reserved(name: &str) -> bool {
+    if name.ends_with(['.', ' ']) {
+        return true;
+    }
+    let stem = name.split('.').next().unwrap_or("").to_ascii_uppercase();
+    matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || (stem.len() == 4
+            && (stem.starts_with("COM") || stem.starts_with("LPT"))
+            && stem.as_bytes()[3].is_ascii_digit())
 }
 
 fn check_id(id: &str) -> Result<(), String> {

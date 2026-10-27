@@ -4878,6 +4878,83 @@ body.mainPlayerNamesBold .settingsPanel .themeDropdownMenu .settingsDropdownItem
   margin-top: 4px;
   user-select: text;
 }
+/* Sharing (2.0.80): the first run's choice (#accountPromo) and the notice to
+   those already sharing (#sharingNotice), on the Discord card. */
+.linkButton {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: #9fc4ff;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.linkButton:hover { color: #c4dbff; }
+.linkButton:disabled { opacity: 0.6; cursor: default; }
+.sharingPrompt .sharingSignIn .accountPromoSignIn,
+.sharingPrompt .sharingSignIn .accountPromoSignIn:hover { background: none; }
+.sharingPrompt .discordPromoCard { width: min(400px, 95vw); text-align: left; align-items: stretch; gap: 10px; }
+.sharingPrompt .discordPromoTitle { padding: 0; }
+.sharingChoice {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  color: white;
+  font: inherit;
+  cursor: pointer;
+}
+.sharingChoice:hover { background: rgba(255, 255, 255, 0.08); }
+.sharingChoice.isPicked { border-color: #9b6bff; background: rgba(155, 107, 255, 0.16); }
+.sharingChoiceTitle { font-size: 14px; font-weight: 700; }
+.sharingChoiceText { font-size: 12px; color: rgba(255, 255, 255, 0.65); line-height: 1.4; }
+.sharingTag {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  vertical-align: 1px;
+  background: rgba(155, 107, 255, 0.3);
+  color: #e0d4ff;
+}
+.sharingPreview { border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px; overflow: hidden; font-size: 12px; }
+.sharingPreviewTitle { padding: 5px 9px; font-size: 11px; color: rgba(255, 255, 255, 0.6); background: rgba(255, 255, 255, 0.05); }
+.sharingPreviewRow { display: grid; grid-template-columns: 14px 1fr auto; gap: 8px; align-items: center; padding: 4px 9px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.sharingDot { width: 10px; height: 10px; border-radius: 50%; }
+.sharingPrompt .accountPromoActions { justify-content: space-between; align-items: center; }
+.sharingPrompt .sharingContinue,
+.sharingNotice .sharingKeep { background: #8b5cf6; }
+.sharingPrompt .sharingContinue:hover,
+.sharingNotice .sharingKeep:hover { background: #7c4ddb; }
+.sharingNotice .discordPromoCard { width: min(420px, 95vw); }
+.sharingNotice .accountPromoActions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.sharingNotice .accountPromoLater {
+  border: none; border-radius: 8px; padding: 8px 14px; font-size: 14px; font-weight: 600;
+  color: rgba(255, 255, 255, 0.85); background: rgba(255, 255, 255, 0.12); cursor: pointer;
+}
+.sharingNotice .accountPromoLater:hover { background: rgba(255, 255, 255, 0.2); }
+.sharingNotice .discordPromoDone { padding: 8px 18px; font-size: 14px; }
+/* Settings → Privacy. */
+#settingsSection-privacy .settingsHint { display: block; max-width: none; }
+#settingsSection-privacy .settingsHint:empty { display: none; }
+.privacyIntro { margin: 0 0 8px; }
+.privacyRowHint { margin: -4px 0 8px; font-size: 11.5px; }
+.privacyNever {
+  margin: 12px 0 0;
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.65);
+}
+.privacyLinks { display: flex; gap: 8px; margin-top: 10px; }
 .accountPromo .accountPromoState:empty {
   display: none;
 }
@@ -7412,6 +7489,8 @@ body:not(.isSettingsWindow):not(.isHistoryWindow) :is(input, textarea, [contente
    the account and Discord offers, and sharing field boss timers. */
 html.a2-offline .settingsNavItem[data-section="account"],
 html.a2-offline .settingsNavItem[data-section="streaming"],
+html.a2-offline .settingsNavItem[data-section="privacy"],
+html.a2-offline #settingsSection-privacy,
 html.a2-offline #settingsSection-account,
 html.a2-offline #settingsSection-streaming,
 html.a2-offline .settingsPanel .sendLogsRow,
@@ -8272,6 +8351,14 @@ html.a2-offline .historyUploadBtn {
 .settingsPanel .pluginDevToggle {
   margin-top: 14px;
 }
+/* Show the DPS meter and Update plugins automatically, side by side at the
+   top of Plugins, each switch at the end of its half; stacked again when
+   the window is too narrow for both. */
+.settingsPanel .pluginTopToggles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  column-gap: 20px;
+}
 /* A developer-folder plugin, in the installed list. */
 .settingsPanel .pluginUnreviewedTag {
   padding: 0 6px;
@@ -8768,6 +8855,31 @@ html.a2-offline .historyUploadBtn {
   margin: 0 0 10px;
   line-height: 1.45;
   color: rgba(255, 255, 255, 0.78);
+}
+/* What's new: the notes of the update waiting or just installed, first in
+   a plugin's details. */
+.settingsPanel .pluginWhatsNew {
+  margin: 0 0 10px;
+  padding: 7px 10px;
+  border-left: 3px solid var(--settings-accent, #22b8cf);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--settings-accent, #22b8cf) 10%, transparent);
+}
+.settingsPanel .pluginWhatsNewTitle {
+  margin-bottom: 4px;
+  font-weight: 600;
+  color: #fff;
+}
+.settingsPanel .pluginWhatsNewList {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.85);
+}
+.settingsPanel .pluginWhatsNewVersion {
+  margin-right: 6px;
+  color: rgba(255, 255, 255, 0.55);
+  font-variant-numeric: tabular-nums;
 }
 .settingsPanel .pluginAuthor {
   margin: -6px 0 10px;

@@ -89,3 +89,11 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 }
+
+/// Make a file these options create readable by its owner only (0600): the
+/// debug log and packet logs hold character names and chat, and many
+/// distributions leave home directories readable by every local user
+/// (security audit L6). A file that already exists keeps its mode.
+pub fn private(options: &mut OpenOptions) -> &mut OpenOptions {
+    options.mode(0o600)
+}

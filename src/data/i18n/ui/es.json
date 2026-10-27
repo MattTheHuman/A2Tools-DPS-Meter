@@ -546,7 +546,9 @@
       "confirm": "¿Enviar tu registro de depuración y tus registros de paquetes más recientes al desarrollador de A2 Tools?\n\nEl registro de depuración anota lo que hizo el medidor. Los registros de paquetes son el tráfico del juego en bruto grabado mientras el registro de paquetes estaba activado. Ambos pueden incluir nombres de personajes. Solo el desarrollador puede abrirlos y se eliminan a los 30 días.",
       "sending": "Enviando...",
       "sent": "Enviado. Tu código de informe es {code}: dáselo al desarrollador en Discord.",
-      "failed": "No se pudo enviar: {error}"
+      "failed": "No se pudo enviar: {error}",
+      "files": "Se enviarán estos archivos:",
+      "contents": "Los registros de paquetes pueden incluir el chat y nombres de otros jugadores."
     },
     "barGap": {
       "label": "Espacio entre barras"
@@ -591,7 +593,8 @@
       "hideWhenSolo": "El medidor se oculta mientras no estás en un grupo y vuelve cuando te unes a uno. El atajo de mostrar/ocultar lo sigue mostrando.",
       "hideOutOfCombat": "El medidor se oculta tras este tiempo fuera de combate y vuelve con el siguiente golpe. Sigue visible mientras Ajustes, Historial o Detalles están abiertos, o el ratón está encima.",
       "runAsAdmin": "Necesario para mostrar los FPS del juego. Windows lo pedirá cada vez que se inicie el medidor.",
-      "shareData": "Comparte los temporizadores de jefes de campo y las Solicitudes de suministros de tu servidor con a2tools.app, para mantener A2Tools al día para todos: los jefes de tu mapa, los que ves morir y su vida, y los tablones de solicitudes tras cada reinicio. No se envía nada sobre tu personaje."
+      "shareData": "Comparte los temporizadores de jefes de campo y las Solicitudes de suministros de tu servidor con a2tools.app, para mantener A2Tools al día para todos: los jefes de tu mapa, los que ves morir y su vida, y los tablones de solicitudes tras cada reinicio. No se envía nada sobre tu personaje.",
+      "pluginAutoUpdate": "Al iniciar el medidor, las actualizaciones de plugins se instalan solas, en segundo plano. Una actualización que pide algo nuevo sigue esperando tu confirmación."
     },
     "globalHotkeys": "Usar atajos de teclado",
     "hotkeyConsent": {
@@ -649,7 +652,7 @@
       "permNone": "Nada más que mostrar su ventana",
       "enabled": "Activado",
       "enabledTip": "Activado: se inicia con el medidor. Desactivado: sigue instalado, pero no se ejecuta.",
-      "showMeter": "Mostrar el medidor de DPS",
+      "showMeter": "Mostrar el medidor",
       "hideClosed": "Ocultar mientras AION2 está cerrado",
       "hideUnfocused": "Ocultar cuando AION2 no está activo",
       "inDock": "En el dock de plugins (desactivado: su propia ventana)",
@@ -658,7 +661,9 @@
       "permsTitle": "Puede:",
       "permFps": "Mostrar los FPS del juego (en Windows, el medidor pide ejecutarse como administrador para ello)",
       "testHint": "Versiones tempranas para que cualquiera las pruebe, firmadas como las demás. Pueden cambiar o tener detalles sin pulir: cuéntanos lo que encuentres.",
-      "testTitle": "Plugins de prueba"
+      "testTitle": "Plugins de prueba",
+      "autoUpdate": "Autoactualizar plugins",
+      "whatsNew": "Novedades de la {version}"
     },
     "clearOnZone": {
       "label": "Vaciar el medidor",
@@ -827,5 +832,38 @@
     "settings": "Ajustes del medidor",
     "opacity": "Opacidad del fondo",
     "failed": "Este plugin no pudo iniciarse: {error}"
+  },
+  "sharing": {
+    "title": "¿Ayudar a construir las clasificaciones?",
+    "sub": "Elige una para empezar. Puedes cambiarlo cuando quieras en Ajustes → Privacidad.",
+    "shareTitle": "Compartir combates de forma anónima",
+    "recommended": "Recomendado",
+    "shareText": "Tus combates de jefes se suman a los registros públicos de a2tools.app con todos los nombres ocultos. No hace falta cuenta.",
+    "noTitle": "No compartir",
+    "noText": "Nada de tus combates sale de este PC.",
+    "signInBefore": "¿Quieres tus combates con tu nombre?",
+    "signIn": "Iniciar sesión con A2 Tools",
+    "signInAfter": "Los combates compartidos antes pasan a tu cuenta.",
+    "previewTitle": "Cómo se ve un combate compartido en a2tools.app",
+    "never": "El nombre de tu PC y el nombre completo de tu personaje nunca se envían.",
+    "policy": "Política de privacidad",
+    "continue": "Continuar"
+  },
+  "sharingNotice": {
+    "title": "Tus combates ayudan a construir las clasificaciones",
+    "text": "Los combates de jefes que terminas se comparten con a2tools.app con todos los nombres ocultos, también el tuyo (p. ej. Na***a). No hace falta cuenta, y puedes dejarlo cuando quieras en Ajustes → Privacidad.",
+    "stop": "Dejar de compartir",
+    "details": "Detalles",
+    "keep": "Seguir compartiendo",
+    "stopped": "Has dejado de compartir. Los combates que compartiste antes se están eliminando de a2tools.app."
+  },
+  "privacy": {
+    "title": "Privacidad",
+    "intro": "Lo que este medidor comparte con a2tools.app. Cada cosa la eliges tú.",
+    "share": "Compartir combates de jefes de forma anónima",
+    "shareHint": "Al terminar un combate de jefe, se suma a los registros públicos y clasificaciones de a2tools.app. Todos los nombres van ocultos, también el tuyo. No hace falta cuenta.",
+    "signedIn": "Sesión iniciada: tus combates de jefes se suben a tu cuenta de A2 Tools (ver Cuenta de A2 Tools).",
+    "never": "Nunca se envía: el chat, el nombre de tu PC, el nombre completo de tu personaje. Enviar registros al desarrollador (Avanzado) solo envía cuando lo pulsas.",
+    "policy": "Política de privacidad completa"
   }
 }

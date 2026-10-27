@@ -546,7 +546,9 @@
       "confirm": "Envoyer ton journal de débogage et tes derniers journaux de paquets au développeur d'A2 Tools ?\n\nLe journal de débogage note ce qu'a fait le compteur. Les journaux de paquets sont le trafic brut du jeu enregistré pendant que la journalisation des paquets était activée. Les deux peuvent contenir des noms de personnages. Seul le développeur peut les ouvrir, et ils sont supprimés au bout de 30 jours.",
       "sending": "Envoi...",
       "sent": "Envoyé. Ton code de rapport est {code} : donne-le au développeur sur Discord.",
-      "failed": "Envoi impossible : {error}"
+      "failed": "Envoi impossible : {error}",
+      "files": "Ces fichiers seront envoyés :",
+      "contents": "Les journaux de paquets peuvent contenir le chat et les noms d'autres joueurs."
     },
     "barGap": {
       "label": "Espacement des barres"
@@ -591,7 +593,8 @@
       "hideWhenSolo": "Le compteur se masque tant que vous n'êtes pas en groupe et réapparaît quand vous en rejoignez un. Le raccourci Afficher/Masquer le fait toujours apparaître.",
       "hideOutOfCombat": "Le compteur se masque après ce délai hors combat et réapparaît au prochain coup. Il reste affiché tant que les Paramètres, l'Historique ou les Détails sont ouverts, ou que la souris est dessus.",
       "runAsAdmin": "Nécessaire pour afficher les FPS du jeu. Windows le demande à chaque démarrage du compteur.",
-      "shareData": "Partage les minuteurs des boss de terrain et les Demandes de ravitaillement de ton serveur avec a2tools.app, pour garder A2Tools à jour pour tout le monde : les boss sur ta carte, ceux que tu vois tomber et leurs PV, et les tableaux de demandes après chaque réinitialisation. Rien sur ton personnage n'est envoyé."
+      "shareData": "Partage les minuteurs des boss de terrain et les Demandes de ravitaillement de ton serveur avec a2tools.app, pour garder A2Tools à jour pour tout le monde : les boss sur ta carte, ceux que tu vois tomber et leurs PV, et les tableaux de demandes après chaque réinitialisation. Rien sur ton personnage n'est envoyé.",
+      "pluginAutoUpdate": "Au démarrage du compteur, les mises à jour des plugins s'installent d'elles-mêmes, en arrière-plan. Une mise à jour qui demande quelque chose de nouveau attend toujours votre accord."
     },
     "globalHotkeys": "Utiliser les raccourcis",
     "hotkeyConsent": {
@@ -649,7 +652,7 @@
       "permNone": "Rien d'autre qu'afficher sa fenêtre",
       "enabled": "Activé",
       "enabledTip": "Activé : démarre avec le compteur. Désactivé : reste installé mais ne s'exécute pas.",
-      "showMeter": "Afficher le DPS meter",
+      "showMeter": "Afficher le compteur",
       "hideClosed": "Masquer quand AION2 est fermé",
       "hideUnfocused": "Masquer quand AION2 n'est pas au premier plan",
       "inDock": "Dans le dock des plugins (désactivé : sa propre fenêtre)",
@@ -658,7 +661,9 @@
       "permsTitle": "Il peut :",
       "permFps": "Afficher les FPS du jeu (sous Windows, le compteur demande à s'exécuter en tant qu'administrateur pour cela)",
       "testHint": "Des versions précoces que tout le monde peut essayer, signées comme les autres. Elles peuvent changer ou avoir des défauts : dis-nous ce que tu trouves.",
-      "testTitle": "Plugins de test"
+      "testTitle": "Plugins de test",
+      "autoUpdate": "Mise à jour auto des plugins",
+      "whatsNew": "Nouveautés de la {version}"
     },
     "clearOnZone": {
       "label": "Vider le compteur",
@@ -827,5 +832,38 @@
     "settings": "Paramètres du compteur",
     "opacity": "Opacité du fond",
     "failed": "Ce plugin n'a pas pu démarrer : {error}"
+  },
+  "sharing": {
+    "title": "Aider à construire les classements ?",
+    "sub": "Choisissez pour commencer. Modifiable à tout moment dans Paramètres → Confidentialité.",
+    "shareTitle": "Partager les combats anonymement",
+    "recommended": "Recommandé",
+    "shareText": "Vos combats de boss rejoignent les journaux publics d'a2tools.app, tous les noms masqués. Aucun compte nécessaire.",
+    "noTitle": "Ne pas partager",
+    "noText": "Rien de vos combats ne quitte ce PC.",
+    "signInBefore": "Vos combats sous votre nom ?",
+    "signIn": "Se connecter avec A2 Tools",
+    "signInAfter": "Les combats partagés avant passent sur votre compte.",
+    "previewTitle": "Un combat partagé sur a2tools.app",
+    "never": "Le nom de votre PC et le nom complet de votre personnage ne sont jamais envoyés.",
+    "policy": "Politique de confidentialité",
+    "continue": "Continuer"
+  },
+  "sharingNotice": {
+    "title": "Vos combats aident à construire les classements",
+    "text": "Les combats de boss que vous terminez sont partagés avec a2tools.app, tous les noms masqués, le vôtre aussi (ex. Na***a). Aucun compte nécessaire, et vous pouvez arrêter à tout moment dans Paramètres → Confidentialité.",
+    "stop": "Arrêter de partager",
+    "details": "Détails",
+    "keep": "Continuer à partager",
+    "stopped": "Partage arrêté. Les combats partagés auparavant sont en cours de suppression sur a2tools.app."
+  },
+  "privacy": {
+    "title": "Confidentialité",
+    "intro": "Ce que ce mètre partage avec a2tools.app. Chaque élément est votre choix.",
+    "share": "Partager les combats de boss anonymement",
+    "shareHint": "À la fin d'un combat de boss, il rejoint les journaux publics et les classements d'a2tools.app. Tous les noms sont masqués, le vôtre aussi. Aucun compte nécessaire.",
+    "signedIn": "Connecté : vos combats de boss sont envoyés sur votre compte A2 Tools (voir Compte A2 Tools).",
+    "never": "Jamais envoyés : le chat, le nom de votre PC, le nom complet de votre personnage. Envoyer les journaux au dev (Avancé) n'envoie que lorsque vous appuyez.",
+    "policy": "Politique de confidentialité complète"
   }
 }
