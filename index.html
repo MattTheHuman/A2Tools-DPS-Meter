@@ -1106,13 +1106,22 @@
               <section class="settingsSection" id="settingsSection-plugins" role="tabpanel" aria-labelledby="settingsTab-plugins" data-section="plugins" hidden>
                 <h2 class="settingsSectionTitle" data-i18n="settings.plugins.title">Plugins</h2>
                 <div class="settingsGroupBody">
-                  <label class="settingsToggle showMeterToggle">
-                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.plugins.showMeter" title="Off: only your plugins show. The meter keeps reading combat and uploading in the background. Bring it back here, with the show/hide hotkey, or with the meter button on a plugin window." data-i18n-title="settings.tips.showMeter">Show the DPS meter</span>
-                    <span class="settingsToggleControl">
-                      <input type="checkbox" class="showMeterCheckbox" checked />
-                      <span class="settingsToggleTrack" aria-hidden="true"></span>
-                    </span>
-                  </label>
+                  <div class="pluginTopToggles">
+                    <label class="settingsToggle showMeterToggle">
+                      <span class="settingsToggleLabel settingsLabel" data-i18n="settings.plugins.showMeter" title="Off: only your plugins show. The meter keeps reading combat and uploading in the background. Bring it back here, with the show/hide hotkey, or with the meter button on a plugin window." data-i18n-title="settings.tips.showMeter">Show the DPS meter</span>
+                      <span class="settingsToggleControl">
+                        <input type="checkbox" class="showMeterCheckbox" checked />
+                        <span class="settingsToggleTrack" aria-hidden="true"></span>
+                      </span>
+                    </label>
+                    <label class="settingsToggle pluginAutoUpdateToggle">
+                      <span class="settingsToggleLabel settingsLabel" data-i18n="settings.plugins.autoUpdate" title="When the meter starts, plugin updates install by themselves, in the background. An update that asks for something new still waits for your yes." data-i18n-title="settings.tips.pluginAutoUpdate">Update plugins automatically</span>
+                      <span class="settingsToggleControl">
+                        <input type="checkbox" class="pluginAutoUpdateCheckbox" />
+                        <span class="settingsToggleTrack" aria-hidden="true"></span>
+                      </span>
+                    </label>
+                  </div>
                   <div class="pluginBar">
                     <div class="pluginTabs" role="tablist">
                       <button class="pluginTab isActive" type="button" role="tab" aria-selected="true" data-tab="installed"><span data-i18n="settings.plugins.installed">Installed</span><span class="pluginTabCount pluginInstalledCount"></span></button>
@@ -1135,13 +1144,6 @@
                     <div class="settingsHint pluginCatalogStatus"></div>
                   </div>
                   <div class="settingsHint pluginNoMatch" data-i18n="settings.plugins.noMatch" hidden>No plugins match.</div>
-                  <label class="settingsToggle pluginAutoUpdateToggle">
-                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.plugins.autoUpdate" title="When the meter starts, plugin updates install by themselves, in the background. An update that asks for something new still waits for your yes." data-i18n-title="settings.tips.pluginAutoUpdate">Update plugins automatically</span>
-                    <span class="settingsToggleControl">
-                      <input type="checkbox" class="pluginAutoUpdateCheckbox" />
-                      <span class="settingsToggleTrack" aria-hidden="true"></span>
-                    </span>
-                  </label>
                   <label class="settingsToggle pluginDevToggle">
                     <span class="settingsToggleLabel settingsLabel" data-i18n="settings.plugins.devMode" title="Loads plugins from folders on this computer, for building and testing them. They are not reviewed, so only load plugins you trust." data-i18n-title="settings.tips.pluginDevMode">Plugin developer mode</span>
                     <span class="settingsToggleControl">

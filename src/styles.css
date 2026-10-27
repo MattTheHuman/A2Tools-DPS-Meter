@@ -8351,6 +8351,14 @@ html.a2-offline .historyUploadBtn {
 .settingsPanel .pluginDevToggle {
   margin-top: 14px;
 }
+/* Show the DPS meter and Update plugins automatically, side by side at the
+   top of Plugins, each switch at the end of its half; stacked again when
+   the window is too narrow for both. */
+.settingsPanel .pluginTopToggles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  column-gap: 28px;
+}
 /* A developer-folder plugin, in the installed list. */
 .settingsPanel .pluginUnreviewedTag {
   padding: 0 6px;
