@@ -144,28 +144,13 @@ pub fn set_size(window: &tauri::WebviewWindow, size: tauri::Size) {
     let _ = window.set_size(size);
 }
 
-fn physical_size(window: &tauri::WebviewWindow, size: tauri::Size) -> Option<(i32, i32)> {
-    match size {
-        tauri::Size::Physical(s) => Some((s.width as i32, s.height as i32)),
-        tauri::Size::Logical(s) => {
-            let scale = window.scale_factor().ok()?;
-            let w = (s.width * scale).round();
-            let h = (s.height * scale).round();
-            if !w.is_finite() || !h.is_finite() || w <= 0.0 || h <= 0.0 {
-                return None;
-            }
-            Some((w as i32, h as i32))
-        }
-    }
-}
-
 pub fn set_size_and_position(window: &tauri::WebviewWindow, size: tauri::Size, pos: tauri::PhysicalPosition<i32>) {
     let Some(hwnd) = hwnd_of(window) else {
         let _ = window.set_size(size);
         let _ = window.set_position(tauri::Position::Physical(pos));
         return;
     };
-    let Some((w, h)) = physical_size(window, size) else {
+    let Some(physical) = crate::platform::meter_anchor::physical_size(window, &size) else {
         let _ = window.set_size(size);
         let _ = window.set_position(tauri::Position::Physical(pos));
         return;
@@ -176,8 +161,8 @@ pub fn set_size_and_position(window: &tauri::WebviewWindow, size: tauri::Size, p
             None,
             pos.x,
             pos.y,
-            w,
-            h,
+            physical.width as i32,
+            physical.height as i32,
             SWP_NOZORDER | SWP_NOACTIVATE,
         );
     }

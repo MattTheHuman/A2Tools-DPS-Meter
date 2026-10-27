@@ -38,6 +38,11 @@ const pickSettingChoice = (name, value) => {
   const { allowed, fallback } = SETTING_CHOICES[name];
   return allowed.includes(String(value)) ? String(value) : fallback;
 };
+const pickMeterAnchorChoice = (value, fallback = "middle") => {
+  const { allowed } = SETTING_CHOICES.meterAnchor;
+  const normalizedFallback = allowed.includes(String(fallback)) ? String(fallback) : "middle";
+  return allowed.includes(String(value)) ? String(value) : normalizedFallback;
+};
 
 // Settings whose change in the Settings window must redraw the meter, mapped to
 // the control that applies them. See DpsApp.applyRemoteSettingChange().
@@ -2866,9 +2871,16 @@ class DpsApp {
         window.javaBridge?.openBrowser?.(link.href);
       });
     }
-    Promise.resolve(window.a2BuildReady).then((build) => {
+    const applyMeterAnchorBuild = (build) => {
       this.updateMeterAnchorVisibility(build?.meterAnchor !== false);
-    });
+      this.defaultMeterAnchor = pickMeterAnchorChoice(build?.meterAnchorDefault, this.defaultMeterAnchor);
+      if (!this.safeGetSetting(this.storageKeys.meterAnchor)) {
+        this.settingsSelections.meterAnchor = this.defaultMeterAnchor;
+        this.syncSettingsDropdownSelection(this.meterAnchorDropdownBtn, this.meterAnchorDropdownMenu, this.defaultMeterAnchor);
+      }
+    };
+    Promise.resolve(window.a2BuildReady).then(applyMeterAnchorBuild);
+    window.addEventListener("a2-build-changed", (event) => applyMeterAnchorBuild(event.detail));
     this.kofiButton = document.querySelector(".kofiButton");
     this.kofiWidget = document.querySelector(".kofiWidget");
     this.quitButton = document.querySelector(".quitButton");
@@ -2890,11 +2902,12 @@ class DpsApp {
       defaultMeterMode: "bossTargets",
       allTargetsWindowMs: "120000",
       trainSelectionMode: "all",
-      meterAnchor: "middle",
+      meterAnchor: pickMeterAnchorChoice(window.a2Build?.meterAnchorDefault, "middle"),
       partyStat: "combatPower",
       discordStat: "off",
       barTexture: "none",
     };
+    this.defaultMeterAnchor = this.settingsSelections.meterAnchor;
 
     // The meter already applied these settings. Opening a form must not change
     // the live combat selection or resend saved parameters to the backend.
@@ -3043,7 +3056,8 @@ class DpsApp {
     this.syncPreviewPartyStat();
     this.settingsSelections.discordStat = pickSettingChoice("discordStat", this.safeGetSetting(this.storageKeys.discordStat));
     this.settingsSelections.clearOnZone = pickSettingChoice("clearOnZone", this.safeGetSetting(this.storageKeys.clearOnZone));
-    this.settingsSelections.meterAnchor = pickSettingChoice("meterAnchor", this.safeGetSetting(this.storageKeys.meterAnchor));
+    this.defaultMeterAnchor = pickMeterAnchorChoice(window.a2Build?.meterAnchorDefault, this.settingsSelections.meterAnchor);
+    this.settingsSelections.meterAnchor = pickMeterAnchorChoice(this.safeGetSetting(this.storageKeys.meterAnchor), this.defaultMeterAnchor);
     this.settingsSelections.hideOutOfCombat = pickSettingChoice("hideOutOfCombat", this.safeGetSetting(this.storageKeys.hideOutOfCombat));
     this.barTexture = pickSettingChoice("barTexture", this.safeGetSetting(this.storageKeys.barTexture));
     this.settingsSelections.barTexture = this.barTexture;
@@ -5325,7 +5339,9 @@ class DpsApp {
     if (isSet(language)) this.applyRemoteSettingChange(this.storageKeys.language, language);
     this.settingsSelections.language = this.i18n?.getLanguage?.() || this.settingsSelections.language;
     for (const name of Object.keys(SETTING_CHOICES)) {
-      this.settingsSelections[name] = pickSettingChoice(name, get(name));
+      this.settingsSelections[name] = name === "meterAnchor"
+        ? pickMeterAnchorChoice(get(name), this.defaultMeterAnchor)
+        : pickSettingChoice(name, get(name));
     }
     this.trainSelectionMode = this.settingsSelections.trainSelectionMode;
     this.detailsMonitor = this.getDetailsMonitorSetting();
@@ -6018,7 +6034,9 @@ class DpsApp {
     };
     for (const [name, control] of Object.entries(choices)) {
       if (key !== this.storageKeys[name]) continue;
-      const normalized = pickSettingChoice(name, value);
+      const normalized = name === "meterAnchor"
+        ? pickMeterAnchorChoice(value, this.defaultMeterAnchor)
+        : pickSettingChoice(name, value);
       this.settingsSelections ||= {};
       this.settingsSelections[name] = normalized;
       if (name === "defaultMeterMode") {

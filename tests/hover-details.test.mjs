@@ -198,7 +198,6 @@ test("overlay reserves the tooltip's actual width and height and shrinks on clos
   const context = vm.createContext({
     ...release.globals,
     resizeActive: false, lastSizeKey: "", pendingWindowSize: null, isLinux: false,
-    settingsCache: {}, localStorage: { getItem: () => null },
     PANEL_WIDTH: 1200, PANEL_HEIGHT: 800, PROMO_WIDTH: 600, PROMO_HEIGHT: 400,
     spaceRightBelow: () => ({ w: 900, h: 700 }),
     window: { A2_VIEW: "main", devicePixelRatio: 1.5, javaBridge: {} },
@@ -235,7 +234,6 @@ test("on Linux the overlay does not grow for the tooltip", async () => {
   const context = vm.createContext({
     ...release.globals,
     resizeActive: false, lastSizeKey: "", pendingWindowSize: null, isLinux: true,
-    settingsCache: {}, localStorage: { getItem: () => null },
     PANEL_WIDTH: 1200, PANEL_HEIGHT: 800, PROMO_WIDTH: 600, PROMO_HEIGHT: 400,
     spaceRightBelow: () => ({ w: 900, h: 700 }),
     window: { A2_VIEW: "main", devicePixelRatio: 1, javaBridge: {} },
@@ -527,7 +525,6 @@ test('native travel area stays fixed during motion, is screen-clamped and shrink
   const context = vm.createContext({
     ...release.globals,
     resizeActive: false, lastSizeKey: '', pendingWindowSize: null, isLinux: false,
-    settingsCache: {}, localStorage: { getItem: () => null },
     PANEL_WIDTH: 1200, PANEL_HEIGHT: 800, PROMO_WIDTH: 600, PROMO_HEIGHT: 400,
     spaceRightBelow: () => room,
     window: { A2_VIEW: 'main', devicePixelRatio: 1.5, javaBridge: {} },
@@ -742,7 +739,6 @@ test("moving between rows keeps the native window size and leaving the meter shr
   const context = vm.createContext({
     ...release.globals,
     resizeActive: false, lastSizeKey: '', pendingWindowSize: null, isLinux: false,
-    settingsCache: {}, localStorage: { getItem: () => null },
     PANEL_WIDTH: 1200, PANEL_HEIGHT: 800, PROMO_WIDTH: 600, PROMO_HEIGHT: 400,
     spaceRightBelow: () => ({ w: 1900, h: 1000 }),
     window: { A2_VIEW: 'main', devicePixelRatio: 1, javaBridge: {} },

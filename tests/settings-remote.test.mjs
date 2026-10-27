@@ -54,7 +54,6 @@ function element(tag = "div") {
     className: { get: () => [...classes].join(" "), set: (value) => { classes.clear(); String(value).split(/\s+/).filter(Boolean).forEach((name) => classes.add(name)); } },
     innerHTML: { get: () => "", set: () => { node.children = []; } },
   });
-
   return node;
 }
 

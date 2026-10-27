@@ -105,11 +105,18 @@ function place(w) {
         var until = Date.now() + HOLD_MS;
         var held = false;
         var userMove = false;
-        var seq = 0;
         // The meter's main overlay keeps its top/middle/bottom anchor while
         // its own auto-resize changes its height.
         var main = String(w.caption) === "__OVERLAY_TITLE__";
-        var base = { x: r.x, top: r.y, bottom: r.y + r.height };
+        var base = { top: Math.round(r.y), bottom: Math.round(r.y + r.height) };
+        var mainAnchor = "middle";
+        var anchorFreshUntil = 0;
+        if (main) {
+            anchor(w.caption, function (mode) {
+                mainAnchor = mode;
+                anchorFreshUntil = Date.now() + 1000;
+            });
+        }
         var start = w.interactiveMoveResizeStarted || w.clientStartUserMovedResized;
         if (start) {
             start.connect(function () {
@@ -122,7 +129,6 @@ function place(w) {
             done.connect(function () {
                 userMove = false;
                 var now = w.frameGeometry;
-                base.x = Math.round(now.x);
                 base.top = Math.round(now.y);
                 base.bottom = base.top + Math.round(now.height);
             });
@@ -138,24 +144,31 @@ function place(w) {
                 held = false;
                 return;
             }
-            if (Math.round(now.height) === Math.round(base.bottom - base.top)) return;
-            var ticket = ++seq;
-            anchor(w.caption, function (mode) {
-                if (ticket !== seq || held || userMove || w.move || w.resize) return;
-                var live = w.frameGeometry;
-                var x = Math.round(live.x), y = Math.round(live.y), h = Math.round(live.height);
-                var wantY = base.top;
-                if (mode === "bottom") wantY = base.bottom - h;
-                else if (mode === "middle") {
-                    if (Date.now() > until) return;
-                    wantY = r.y;
-                }
-                // Scale rounding can report +/- 1 px between events.
-                if (Math.abs(y - wantY) <= 1) return;
-                held = true;
-                w.frameGeometry = { x: x, y: wantY, width: live.width, height: live.height };
-                held = false;
-            });
+            var x = Math.round(now.x), y = Math.round(now.y), h = Math.round(now.height);
+            // Moved, not resized (the meter placing it): that is its place now.
+            if (h === base.bottom - base.top) {
+                base.top = y;
+                base.bottom = y + h;
+                return;
+            }
+            // A script cannot be called, so a changed setting is asked for,
+            // without waiting for it, at most once a second while it resizes.
+            if (Date.now() > anchorFreshUntil) {
+                anchorFreshUntil = Date.now() + 1000;
+                anchor(w.caption, function (mode) { mainAnchor = mode; });
+            }
+            var wantY;
+            if (mainAnchor === "top") wantY = base.top;
+            else if (mainAnchor === "bottom") wantY = base.bottom - h;
+            else if (Date.now() <= until) wantY = r.y;
+            else wantY = y; // KWin keeps the centre itself.
+            base.top = wantY;
+            base.bottom = wantY + h;
+            // Scale rounding can report +/- 1 px between events.
+            if (Math.abs(y - wantY) <= 1) return;
+            held = true;
+            w.frameGeometry = { x: x, y: wantY, width: now.width, height: now.height };
+            held = false;
         });
     });
 }
@@ -241,16 +254,17 @@ static MAIN_ANCHOR: AtomicU8 = AtomicU8::new(1);
 /// Windows (in a Wayland session too, but for its widgets: X11_IN_WAYLAND).
 pub fn keep_places(places: Places) {
     if std::env::var_os("WAYLAND_DISPLAY").is_some() {
-        let x11 = std::env::var("GDK_BACKEND").is_ok_and(|b| b.starts_with("x11"));
-        X11_IN_WAYLAND.store(x11, Ordering::Relaxed);
+        X11_IN_WAYLAND.store(places_own_windows(), Ordering::Relaxed);
         let _ = PLACES.set(places);
     }
 }
 
 /// Whether the meter places and remembers its own windows, KWin placing only
-/// its widgets (see X11_IN_WAYLAND).
+/// its widgets (see X11_IN_WAYLAND). Read from the environment, which is set
+/// before any window opens, so it is right from the start and not only once
+/// `keep_places` has run on its thread.
 pub fn places_own_windows() -> bool {
-    X11_IN_WAYLAND.load(Ordering::Relaxed)
+    std::env::var_os("WAYLAND_DISPLAY").is_some() && std::env::var("GDK_BACKEND").is_ok_and(|b| b.starts_with("x11"))
 }
 
 /// Whether KWin puts the meter's windows back where they were whenever they

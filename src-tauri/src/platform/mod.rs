@@ -14,7 +14,8 @@
 //!   nothing: no capture library, no screenshots, no hotkeys, no stored token.
 //!
 //! OS-neutral helpers that only *support* platform code (the screenshot rect
-//! maths and PNG encoder, hotkey-label parsing) live beside this file and
+//! maths and PNG encoder, hotkey-label parsing, the meter anchor's placement
+//! maths) live beside this file and
 //! re-export the OS half, so callers have one path either way.
 //!
 //! The folder is `win32`, not `windows`: a local module named `windows` would
@@ -34,6 +35,7 @@ mod os;
 
 pub mod hotkeys;
 pub mod kwin_rules;
+pub mod meter_anchor;
 pub mod procfs;
 pub mod screenshot;
 

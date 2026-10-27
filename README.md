@@ -116,9 +116,6 @@ Two things still leave the computer, and only these: skill and buff icons, loade
 
 ## FAQ
 
-**Q: Does Meter anchor work the same on Windows and Linux?**  
-A: Windows keeps Top/Centre/Bottom in the app. Linux shows the setting only when the current desktop session can keep that edge fixed during auto-resize.
-
 **Q: The meter shows "Connecting..."**
 A: Make sure AION 2 is running and the app has administrator privileges. If using a VPN or ping reducer, the app will detect the loopback adapter automatically.
 
