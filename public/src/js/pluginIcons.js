@@ -14,6 +14,8 @@ window.A2_PLUGIN_ICONS = Object.freeze({
   "boss-telegraph": ["megaphone", 75],
   // Every character you play, side by side.
   "alt-roster": ["users", 160],
+  // Who killed you; red, as its "Killed by".
+  "death-recap": ["skull", 0],
 });
 
 // A plugin's glyph (a Lucide name) or null, and its hue.

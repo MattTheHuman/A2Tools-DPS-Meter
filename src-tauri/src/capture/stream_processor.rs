@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 
 use crate::combat::data_storage::{DataStorage, DutyOffer, NoDamageHit};
+use crate::combat::death_recap::{self, Killer};
 use crate::entity::damage_packet::ParsedDamagePacket;
 use crate::entity::job_class::JobClass;
 use crate::entity::special_damage::{self, SpecialDamage};
@@ -928,6 +929,14 @@ impl StreamProcessor {
         let records = ownership_records(data);
         for r in &records {
             let (summon_id, owner_id, name) = (r.summon_id, r.owner_id, &r.name);
+            // You, killed by the player it names: not a loot record.
+            let me = self.data_storage.local_player_id();
+            if me == Some(summon_id as i64) && me != Some(owner_id as i64) {
+                self.data_storage.append_nickname(owner_id, name);
+                self.data_storage.note_player_server(name, r.server_id);
+                self.note_death(data, r);
+                continue;
+            }
             if self.data_storage.is_confirmed_summon(summon_id) {
                 self.data_storage.append_summon(owner_id, summon_id);
             }
@@ -943,6 +952,26 @@ impl StreamProcessor {
             }
         }
         !records.is_empty()
+    }
+
+    /// A death recap, from the kill record that names you (`r`), the legion
+    /// after its name: `<len u8> <utf8>`, none when 0.
+    fn note_death(&self, data: &[u8], r: &Ownership) {
+        let legion = data.get(r.field.end).and_then(|&len| {
+            let field = data.get(r.field.end + 1..r.field.end + 1 + len as usize)?;
+            let legion = std::str::from_utf8(field).ok()?;
+            (!legion.is_empty() && legion.chars().count() <= 24 && !legion.chars().any(char::is_control))
+                .then(|| legion.to_string())
+        });
+        let killer = Killer { id: r.owner_id, name: r.name.clone(), server_id: r.server_id, legion };
+        let at = self.override_timestamp.unwrap_or_else(crate::clock::now_ms);
+        let Some(mut recap) = self.data_storage.died(killer, at) else { return };
+        for skill in &mut recap.skills {
+            let name = self.skill_lookup.get_skill_name(self.normalize_skill_id(skill.id));
+            skill.name = (!name.is_empty()).then_some(name);
+        }
+        tracing::info!("death recap: killed by {} after {} hits", recap.killer.name, recap.hits);
+        self.data_storage.push_death_recap(recap);
     }
 
     // ===== EMBEDDED 40 36 SCAN =====
@@ -1180,9 +1209,11 @@ impl StreamProcessor {
     /// than hunting for the literal `0x07` that older builds happened to put in
     /// the `mask2` slot.
     fn parse_player_spawn_name(&self, data: &[u8], offset_after_opcode: usize) {
-        let Some((actor_id, sanitized, _)) = player_spawn_at(data, offset_after_opcode) else {
+        let Some((actor_id, sanitized, field)) = player_spawn_at(data, offset_after_opcode) else {
             return;
         };
+        let profile = death_recap::Profile { name: Some(sanitized.clone()), ..death_recap::profile(&data[field.end..]) };
+        self.data_storage.note_player_profile(actor_id, profile);
         // 45/44 36 player spawn is an authoritative id↔name source.
         self.data_storage.note_low_id_entity(actor_id);
         self.data_storage.note_player_spawn(actor_id);

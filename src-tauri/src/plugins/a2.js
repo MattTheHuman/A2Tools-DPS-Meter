@@ -36,6 +36,14 @@
 //   a2.on("bossMap", ({ map, bosses }) => ...) a map the player just opened, its field bosses as
 //                                              a2.bossTimers gives them (permission
 //                                              "feed:boss-timers", meter 2.0.65 on)
+//   a2.on("deathRecap", (r) => ...)            a player killed you (permission "events:death-recap", meter
+//                                              2.0.81 on): r = { at, killer: { name, serverId, legion,
+//                                              class ("gladiator", ...), level, gearScore, combatPower },
+//                                              damage, hits, durationMs, dps, skills: [{ id, name, damage,
+//                                              hits }], assists: [{ name, legion, serverId, class, level, gearScore,
+//                                              combatPower, damage, hits }] (the others who damaged you
+//                                              in the fight, your party never) }, null where the game
+//                                              did not say. Once each, kept like a decoder's events
 //   a2.on("game", ({ running }) => ...)        whether AION2 is open, at start and on change
 //                                              (meter 2.0.65 on)
 //   a2.on("ping", ({ ms }) => ...)             the ping to the game server in ms (null while not known),
@@ -72,6 +80,10 @@
 //   await a2.fpsAdmin()                        ask the player to run the meter as administrator for the
 //                                              frame rate (permission "fps"): the meter's prompt, then
 //                                              Windows'; yes restarts the meter elevated (and it stays so)
+//   await a2.screenshot({ x, y, width, height })  part of its page (CSS px; none: all of it) to the
+//                                              clipboard and a PNG in the meter's screenshot folder
+//                                              (permission "screenshot", meter 2.0.81 on): { clipboard,
+//                                              file } (file null if not saved)
 //   a2.window.show() / a2.window.hide()        its own window, shown on top without taking focus
 //   a2.window.fit(height) / a2.window.fit()    the window fitted to that much content (an alert),
 //                                              its title bar hidden; then back to its size and
@@ -202,6 +214,7 @@
     followBosses: (server, bosses) => call("bossTimers.follow", [Number(server), (bosses || []).map(String)]),
     // Meter 2.0.78 on: the game's frame rate.
     watchFps: (on) => call("fps.watch", [on !== false]),
+    screenshot: (rect) => call("screenshot", [rect || {}]),
     fpsAdmin: () => call("fps.admin", []),
     window: Object.freeze({
       show: () => call("window.show", []),

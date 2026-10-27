@@ -660,6 +660,8 @@
       "noMatch": "Ningún plugin coincide.",
       "permsTitle": "Puede:",
       "permFps": "Mostrar los FPS del juego (en Windows, el medidor pide ejecutarse como administrador para ello)",
+      "permDeathRecap": "Cuando un jugador te mata: quién era y el daño que te hizo",
+      "permScreenshot": "Hacer capturas de su propia ventana, al portapapeles y a tu carpeta de capturas",
       "testHint": "Versiones tempranas para que cualquiera las pruebe, firmadas como las demás. Pueden cambiar o tener detalles sin pulir: cuéntanos lo que encuentres.",
       "testTitle": "Plugins de prueba",
       "autoUpdate": "Autoactualizar plugins",

@@ -7,6 +7,14 @@ fn hwnd_of(window: &tauri::WebviewWindow) -> Option<HWND> {
     window.hwnd().ok().map(|h| HWND(h.0))
 }
 
+/// Whether the window is on screen, as Windows has it. tao's own idea can be
+/// stale: `hide_without_focus` hides a window behind its back, and tao shows
+/// it again on its next style change (`set_ignore_cursor_events`), so a
+/// hidden window's cursor setting is left alone (see `widget_click_through`).
+fn shown(window: &tauri::WebviewWindow) -> bool {
+    hwnd_of(window).is_some_and(|hwnd| unsafe { IsWindowVisible(hwnd) }.as_bool())
+}
+
 /// Where the mouse pointer is, in physical screen pixels. The click-through
 /// lock uses it to keep its own button clickable.
 pub fn cursor_position() -> Option<(i32, i32)> {
@@ -238,7 +246,10 @@ pub fn widget_click_through(window: &tauri::WebviewWindow, ignore: bool, keep: O
                 watched.remove(&label);
                 settled().lock().unwrap_or_else(|p| p.into_inner()).insert(label, ignore);
             }
-            let _ = window.set_ignore_cursor_events(ignore);
+            // Hidden: set when it is shown again (`relock`).
+            if shown(window) {
+                let _ = window.set_ignore_cursor_events(ignore);
+            }
         }
     }
     true
@@ -294,6 +305,11 @@ fn watch_widgets() {
             watched.iter().map(|(label, (window, parts, through))| (label.clone(), window.clone(), parts.clone(), *through)).collect()
         };
         for (label, window, parts, through) in snapshot {
+            // A widget its plugin closed (hidden): the pointer passing over
+            // where it was brought it back (Death Recap's popup, 2026-10-28).
+            if !shown(&window) {
+                continue;
+            }
             let Ok(origin) = window.inner_position() else {
                 watched().lock().unwrap_or_else(|p| p.into_inner()).remove(&label);
                 continue;

@@ -1713,6 +1713,7 @@ fn update_download_path(url: &str) -> Result<std::path::PathBuf, String> {
     Ok(std::env::temp_dir().join(format!("a2tools-update-{tag}{ext}")))
 }
 
+#[cfg_attr(not(feature = "online"), allow(dead_code))]
 fn package_hash_matches(expected: &str, actual_hex: &str) -> bool {
     let expected = expected.trim();
     expected.len() == 64
@@ -3077,6 +3078,14 @@ async fn capture_screenshot(
     .unwrap_or(ScreenshotResult { clipboard: false, file: None })
 }
 
+/// Where screenshots go: the folder the player picked, else the default.
+pub(crate) fn screenshot_dir(app: &tauri::AppHandle) -> std::path::PathBuf {
+    picked_screenshot_folder(app)
+        .map(std::path::PathBuf::from)
+        .or_else(platform::screenshot::default_folder)
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+}
+
 /// Where screenshots go when no folder has been chosen.
 #[tauri::command]
 fn default_screenshot_folder() -> String {
@@ -3614,6 +3623,27 @@ pub fn run() {
             let app_data_dir = app.path().app_data_dir()
                 .unwrap_or_else(|_| std::path::PathBuf::from("."));
             let _ = std::fs::create_dir_all(&app_data_dir);
+
+            // Dev builds quit when a `dev-quit` file appears in the data
+            // folder (`npm run dev:stop`): run as administrator, the meter
+            // can't be stopped from an ordinary shell.
+            #[cfg(debug_assertions)]
+            {
+                let flag = app_data_dir.join("dev-quit");
+                let _ = std::fs::remove_file(&flag);
+                let handle = app.handle().clone();
+                std::thread::spawn(move || loop {
+                    std::thread::sleep(Duration::from_millis(500));
+                    if flag.exists() {
+                        let _ = std::fs::remove_file(&flag);
+                        tracing::info!("dev-quit: quitting");
+                        quit_app(handle.clone());
+                        // Still here a few seconds on: stop outright.
+                        std::thread::sleep(Duration::from_secs(5));
+                        std::process::exit(0);
+                    }
+                });
+            }
 
             // Load resources — try multiple paths (dev vs production)
             let skill_lookup = SkillLookup::new();
@@ -4347,6 +4377,7 @@ pub fn run() {
             crate::plugins::fps::plugin_fps_watch,
             set_run_as_admin,
             crate::plugins::fps::plugin_fps_admin,
+            crate::plugins::plugin_screenshot,
             crate::plugins::widgets::plugin_widget_area,
             crate::plugins::widgets::plugin_widget_where,
             crate::plugins::widgets::plugin_widget_place,
@@ -4458,6 +4489,8 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
+    // Updates are an online build's: the offline one has no updater.
+    #[cfg(feature = "online")]
     #[test]
     fn updates_come_only_from_the_cdn() {
         use super::{update_url_allowed as ok, version_shaped};
