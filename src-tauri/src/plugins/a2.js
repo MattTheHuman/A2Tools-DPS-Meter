@@ -80,6 +80,10 @@
 //   await a2.fpsAdmin()                        ask the player to run the meter as administrator for the
 //                                              frame rate (permission "fps"): the meter's prompt, then
 //                                              Windows'; yes restarts the meter elevated (and it stays so)
+//   await a2.screenshot({ x, y, width, height })  part of its page (CSS px; none: all of it) to the
+//                                              clipboard and a PNG in the meter's screenshot folder
+//                                              (permission "screenshot", meter 2.0.81 on): { clipboard,
+//                                              file } (file null if not saved)
 //   a2.window.show() / a2.window.hide()        its own window, shown on top without taking focus
 //   a2.window.fit(height) / a2.window.fit()    the window fitted to that much content (an alert),
 //                                              its title bar hidden; then back to its size and
@@ -210,6 +214,7 @@
     followBosses: (server, bosses) => call("bossTimers.follow", [Number(server), (bosses || []).map(String)]),
     // Meter 2.0.78 on: the game's frame rate.
     watchFps: (on) => call("fps.watch", [on !== false]),
+    screenshot: (rect) => call("screenshot", [rect || {}]),
     fpsAdmin: () => call("fps.admin", []),
     window: Object.freeze({
       show: () => call("window.show", []),

@@ -3029,6 +3029,14 @@ async fn capture_screenshot(
     .unwrap_or(ScreenshotResult { clipboard: false, file: None })
 }
 
+/// Where screenshots go: the folder the player picked, else the default.
+pub(crate) fn screenshot_dir(app: &tauri::AppHandle) -> std::path::PathBuf {
+    picked_screenshot_folder(app)
+        .map(std::path::PathBuf::from)
+        .or_else(platform::screenshot::default_folder)
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+}
+
 /// Where screenshots go when no folder has been chosen.
 #[tauri::command]
 fn default_screenshot_folder() -> String {
@@ -4306,6 +4314,7 @@ pub fn run() {
             crate::plugins::fps::plugin_fps_watch,
             set_run_as_admin,
             crate::plugins::fps::plugin_fps_admin,
+            crate::plugins::plugin_screenshot,
             crate::plugins::widgets::plugin_widget_area,
             crate::plugins::widgets::plugin_widget_where,
             crate::plugins::widgets::plugin_widget_place,

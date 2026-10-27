@@ -134,7 +134,7 @@ fn all_listed(ids: &[String], list: &[String]) -> bool {
 const PLUGIN_SURFACE_COMMANDS: &[&str] = &[
     "dock_close", "dock_fold", "dock_hello", "meter_shown", "open_settings_at", "open_settings_window",
     "open_url", "plugin_abyss_siege", "plugin_boss_follow", "plugin_boss_timers", "plugin_close",
-    "plugin_fps_admin", "plugin_fps_watch", "plugin_hello", "plugin_set_docked", "plugin_storage_get",
+    "plugin_fps_admin", "plugin_fps_watch", "plugin_hello", "plugin_screenshot", "plugin_set_docked", "plugin_storage_get",
     "plugin_storage_set", "plugin_widget_area", "plugin_widget_close", "plugin_widget_drag",
     "plugin_widget_hello", "plugin_widget_open", "plugin_widget_place", "plugin_widget_post",
     "plugin_widget_send", "plugin_widget_where", "plugin_widgets_lock", "plugin_widgets_locked",
@@ -1133,6 +1133,7 @@ struct PromptTexts {
     perm_decoder: String,
     perm_fps: String,
     perm_death_recap: String,
+    perm_screenshot: String,
 }
 
 /// One text of the meter's interface in its language (English failing that),
@@ -1185,6 +1186,7 @@ fn prompt_texts(data_dir: Option<&Path>, lang: &str) -> PromptTexts {
         perm_decoder: perm("permDecoder", "Read your own game data: {name}"),
         perm_fps: perm("permFps", "Show the game's frame rate (on Windows, the meter asks to run as administrator for it)"),
         perm_death_recap: perm("permDeathRecap", "After a player kills you: who they were and the damage they did to you"),
+        perm_screenshot: perm("permScreenshot", "Take screenshots of its own window, to the clipboard and your screenshot folder"),
     }
 }
 
@@ -1199,6 +1201,7 @@ fn describe_permission(t: &PromptTexts, permission: &str) -> String {
         "events:character" => t.perm_character.clone(),
         "fps" => t.perm_fps.clone(),
         "events:death-recap" => t.perm_death_recap.clone(),
+        "screenshot" => t.perm_screenshot.clone(),
         p => match p.strip_prefix("decoder:") {
             Some(name) => t.perm_decoder.replace("{name}", name),
             None => p.to_string(),
@@ -2081,6 +2084,37 @@ pub fn broadcast(app: &tauri::AppHandle, event: &str, data: Value) {
             let _ = window.emit("plugin-event", serde_json::json!({ "event": event, "data": data }));
         }
     }
+}
+
+/// A screenshot of part of the plugin's own window (permission "screenshot",
+/// meter 2.0.81 on): `x`, `y`, `width`, `height` in its window's CSS px (the
+/// frame's host adds where the frame sits) and `scale` its devicePixelRatio.
+/// To the clipboard, and a PNG named for the plugin in the meter's screenshot
+/// folder: `{ clipboard, file }`.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub async fn plugin_screenshot(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    plugin: Option<String>,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+    scale: f64,
+) -> Result<Value, String> {
+    let id = window_plugin(&window, plugin.as_deref())?;
+    require(&app, &id, "screenshot")?;
+    if ![x, y, width, height, scale].iter().all(|v| v.is_finite()) || width < 1.0 || height < 1.0 {
+        return Err("not an area".into());
+    }
+    let path = crate::app::screenshot_dir(&app).join(format!("{id}_{}.png", chrono::Local::now().format("%Y%m%d_%H%M%S")));
+    tauri::async_runtime::spawn_blocking(move || {
+        let (clipboard, saved) = crate::platform::screenshot::capture(&window, x, y, width, height, scale, None, Some(&path));
+        serde_json::json!({ "clipboard": clipboard, "file": saved.then(|| path.display().to_string()) })
+    })
+    .await
+    .map_err(|e| e.to_string())
 }
 
 fn require(app: &tauri::AppHandle, id: &str, permission: &str) -> Result<(), String> {
