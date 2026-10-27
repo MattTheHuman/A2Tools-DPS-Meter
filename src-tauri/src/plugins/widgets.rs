@@ -198,6 +198,13 @@ pub async fn plugin_widget_open(
     if let Some(widget) = app.get_webview_window(&label(&id, &name)) {
         closed().lock().unwrap_or_else(|p| p.into_inner()).remove(widget.label());
         crate::platform::window::set_size(&widget, tauri::LogicalSize::new(width, height).into());
+        // Grown past the screen's edge, or the screen it was on gone.
+        if let Ok(at) = widget.outer_position() {
+            let (x, y) = keep_on_screen(&app, &widget, (at.x, at.y));
+            if (x, y) != (at.x, at.y) {
+                let _ = widget.set_position(tauri::PhysicalPosition::new(x, y));
+            }
+        }
         if super::game_hides(&app, &id) {
             super::hold_for_game(&widget);
         } else if !crate::platform::window::reveal_in_place(&widget) {
@@ -267,7 +274,8 @@ pub async fn plugin_widget_open(
             Some((at.x, at.y, size.width as i32, size.height as i32))
         }))
     }).or_else(|| beside_left(&app, &id));
-    if let Some((x, y)) = place {
+    if let Some(at) = place {
+        let (x, y) = keep_on_screen(&app, &widget, at);
         let _ = widget.set_position(tauri::PhysicalPosition::new(x, y));
     }
     // AION2 closed and the plugin set to hide then: shown when it opens.
@@ -288,16 +296,7 @@ fn beside_left(app: &tauri::AppHandle, id: &str) -> Option<(i32, i32)> {
         let (x, y) = value.split_once(',')?;
         Some((x.trim().parse().ok()?, y.trim().parse().ok()?))
     }).collect();
-    let screens: Vec<(i32, i32, u32, u32)> = app
-        .available_monitors()
-        .unwrap_or_default()
-        .iter()
-        .map(|m| {
-            let a = m.work_area();
-            (a.position.x, a.position.y, a.size.width, a.size.height)
-        })
-        .collect();
-    beside_cluster(&places, &screens)
+    beside_cluster(&places, &screens(app))
 }
 
 /// The width of an icon left somewhere is not kept; an Event Timers icon is
@@ -324,6 +323,69 @@ fn beside_cluster(places: &[(i32, i32)], screens: &[(i32, i32, u32, u32)]) -> Op
         Some(&(sx, _, w, _)) if right + ICON_WIDTH > sx + w as i32 => Some(((x - ICON_WIDTH - 6).max(sx), y)),
         _ => Some((right, y)),
     }
+}
+
+/// How much of a widget must be on a screen for it to count as shown there:
+/// enough to see it and grab it.
+const ON_SCREEN: i64 = 48;
+
+/// `rect` (x, y, width, height, physical px) as it is when enough of it is on
+/// one of `screens` (their work areas), else moved onto the nearest one, all
+/// of it when it fits. A widget left where no screen is any more (a monitor
+/// unplugged or rearranged, its scale changed) opened there, out of sight,
+/// and its plugin could not tell (#108: Event Timers' anchor, left on a
+/// second monitor, never showed again).
+fn on_screen(rect: (i32, i32, i32, i32), screens: &[(i32, i32, u32, u32)]) -> (i32, i32) {
+    let (x, y, w, h) = (rect.0 as i64, rect.1 as i64, rect.2.max(1) as i64, rect.3.max(1) as i64);
+    let need = |side: i64| side.min(ON_SCREEN);
+    let shown = screens.iter().any(|&(sx, sy, sw, sh)| {
+        let (sx, sy, sw, sh) = (sx as i64, sy as i64, sw as i64, sh as i64);
+        let across = (x + w).min(sx + sw) - x.max(sx);
+        let down = (y + h).min(sy + sh) - y.max(sy);
+        across >= need(w) && down >= need(h)
+    });
+    if shown || screens.is_empty() {
+        return (rect.0, rect.1);
+    }
+    // The nearest: the least distance from the widget's middle to the screen.
+    let (cx, cy) = (x + w / 2, y + h / 2);
+    let gap = |&&(sx, sy, sw, sh): &&(i32, i32, u32, u32)| {
+        let (sx, sy, sw, sh) = (sx as i64, sy as i64, sw as i64, sh as i64);
+        let dx = (sx - cx).max(cx - (sx + sw)).max(0);
+        let dy = (sy - cy).max(cy - (sy + sh)).max(0);
+        dx * dx + dy * dy
+    };
+    let &(sx, sy, sw, sh) = screens.iter().min_by_key(gap).expect("screens is not empty");
+    let (sx, sy, sw, sh) = (sx as i64, sy as i64, sw as i64, sh as i64);
+    let nx = x.clamp(sx, (sx + sw - w).max(sx));
+    let ny = y.clamp(sy, (sy + sh - h).max(sy));
+    (nx as i32, ny as i32)
+}
+
+/// The work areas of the screens connected now.
+fn screens(app: &tauri::AppHandle) -> Vec<(i32, i32, u32, u32)> {
+    app.available_monitors()
+        .unwrap_or_default()
+        .iter()
+        .map(|m| {
+            let a = m.work_area();
+            (a.position.x, a.position.y, a.size.width, a.size.height)
+        })
+        .collect()
+}
+
+/// Puts `widget` back on a screen when it is off all of them (see on_screen),
+/// remembering the new place. `at` is where it is or is about to be.
+fn keep_on_screen(app: &tauri::AppHandle, widget: &tauri::WebviewWindow, at: (i32, i32)) -> (i32, i32) {
+    let size = widget.outer_size().map(|s| (s.width as i32, s.height as i32)).unwrap_or((64, 64));
+    let place = on_screen((at.0, at.1, size.0, size.1), &screens(app));
+    if place != at {
+        tracing::info!("Widgets: {} was off every screen at {},{}: moved to {},{}", widget.label(), at.0, at.1, place.0, place.1);
+        if let (Some((id, name)), Some(state)) = (parse_label(widget.label()), app.try_state::<AppState>()) {
+            state.settings.set(&place_key(&id, &name), &format!("{},{}", place.0, place.1));
+        }
+    }
+    place
 }
 
 /// Just right of the rightmost of these places, on its row, with a gap.
@@ -405,11 +467,16 @@ pub fn plugin_widget_place(app: tauri::AppHandle, window: tauri::WebviewWindow, 
         return Err("not a place on a screen".into());
     }
     let widget_label = label(&id, &name);
+    // A plugin laying its widgets out keeps them on a screen too (one open
+    // has its size; one not open yet, an icon's).
+    let open = app.get_webview_window(&widget_label);
+    let size = open.as_ref().and_then(|w| w.outer_size().ok()).map(|s| (s.width as i32, s.height as i32)).unwrap_or((64, 64));
+    let (x, y) = on_screen((x, y, size.0, size.1), &screens(&app));
     if let Some(state) = app.try_state::<AppState>() {
         state.settings.set(&place_key(&id, &name), &format!("{x},{y}"));
         state.settings.set(&format!("window.{widget_label}.placed"), &format!("{x},{y},0,0"));
     }
-    match app.get_webview_window(&widget_label) {
+    match open {
         Some(widget) => widget.set_position(tauri::PhysicalPosition::new(x, y)).map_err(|e| e.to_string()),
         None => Ok(()),
     }
@@ -593,6 +660,23 @@ mod tests {
         // At a screen's right edge it goes to the left instead.
         assert_eq!(beside_cluster(&[(2500, 100)], &screens), Some((2398, 100)));
         assert_eq!(beside_cluster(&[], &screens), None);
+    }
+
+    #[test]
+    fn a_widget_off_every_screen_comes_back_onto_the_nearest() {
+        // A main screen, and a second one to its left (taskbar 48 px).
+        let screens = [(0, 0, 2560, 1392), (-1920, 0, 1920, 1032)];
+        // On a screen, or enough of it: left where it is.
+        assert_eq!(on_screen((100, 100, 400, 370), &screens), (100, 100));
+        assert_eq!(on_screen((-1900, 900, 400, 370), &screens), (-1900, 900), "partly past the bottom, still to see");
+        // Where the second screen was before it moved, or went: onto the nearest.
+        assert_eq!(on_screen((-3000, 800, 400, 370), &screens), (-1920, 662));
+        assert_eq!(on_screen((-1900, 1100, 400, 370), &screens), (-1900, 662), "below the second screen's work area");
+        assert_eq!(on_screen((5000, -900, 120, 40), &screens), (2440, 0));
+        // Wider than the screen: its left edge on it.
+        assert_eq!(on_screen((9000, 10, 3000, 100), &screens), (0, 10));
+        // No screens known (a headless test, a Wayland quirk): left alone.
+        assert_eq!(on_screen((-5000, -5000, 64, 64), &[]), (-5000, -5000));
     }
 
     #[test]
