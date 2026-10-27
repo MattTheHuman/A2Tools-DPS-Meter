@@ -126,6 +126,10 @@ mod tests {
             .finish();
         let dir = directory("warning");
         tracing::subscriber::with_default(subscriber, || {
+            // Another test running at the same moment may have cached this
+            // warning as unwanted (no subscriber then): ask again here, or it
+            // goes unlogged now and then (CI, 2026-10-26).
+            tracing::callsite::rebuild_interest_cache();
             assert!(write(&dir.join("missing/settings.json"), b"private setting value").is_err());
         });
         let logged = String::from_utf8(output.lock().unwrap().clone()).unwrap();

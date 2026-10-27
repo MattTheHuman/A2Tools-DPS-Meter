@@ -1701,6 +1701,7 @@ fn update_download_path(url: &str) -> Result<std::path::PathBuf, String> {
     Ok(std::env::temp_dir().join(format!("a2tools-update-{tag}{ext}")))
 }
 
+#[cfg_attr(not(feature = "online"), allow(dead_code))]
 fn package_hash_matches(expected: &str, actual_hex: &str) -> bool {
     let expected = expected.trim();
     expected.len() == 64
@@ -4426,6 +4427,8 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
+    // Updates are an online build's: the offline one has no updater.
+    #[cfg(feature = "online")]
     #[test]
     fn updates_come_only_from_the_cdn() {
         use super::{update_url_allowed as ok, version_shaped};
