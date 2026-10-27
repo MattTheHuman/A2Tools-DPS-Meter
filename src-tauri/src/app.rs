@@ -2666,6 +2666,14 @@ fn tool_window_ready(app: tauri::AppHandle, label: String) -> bool {
     let Some(window) = app.get_webview_window(&label) else { return false };
     let _ = window.show();
     let _ = window.set_focus();
+    // Resizable from the outer edge too (Linux), from the first time it shows.
+    static EDGES: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+    let mut hooked = EDGES.lock().unwrap_or_else(|p| p.into_inner());
+    if !hooked.contains(&label) {
+        hooked.push(label.clone());
+        let min = if label == "settings" { (520.0, 420.0) } else if label == "history" { (480.0, 360.0) } else { (520.0, 360.0) };
+        platform::window::resizable_edges(&window, tauri::LogicalSize::new(min.0, min.1));
+    }
     true
 }
 

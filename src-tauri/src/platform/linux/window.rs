@@ -47,6 +47,77 @@ pub fn resize_pointer_down(window: &tauri::WebviewWindow) -> Option<bool> {
     }).flatten()
 }
 
+/// A tool window resizable from its outer edge, as other windows are. For a
+/// window without a title bar tao takes the outer 5 px for the window
+/// manager's resize: it shows the resize cursor there and starts the resize
+/// on the press itself, and neither the page nor a motion handler hears of
+/// it. The meter keeps
+/// tool windows' size pinned (`set_size`, so KWin cannot tile one that is
+/// dragged), and KWin refused the resize: the cursor offered one that never
+/// came (CachyOS, 2026-10-28). So the size is unpinned, down to `min`, while
+/// the pointer is in that band, with a frame to send the new hints (GTK sends
+/// them only on a commit), and pinned again once it is back inside with no
+/// button held: in a KDE Wayland VM, Battle History went from 1117 to 1231 px
+/// wide, then KWin had it fixed at that size again.
+pub fn resizable_edges(window: &tauri::WebviewWindow, min: tauri::LogicalSize<f64>) {
+    use gtk::{gdk, glib, prelude::*};
+    let target = window.clone();
+    super::dialog::on_gtk_thread(move || {
+        let Ok(gtk_window) = target.gtk_window() else { return };
+        let unpinned = std::rc::Rc::new(std::cell::Cell::new(false));
+        let set = {
+            let unpinned = unpinned.clone();
+            let target = target.clone();
+            move |w: &gtk::ApplicationWindow, edge: bool| {
+                if edge == unpinned.get() {
+                    return;
+                }
+                unpinned.set(edge);
+                if edge {
+                    // Through tao, which keeps the limits itself and would put
+                    // its own back over GTK hints set here.
+                    release_size(&target, min);
+                    w.queue_resize();
+                    w.queue_draw();
+                    if let Some(clock) = w.frame_clock() {
+                        clock.request_phase(gdk::FrameClockPhase::LAYOUT | gdk::FrameClockPhase::PAINT);
+                    }
+                } else if let Ok(size) = target.inner_size() {
+                    set_size(&target, tauri::Size::Physical(size));
+                }
+            }
+        };
+        // Where the pointer is, read ten times a second: tao's band passes no
+        // motion on to other handlers. Pinned again only once the pointer is
+        // back inside, not on its leaving: the window manager's resize takes
+        // the pointer, and pinning then ended the resize as it began.
+        let weak = gtk_window.downgrade();
+        glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
+            let Some(w) = weak.upgrade() else { return glib::ControlFlow::Break };
+            let Some(surface) = w.window() else { return glib::ControlFlow::Continue };
+            let Some(pointer) = w.display().default_seat().and_then(|seat| seat.pointer()) else {
+                return glib::ControlFlow::Continue;
+            };
+            let (_, x, y, held) = surface.device_position(&pointer);
+            // A button held: a resize (or a drag) under way, the position
+            // stale while the window manager has the pointer. It ends pinned
+            // at its new size, on the next look after the release.
+            if held.contains(gdk::ModifierType::BUTTON1_MASK) {
+                return glib::ControlFlow::Continue;
+            }
+            let (width, height) = (surface.width(), surface.height());
+            let inside = x >= 0 && y >= 0 && x < width && y < height;
+            if !inside {
+                return glib::ControlFlow::Continue;
+            }
+            let band = surface.scale_factor() * 5 + 1;
+            let edge = !w.is_maximized() && (x < band || y < band || x >= width - band || y >= height - band);
+            set(&w, edge);
+            glib::ControlFlow::Continue
+        });
+    });
+}
+
 /// Commit unpinned size hints before requesting a compositor resize.
 /// WebKit animation frames do not guarantee a GTK surface commit.
 pub async fn prepare_resize(
