@@ -129,6 +129,9 @@
       if (permission === "fps") {
         return t("settings.plugins.permFps", "Show the game's frame rate (on Windows, the meter asks to run as administrator for it)");
       }
+      if (permission === "events:death-recap") {
+        return t("settings.plugins.permDeathRecap", "After a player kills you: who they were and the damage they did to you");
+      }
       if (permission.startsWith("decoder:")) {
         return t("settings.plugins.permDecoder", "Read your own game data: {name}", { name: permission.slice(8) });
       }

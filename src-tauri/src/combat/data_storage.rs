@@ -5,6 +5,7 @@ use std::sync::Arc;
 use parking_lot::{Mutex, RwLock};
 
 use crate::capture::abnormal;
+use crate::combat::death_recap::{self, DeathRecaps};
 use crate::combat::stagger::{End, Outcome, StaggerHit, StaggerLog, StaggerWindow};
 
 use crate::entity::damage_packet::ParsedDamagePacket;
@@ -529,6 +530,9 @@ pub struct DataStorage {
     /// lock, as `abnormals`: fed by its own records, read when a fight is
     /// saved.
     stagger: Mutex<StaggerLog>,
+    /// Who killed you (see `combat::death_recap`). Its own lock, as
+    /// `stagger`.
+    death_recaps: Mutex<DeathRecaps>,
 }
 
 /// The timeline and when it was last pruned.
@@ -892,6 +896,7 @@ impl DataStorage {
             before_reset: RwLock::new(None),
             abnormals: Mutex::new(AbnormalLog { timeline: abnormal::Timeline::default(), pruned_ms: NEVER_MS }),
             stagger: Mutex::new(StaggerLog::default()),
+            death_recaps: Mutex::new(DeathRecaps::default()),
         }
     }
 
@@ -1867,6 +1872,17 @@ impl DataStorage {
             purge_friendly_damage(&mut inner, actor_id);
         }
 
+        // Another player's hit on you, for a death recap.
+        if let Some(me) = inner.local_player_id.and_then(|id| i32::try_from(id).ok()) {
+            let attacker = summon_resolver::resolve(actor_id, &inner.summon_storage);
+            if summon_resolver::resolve(target_id, &inner.summon_storage) == me
+                && attacker != me
+                && inner.known_player_ids.contains(&attacker)
+            {
+                self.death_recaps.lock().note_hit(attacker, pdp.timestamp(), pdp.total_damage() as i64, skill_code);
+            }
+        }
+
         // Party healing: player-on-player damage is actually healing/buffs
         if is_friendly_action(&inner, actor_id, target_id) {
             let heal_amount = pdp.total_damage();
@@ -2112,6 +2128,27 @@ impl DataStorage {
         inner.boss_maps.retain(|m| m.map_id != map.map_id);
         inner.boss_maps.push(map);
         inner.boss_map_seq += 1;
+    }
+
+    /// What another player's record says of them, kept for a death recap.
+    pub fn note_player_profile(&self, id: i32, profile: death_recap::Profile) {
+        self.death_recaps.lock().note_profile(id, profile);
+    }
+
+    /// You were killed: the recap, unless this death was already told. It is
+    /// kept only once handed back to `push_death_recap`.
+    pub fn died(&self, killer: death_recap::Killer, at_ms: i64) -> Option<death_recap::DeathRecap> {
+        self.death_recaps.lock().died(killer, at_ms)
+    }
+
+    pub fn push_death_recap(&self, recap: death_recap::DeathRecap) {
+        self.death_recaps.lock().push(recap);
+    }
+
+    /// The death recaps made since `seq` was read, and the count to ask with
+    /// next time; None when there are none.
+    pub fn death_recaps_since(&self, seq: u64) -> Option<(u64, Vec<death_recap::DeathRecap>)> {
+        self.death_recaps.lock().since(seq)
     }
 
     /// The maps opened since `seq` was read (all of them, newest last), and

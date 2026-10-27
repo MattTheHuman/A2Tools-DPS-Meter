@@ -36,6 +36,12 @@
 //   a2.on("bossMap", ({ map, bosses }) => ...) a map the player just opened, its field bosses as
 //                                              a2.bossTimers gives them (permission
 //                                              "feed:boss-timers", meter 2.0.65 on)
+//   a2.on("deathRecap", (r) => ...)            a player killed you (permission "events:death-recap", meter
+//                                              2.0.81 on): r = { at, killer: { name, serverId, legion,
+//                                              class ("gladiator", ...), level, gearScore, combatPower },
+//                                              damage, hits, durationMs, dps, skills: [{ id, name, damage,
+//                                              hits }] }, the killer's part null where the game did not
+//                                              say. Once each, kept like a decoder's events
 //   a2.on("game", ({ running }) => ...)        whether AION2 is open, at start and on change
 //                                              (meter 2.0.65 on)
 //   a2.on("ping", ({ ms }) => ...)             the ping to the game server in ms (null while not known),

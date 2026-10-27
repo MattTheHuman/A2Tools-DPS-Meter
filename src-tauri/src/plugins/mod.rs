@@ -639,6 +639,7 @@ impl PluginHost {
                 let mut fps_told: Option<Value> = None;
                 let mut map_seq = 0u64;
                 let mut abyss_seq = 0u64;
+                let mut recap_seq = 0u64;
                 loop {
                     // Woken by each queued event; the timeout lets settling
                     // events go once their wait is over.
@@ -677,6 +678,16 @@ impl PluginHost {
                             abyss_seq = next;
                             if !artifacts.artifacts.is_empty() {
                                 host.tell_permitted(&app, "feed:boss-timers", "abyss", abyss_event(&artifacts, seen_ms));
+                            }
+                        }
+                        // Who killed the player, once they died. Numbered
+                        // and kept, as decoded events: a window opened after
+                        // the death still hears of it.
+                        if let Some((next, recaps)) = state.data_storage.death_recaps_since(recap_seq) {
+                            recap_seq = next;
+                            for recap in recaps {
+                                let data = serde_json::to_value(&recap).unwrap_or_default();
+                                host.queue_permitted("events:death-recap", "deathRecap", recap.at, data);
                             }
                         }
                     }
@@ -809,6 +820,31 @@ impl PluginHost {
             let msg = serde_json::json!({ "plugin": id, "event": event, "data": data });
             emit_plugin(app, &id, msg);
         }
+    }
+
+    /// A numbered event (see `flush`) to the plugins with a permission.
+    /// `read_ms` is when it happened (unix ms).
+    fn queue_permitted(&self, permission: &str, event: &str, read_ms: i64, data: Value) {
+        let ids: Vec<String> = self
+            .loaded
+            .read()
+            .unwrap_or_else(|p| p.into_inner())
+            .iter()
+            .filter(|l| l.manifest.permissions.iter().any(|p| p == permission))
+            .map(|l| l.manifest.id.clone())
+            .collect();
+        let mut pending = self.pending.lock().unwrap_or_else(|p| p.into_inner());
+        for plugin in ids {
+            pending.push(Pending {
+                at: Instant::now(),
+                settle: false,
+                read_ms,
+                plugin,
+                event: event.to_string(),
+                data: data.clone(),
+            });
+        }
+        self.queued.notify_one();
     }
 
     /// An unnumbered event to the plugins with a permission.
@@ -1096,6 +1132,7 @@ struct PromptTexts {
     perm_character: String,
     perm_decoder: String,
     perm_fps: String,
+    perm_death_recap: String,
 }
 
 /// One text of the meter's interface in its language (English failing that),
@@ -1147,6 +1184,7 @@ fn prompt_texts(data_dir: Option<&Path>, lang: &str) -> PromptTexts {
         perm_character: perm("permCharacter", "See your character's name, server, class and level"),
         perm_decoder: perm("permDecoder", "Read your own game data: {name}"),
         perm_fps: perm("permFps", "Show the game's frame rate (on Windows, the meter asks to run as administrator for it)"),
+        perm_death_recap: perm("permDeathRecap", "After a player kills you: who they were and the damage they did to you"),
     }
 }
 
@@ -1160,6 +1198,7 @@ fn describe_permission(t: &PromptTexts, permission: &str) -> String {
         "widgets" => t.perm_widgets.clone(),
         "events:character" => t.perm_character.clone(),
         "fps" => t.perm_fps.clone(),
+        "events:death-recap" => t.perm_death_recap.clone(),
         p => match p.strip_prefix("decoder:") {
             Some(name) => t.perm_decoder.replace("{name}", name),
             None => p.to_string(),
