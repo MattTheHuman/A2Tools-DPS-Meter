@@ -189,6 +189,11 @@ pub async fn plugin_widget_open(
 ) -> Result<(), String> {
     let id = window_plugin(&window, plugin.as_deref())?;
     require(&app, &id, "widgets")?;
+    // A plugin turned off opens none: its page can still be finishing an
+    // update when it goes.
+    if super::disabled(&app).contains(&id) {
+        return Err("that plugin is turned off".into());
+    }
     tracing::debug!("Widgets: {id} opens {name:?} (from {})", window.label());
     if !valid_name(&name) {
         return Err("a widget name is 1 to 32 lowercase letters, digits and '-'".into());

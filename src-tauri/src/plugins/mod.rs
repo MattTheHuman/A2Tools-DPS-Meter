@@ -292,7 +292,7 @@ fn view(app: &tauri::AppHandle, host: &PluginHost) -> PluginsView {
 }
 
 /// The plugins turned off.
-fn disabled(app: &tauri::AppHandle) -> Vec<String> {
+pub(crate) fn disabled(app: &tauri::AppHandle) -> Vec<String> {
     app.try_state::<AppState>()
         .and_then(|s| s.settings.get(DISABLED_KEY))
         .and_then(|s| serde_json::from_str(&s).ok())
@@ -331,6 +331,10 @@ pub async fn plugin_set_enabled(app: tauri::AppHandle, id: String, enabled: bool
             let _ = window.close();
         }
         dock::sync(&app, None);
+        // Its icons go with it. Closing its own window took them (on the
+        // window's going), but one in the plugin dock has none to close, and
+        // Event Timers' icons stayed on screen after it was turned off.
+        widgets::close_all(&app, &id);
     }
     tracing::info!("Plugins: {id} {}", if enabled { "enabled" } else { "disabled" });
     let host = host(&app)?;
