@@ -178,23 +178,27 @@ pub fn walk(buffer: &[u8]) -> Framing {
 /// after a hole in the stream (`tcp_order`): the hole took the start of the
 /// frame they continue, so the walk must not read them as a length.
 ///
-/// A place counts when frames walk from it to the buffer's very end (a
-/// segment ends where a frame does more often than not): two of them, or one
-/// that is a bundle; or when three walk whole from it and the next is only
-/// still to come. And its first two frames must open as nearly every packet
-/// does (`COMMON_OPCODE_HIGH`): lengths alone, a stretch of a frame's middle
-/// walked from its third byte to the end of the stream (a test of the
-/// capture of 2026-10-27). Looked for in the first `RESYNC_SEARCH` bytes.
-/// `None`: no such place yet, wait for more.
+/// A place counts when three frames walk whole from it, or two and then the
+/// buffer's end or a frame still to come, or one bundle so. Its first two
+/// frames must open as nearly every packet does (`COMMON_OPCODE_HIGH`):
+/// lengths alone, a stretch of a frame's middle walked from its third byte to
+/// the end of the stream (a test of the capture of 2026-10-27). Each place is
+/// tried that far only, never to the end of the buffer: walked to the end
+/// from each of 8,192 places, a debug build fell behind the capture, its
+/// dropped packets made more holes, and the meter read nothing for good.
+/// Looked for in the first `RESYNC_SEARCH` bytes. `None`: no such place yet,
+/// wait for more.
 pub fn resync_start(buffer: &[u8]) -> Option<usize> {
-    let tiles = |from: usize| -> bool {
+    let starts_here = |from: usize| -> bool {
         let mut at = from;
         let mut whole = 0;
         let mut first_is_bundle = false;
-        while at < buffer.len() {
-            if buffer[at] == 0x00 {
+        loop {
+            while at < buffer.len() && buffer[at] == 0x00 {
                 at += 1;
-                continue;
+            }
+            if at >= buffer.len() {
+                return whole >= 2 || (whole == 1 && first_is_bundle);
             }
             let length = read_varint(buffer, at);
             if length.length <= 0 || length.value <= 0 {
@@ -204,27 +208,27 @@ pub fn resync_start(buffer: &[u8]) -> Option<usize> {
             if size > MAX_PACKET_BYTES {
                 return false;
             }
-            if at + size > buffer.len() {
-                let limit = if bundle_header_at(buffer, at + length.length as usize) {
-                    MAX_BUNDLE_WAIT_BYTES
-                } else {
-                    MAX_FRAGMENT_WAIT_BYTES
-                };
-                return whole >= 3 && size <= limit;
-            }
             let payload = at + length.length as usize;
-            if whole < 2 && !buffer.get(payload + 1).is_some_and(|b| COMMON_OPCODE_HIGH.contains(b)) {
+            let opens_as_packets_do = buffer.get(payload + 1).is_some_and(|b| COMMON_OPCODE_HIGH.contains(b));
+            if whole < 2 && !opens_as_packets_do {
                 return false;
             }
+            let bundle = bundle_header_at(buffer, payload);
+            if at + size > buffer.len() {
+                let limit = if bundle { MAX_BUNDLE_WAIT_BYTES } else { MAX_FRAGMENT_WAIT_BYTES };
+                return size <= limit && (whole >= 2 || (whole == 1 && bundle));
+            }
             if whole == 0 {
-                first_is_bundle = bundle_header_at(buffer, payload);
+                first_is_bundle = bundle;
             }
             whole += 1;
+            if whole >= 3 {
+                return true;
+            }
             at += size;
         }
-        whole >= 2 || (whole == 1 && first_is_bundle)
     };
-    (0..buffer.len().min(RESYNC_SEARCH)).find(|&from| buffer[from] != 0x00 && tiles(from))
+    (0..buffer.len().min(RESYNC_SEARCH)).find(|&from| buffer[from] != 0x00 && starts_here(from))
 }
 
 /// The second byte of 99.3% of packets' opcodes (55,954 frames of a capture
