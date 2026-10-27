@@ -958,7 +958,14 @@ impl StreamProcessor {
                 if real_id > 1_000_000 {
                     real_id = (real_id & 0x3FFF) | 0x4000;
                 }
-                if !self.data_storage.is_mob(real_id) {
+                // Already read (this spawn's own frame), unless it names
+                // another NPC: the game reuses entity ids, and Ritualist
+                // Garshim (2100077) spawned as 29091, an id a mob (2920174)
+                // had before, so the meter never knew him and showed none of
+                // his fight (2026-10-27).
+                let id_len = read_varint(data, i + 2).length.max(0) as usize;
+                let named = spawn_mob_code(data, i + 2 + id_len).map(|(code, _)| code);
+                if !self.data_storage.is_mob(real_id) || (named.is_some() && named != self.data_storage.mob_code(real_id)) {
                     self.parse_summon_spawn_at(data, i + 2);
                 }
             }
@@ -1461,52 +1468,34 @@ impl StreamProcessor {
 
     /// The NPC code this record names, if it names one.
     fn extract_and_register_mob_type(&self, packet: &[u8], start_offset: usize, real_actor_id: i32) -> Option<i32> {
-        let mut scan_offset = start_offset;
-        let max_scan = std::cmp::min(packet.len().saturating_sub(2), start_offset + 60);
+        let (mob_type_id, scan_offset) = spawn_mob_code(packet, start_offset)?;
+        self.data_storage.append_mob(real_actor_id, mob_type_id);
 
-        while scan_offset < max_scan {
-            if packet[scan_offset] == 0x00
-                && (packet[scan_offset + 1] == 0x40 || packet[scan_offset + 1] == 0x00)
-                && packet[scan_offset + 2] == 0x02
-            {
-                if scan_offset >= start_offset + 3 {
-                    let b1 = packet[scan_offset - 3] as i32;
-                    let b2 = packet[scan_offset - 2] as i32;
-                    let b3 = packet[scan_offset - 1] as i32;
-                    let mob_type_id = b1 | (b2 << 8) | (b3 << 16);
-                    self.data_storage.append_mob(real_actor_id, mob_type_id);
-
-                    // Register boss entities from NPC DB
-                    if self.npc_lookup.is_boss(mob_type_id) {
-                        self.data_storage.register_boss(real_actor_id);
-                    }
-                    if self.npc_lookup.is_training_dummy(mob_type_id) {
-                        self.data_storage.register_training_dummy(real_actor_id);
-                    }
-
-                    // Try to extract HP
-                    let mut hp_scan = scan_offset + 3;
-                    let hp_end = std::cmp::min(packet.len().saturating_sub(2), hp_scan + 64);
-                    while hp_scan < hp_end {
-                        if packet[hp_scan] == 0x01 {
-                            let current_hp = read_varint(packet, hp_scan + 1);
-                            if current_hp.length > 0 && current_hp.value > 0 {
-                                let max_hp = read_varint(packet, hp_scan + 1 + current_hp.length as usize);
-                                if max_hp.length > 0 && max_hp.value >= current_hp.value {
-                                    self.data_storage.append_mob_hp(real_actor_id, max_hp.value);
-                                    break;
-                                }
-                            }
-                        }
-                        hp_scan += 1;
-                    }
-                    return Some(mob_type_id);
-                }
-                break;
-            }
-            scan_offset += 1;
+        // Register boss entities from NPC DB
+        if self.npc_lookup.is_boss(mob_type_id) {
+            self.data_storage.register_boss(real_actor_id);
         }
-        None
+        if self.npc_lookup.is_training_dummy(mob_type_id) {
+            self.data_storage.register_training_dummy(real_actor_id);
+        }
+
+        // Try to extract HP
+        let mut hp_scan = scan_offset + 3;
+        let hp_end = std::cmp::min(packet.len().saturating_sub(2), hp_scan + 64);
+        while hp_scan < hp_end {
+            if packet[hp_scan] == 0x01 {
+                let current_hp = read_varint(packet, hp_scan + 1);
+                if current_hp.length > 0 && current_hp.value > 0 {
+                    let max_hp = read_varint(packet, hp_scan + 1 + current_hp.length as usize);
+                    if max_hp.length > 0 && max_hp.value >= current_hp.value {
+                        self.data_storage.append_mob_hp(real_actor_id, max_hp.value);
+                        break;
+                    }
+                }
+            }
+            hp_scan += 1;
+        }
+        Some(mob_type_id)
     }
 
     // ===== ACTOR NAME BINDING =====
@@ -3229,6 +3218,28 @@ fn ownership_records(data: &[u8]) -> Vec<Ownership> {
 /// Every spawn opcode (40/41/44/45 36) in `data` that
 /// `StreamProcessor::scan_for_embedded_40_36` reads: (where, the opcode's
 /// first byte, entity id).
+/// The NPC code a `40/41 36` spawn names, and where its `00 (40|00) 02`
+/// anchor sits: the three bytes before that anchor, within 60 bytes of
+/// `start_offset` (just past the entity id).
+fn spawn_mob_code(packet: &[u8], start_offset: usize) -> Option<(i32, usize)> {
+    let max_scan = std::cmp::min(packet.len().saturating_sub(2), start_offset + 60);
+    let mut scan_offset = start_offset;
+    while scan_offset < max_scan {
+        if packet[scan_offset] == 0x00
+            && (packet[scan_offset + 1] == 0x40 || packet[scan_offset + 1] == 0x00)
+            && packet[scan_offset + 2] == 0x02
+        {
+            if scan_offset < start_offset + 3 {
+                return None;
+            }
+            let code = packet[scan_offset - 3] as i32 | (packet[scan_offset - 2] as i32) << 8 | (packet[scan_offset - 1] as i32) << 16;
+            return Some((code, scan_offset));
+        }
+        scan_offset += 1;
+    }
+    None
+}
+
 fn embedded_spawns(data: &[u8]) -> Vec<(usize, u8, i32)> {
     let mut out = Vec::new();
     let mut i = 0;
@@ -4162,6 +4173,23 @@ mod tests {
         assert_eq!(taken, 1_258);
         // Nothing of it is taken for the monster's own damage.
         assert!(!storage.get_combat_snapshot_light()[&47573].actors.contains_key(&47573));
+    }
+
+    /// Ritualist Garshim (2100077) spawned, inside a bundle of other records,
+    /// as entity 29091, which an ordinary mob (2920174) had had before. The
+    /// embedded-spawn scan passed over ids already known as mobs, so the meter
+    /// kept the old code and never showed his fight (2026-10-27).
+    #[test]
+    fn a_spawn_reusing_a_mobs_id_names_the_new_npc() {
+        let (storage, mut p) = processor();
+        storage.append_mob(29091, 2_920_174);
+        // His spawn as the bundle carried it, after another record's bytes.
+        let data = hex("111D37860C2F03E5D502ED90F3910A4736FC2E01000A473690750100BF014136A3E3010420006D0B20000002C5ACD1C6D4E19B460064904649E7034273170180D0A54C80D0A54C640000006400000200025F");
+        p.scan_for_embedded_40_36(&data);
+        assert_eq!(storage.mob_code(29091), Some(2_100_077));
+        // The same spawn read again (its own frame, then the scan) changes nothing.
+        p.scan_for_embedded_40_36(&data);
+        assert_eq!(storage.mob_code(29091), Some(2_100_077));
     }
 
     /// A Training Scarecrow's live HP (2026-10-07, entity 25839, whose spawn
