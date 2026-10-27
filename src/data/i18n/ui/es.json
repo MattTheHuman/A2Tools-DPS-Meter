@@ -593,7 +593,8 @@
       "hideWhenSolo": "El medidor se oculta mientras no estás en un grupo y vuelve cuando te unes a uno. El atajo de mostrar/ocultar lo sigue mostrando.",
       "hideOutOfCombat": "El medidor se oculta tras este tiempo fuera de combate y vuelve con el siguiente golpe. Sigue visible mientras Ajustes, Historial o Detalles están abiertos, o el ratón está encima.",
       "runAsAdmin": "Necesario para mostrar los FPS del juego. Windows lo pedirá cada vez que se inicie el medidor.",
-      "shareData": "Comparte los temporizadores de jefes de campo y las Solicitudes de suministros de tu servidor con a2tools.app, para mantener A2Tools al día para todos: los jefes de tu mapa, los que ves morir y su vida, y los tablones de solicitudes tras cada reinicio. No se envía nada sobre tu personaje."
+      "shareData": "Comparte los temporizadores de jefes de campo y las Solicitudes de suministros de tu servidor con a2tools.app, para mantener A2Tools al día para todos: los jefes de tu mapa, los que ves morir y su vida, y los tablones de solicitudes tras cada reinicio. No se envía nada sobre tu personaje.",
+      "pluginAutoUpdate": "Al iniciar el medidor, las actualizaciones de plugins se instalan solas, en segundo plano. Una actualización que pide algo nuevo sigue esperando tu confirmación."
     },
     "globalHotkeys": "Usar atajos de teclado",
     "hotkeyConsent": {
@@ -660,7 +661,8 @@
       "permsTitle": "Puede:",
       "permFps": "Mostrar los FPS del juego (en Windows, el medidor pide ejecutarse como administrador para ello)",
       "testHint": "Versiones tempranas para que cualquiera las pruebe, firmadas como las demás. Pueden cambiar o tener detalles sin pulir: cuéntanos lo que encuentres.",
-      "testTitle": "Plugins de prueba"
+      "testTitle": "Plugins de prueba",
+      "autoUpdate": "Actualizar plugins automáticamente"
     },
     "clearOnZone": {
       "label": "Vaciar el medidor",

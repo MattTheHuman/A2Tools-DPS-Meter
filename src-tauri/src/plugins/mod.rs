@@ -1043,6 +1043,11 @@ pub async fn plugin_check_updates(app: tauri::AppHandle) -> Result<UpdateCheck, 
 /// Plugin updates the person said No to at start, a JSON object of id →
 /// version: that version is not offered again (a newer one is).
 pub const DECLINED_UPDATES_KEY: &str = "dpsMeter.pluginUpdatesDeclined";
+/// Settings → Plugins, "Update plugins automatically": off unless turned on.
+/// On, the updates found when the meter starts are installed without asking,
+/// but for any that asks for something new, which waits for the player's
+/// yes as before.
+pub const AUTO_UPDATE_KEY: &str = "dpsMeter.pluginAutoUpdate";
 /// How long after start the catalog is asked, so the check stays out of the
 /// way of startup.
 #[cfg(feature = "online")]
@@ -1177,8 +1182,10 @@ pub fn find_updates_at_start(app: &tauri::AppHandle) {
         // At start, then every 6 hours for a meter left running for days.
         // Each check replaces what the title offers: updates installed from
         // Settings meanwhile drop out of it.
+        let mut at_start = true;
         loop {
-            find_updates(&app).await;
+            find_updates(&app, at_start).await;
+            at_start = false;
             tokio::time::sleep(UPDATE_RECHECK).await;
         }
     });
@@ -1188,9 +1195,11 @@ pub fn find_updates_at_start(app: &tauri::AppHandle) {
 #[cfg(feature = "online")]
 const UPDATE_RECHECK: std::time::Duration = std::time::Duration::from_secs(6 * 60 * 60);
 
-/// Look for plugin updates once, and have the meter's title offer them.
+/// Look for plugin updates once, and have the meter's title offer them; at
+/// start, with automatic updates on, install the ones that need no new
+/// permission first.
 #[cfg(feature = "online")]
-async fn find_updates(app: &tauri::AppHandle) {
+async fn find_updates(app: &tauri::AppHandle, at_start: bool) {
     let Ok(host) = host(app) else { return };
     let Some(state) = app.try_state::<AppState>() else { return };
     let catalog = match catalog::fetch(&state.http).await {
@@ -1207,12 +1216,47 @@ async fn find_updates(app: &tauri::AppHandle) {
         let names = updates.iter().map(|(u, _)| format!("{} {} → {}", u.id, u.from, u.to)).collect::<Vec<_>>().join(", ");
         tracing::info!("Plugins: updates available: {names}");
     }
+    let auto = at_start && state.settings.get(AUTO_UPDATE_KEY).as_deref() == Some("true");
+    let updates = if auto { install_quietly(app, &host, updates).await } else { updates };
     let had = !pending_updates().lock().unwrap_or_else(|p| p.into_inner()).is_empty();
     if updates.is_empty() && !had {
         return;
     }
     *pending_updates().lock().unwrap_or_else(|p| p.into_inner()) = updates;
     tell_pending(app);
+}
+
+/// Install `updates` without asking, one after another, in the background
+/// task that found them: the meter's own threads (capture, the DPS window,
+/// plugin events) never wait on it. An update that asks for a permission its
+/// plugin doesn't have, or one that fails, is left to offer as before.
+#[cfg(feature = "online")]
+async fn install_quietly(
+    app: &tauri::AppHandle,
+    host: &Arc<PluginHost>,
+    updates: Vec<(PluginAvailable, catalog::Entry)>,
+) -> Vec<(PluginAvailable, catalog::Entry)> {
+    let mut left = Vec::new();
+    let mut done = Vec::new();
+    for (u, entry) in updates {
+        if !u.new_permissions.is_empty() {
+            left.push((u, entry));
+            continue;
+        }
+        match install_entry(app, host, &entry).await {
+            Ok(()) => done.push(format!("{} {} → {}", u.id, u.from, u.to)),
+            Err(e) => {
+                tracing::info!("Plugins: automatic update of {} failed: {e}", u.id);
+                left.push((u, entry));
+            }
+        }
+    }
+    if !done.is_empty() {
+        tracing::info!("Plugins: updated automatically: {}", done.join(", "));
+        // Settings, if open, shows the new versions.
+        let _ = app.emit_to("settings", "plugins-changed", ());
+    }
+    left
 }
 
 /// The updates found at start and not yet offered.
