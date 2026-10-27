@@ -42,6 +42,9 @@ pub struct Profile {
     pub level: Option<u32>,
     pub gear_score: Option<u32>,
     pub combat_power: Option<u64>,
+    /// Their legion's name and server, when they are in one.
+    pub legion: Option<String>,
+    pub server_id: Option<u16>,
 }
 
 /// A player's profile from their record. `rest` is the record from just past
@@ -50,6 +53,9 @@ pub struct Profile {
 /// - The class is the u32 right after the name, in the party roster's values.
 /// - The level and gear score sit as `48 f4 ff ff <level u32> 00 00 00 00
 ///   <gear score u32>`.
+/// - The legion, in one: `<legion id u16> 00 00 00 00 <server u16> <len u8>
+///   <utf8 name>`, about 100 bytes on (DISSONATA on 2304 for the same
+///   Gladiator, as the kill record named it; 101 of 225 players had one).
 /// - The combat power is near the end: `.. f4 cb 1f <u32> <n u32>`, maybe
 ///   one or four bytes, then the combat power (u64) and one or two last
 ///   bytes.
@@ -61,6 +67,7 @@ pub struct Profile {
 pub fn profile(rest: &[u8]) -> Profile {
     let u32_at = |at: usize| rest.get(at..at + 4).map(|b| u32::from_le_bytes(b.try_into().unwrap()));
     let class = u32_at(0).and_then(JobClass::from_roster_class);
+    let legion = legion(rest);
     let level_gs = (4..rest.len().saturating_sub(12)).find_map(|i| {
         if rest[i - 4..i] != [0x48, 0xf4, 0xff, 0xff] || rest[i + 4..i + 8] != [0, 0, 0, 0] {
             return None;
@@ -74,7 +81,27 @@ pub fn profile(rest: &[u8]) -> Profile {
         level: level_gs.map(|(l, _)| l),
         gear_score: level_gs.map(|(_, g)| g),
         combat_power: combat_power(rest),
+        legion: legion.as_ref().map(|(name, _)| name.clone()),
+        server_id: legion.map(|(_, server)| server),
     }
+}
+
+/// The legion's name and server: the first place in the record's first 200
+/// bytes that reads as one.
+fn legion(rest: &[u8]) -> Option<(String, u16)> {
+    let head = &rest[..rest.len().min(200)];
+    (0..head.len().saturating_sub(10)).find_map(|i| {
+        if head[i..i + 2] == [0, 0] || head[i + 2..i + 6] != [0, 0, 0, 0] {
+            return None;
+        }
+        let server = u16::from_le_bytes([head[i + 6], head[i + 7]]);
+        let len = head[i + 8] as usize;
+        if !crate::capture::servers::exists(server) || !(1..=24).contains(&len) {
+            return None;
+        }
+        let name = std::str::from_utf8(head.get(i + 9..i + 9 + len)?).ok()?;
+        name.chars().all(|c| c.is_alphanumeric() || c == ' ').then(|| (name.to_string(), server))
+    })
 }
 
 fn combat_power(rest: &[u8]) -> Option<u64> {
@@ -141,6 +168,8 @@ pub struct DeathRecap {
 #[serde(rename_all = "camelCase")]
 pub struct Assist {
     pub name: Option<String>,
+    pub legion: Option<String>,
+    pub server_id: Option<u16>,
     pub class: Option<&'static str>,
     pub level: Option<u32>,
     pub gear_score: Option<u32>,
@@ -253,6 +282,8 @@ impl DeathRecaps {
                 }
                 Some(Assist {
                     name: profile.name,
+                    legion: profile.legion,
+                    server_id: profile.server_id,
                     class: profile.class.map(class_key),
                     level: profile.level,
                     gear_score: profile.gear_score,
@@ -284,7 +315,7 @@ impl DeathRecaps {
             killer: KillerProfile {
                 name: killer.name,
                 server_id: killer.server_id,
-                legion: killer.legion,
+                legion: killer.legion.or(profile.legion),
                 class: profile.class.map(class_key),
                 level: profile.level,
                 gear_score: profile.gear_score,
@@ -342,6 +373,18 @@ mod tests {
         let p = profile(&ending("c0 04 00 00 0c 00 00 00 03 f2 9a 02 00 00 00 00 00 00"));
         assert_eq!(p.class, Some(JobClass::Gladiator));
         assert_eq!((p.level, p.gear_score, p.combat_power), (Some(45), Some(2783), Some(170_738)));
+    }
+
+    #[test]
+    fn a_record_names_its_players_legion() {
+        // NotYourSnack's: legion 132, server 2304, "DISSONATA".
+        let mut rest = vec![7, 0, 0, 0, 0x5f, 0x01, 0x00, 0x09];
+        rest.extend(hex("84 00 00 00 00 00 00 09 09"));
+        rest.extend(b"DISSONATA");
+        rest.extend([2, 0, 2, 0, 0, 0]);
+        assert_eq!(legion(&rest), Some(("DISSONATA".to_string(), 2304)));
+        // None: no legion.
+        assert_eq!(legion(&[7, 0, 0, 0, 0xc6, 0x00, 0x18, 0x05, 0x0c, 0x11, 0x11, 0x2b, 0xc4, 0xc9, 0x01]), None);
     }
 
     #[test]

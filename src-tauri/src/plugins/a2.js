@@ -40,7 +40,7 @@
 //                                              2.0.81 on): r = { at, killer: { name, serverId, legion,
 //                                              class ("gladiator", ...), level, gearScore, combatPower },
 //                                              damage, hits, durationMs, dps, skills: [{ id, name, damage,
-//                                              hits }], assists: [{ name, class, level, gearScore,
+//                                              hits }], assists: [{ name, legion, serverId, class, level, gearScore,
 //                                              combatPower, damage, hits }] (the others who damaged you
 //                                              in the fight, your party never) }, null where the game
 //                                              did not say. Once each, kept like a decoder's events
