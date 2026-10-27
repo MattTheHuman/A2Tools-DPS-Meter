@@ -10,6 +10,7 @@
     "tauri": "tauri",
     "build:offline": "tauri build -- --no-default-features --features desktop",
     "dev:offline": "tauri dev -- --no-default-features --features desktop",
+    "dev:stop": "node -e \"const p=require('path'),os=require('os'),fs=require('fs');const d=p.join(process.env.APPDATA||p.join(os.homedir(),'.local','share'),'com.a2tools.dps-meter');fs.mkdirSync(d,{recursive:true});fs.writeFileSync(p.join(d,'dev-quit'),'');console.log('asked the dev meter to quit')\"",
     "rename-msi": "node -e \"const fs=require('fs'),p=require('path'),d='src-tauri/target/release/bundle/msi';fs.readdirSync(d).filter(f=>f.endsWith('.msi')).forEach(f=>{const n=f.replace(/ /g,'-');if(n!==f){fs.renameSync(p.join(d,f),p.join(d,n));console.log(f+' -> '+n)}})\""
   },
   "dependencies": {

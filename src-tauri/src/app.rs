@@ -3567,6 +3567,27 @@ pub fn run() {
                 .unwrap_or_else(|_| std::path::PathBuf::from("."));
             let _ = std::fs::create_dir_all(&app_data_dir);
 
+            // Dev builds quit when a `dev-quit` file appears in the data
+            // folder (`npm run dev:stop`): run as administrator, the meter
+            // can't be stopped from an ordinary shell.
+            #[cfg(debug_assertions)]
+            {
+                let flag = app_data_dir.join("dev-quit");
+                let _ = std::fs::remove_file(&flag);
+                let handle = app.handle().clone();
+                std::thread::spawn(move || loop {
+                    std::thread::sleep(Duration::from_millis(500));
+                    if flag.exists() {
+                        let _ = std::fs::remove_file(&flag);
+                        tracing::info!("dev-quit: quitting");
+                        quit_app(handle.clone());
+                        // Still here a few seconds on: stop outright.
+                        std::thread::sleep(Duration::from_secs(5));
+                        std::process::exit(0);
+                    }
+                });
+            }
+
             // Load resources — try multiple paths (dev vs production)
             let skill_lookup = SkillLookup::new();
             let npc_lookup = NpcLookup::new();
