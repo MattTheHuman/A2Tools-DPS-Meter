@@ -2138,7 +2138,8 @@ impl DataStorage {
     /// You were killed: the recap, unless this death was already told. It is
     /// kept only once handed back to `push_death_recap`.
     pub fn died(&self, killer: death_recap::Killer, at_ms: i64) -> Option<death_recap::DeathRecap> {
-        self.death_recaps.lock().died(killer, at_ms)
+        let party: Vec<String> = self.get_party_members().into_keys().collect();
+        self.death_recaps.lock().died(killer, at_ms, &party)
     }
 
     pub fn push_death_recap(&self, recap: death_recap::DeathRecap) {

@@ -40,8 +40,10 @@
 //                                              2.0.81 on): r = { at, killer: { name, serverId, legion,
 //                                              class ("gladiator", ...), level, gearScore, combatPower },
 //                                              damage, hits, durationMs, dps, skills: [{ id, name, damage,
-//                                              hits }] }, the killer's part null where the game did not
-//                                              say. Once each, kept like a decoder's events
+//                                              hits }], assists: [{ name, class, level, gearScore,
+//                                              combatPower, damage, hits }] (the others who damaged you
+//                                              in the fight, your party never) }, null where the game
+//                                              did not say. Once each, kept like a decoder's events
 //   a2.on("game", ({ running }) => ...)        whether AION2 is open, at start and on change
 //                                              (meter 2.0.65 on)
 //   a2.on("ping", ({ ms }) => ...)             the ping to the game server in ms (null while not known),

@@ -4,6 +4,9 @@
 //! player who did it. The recap is then their profile, as their own record
 //! (`45 36`) gave it, and what they did to you in that fight.
 //!
+//! Everyone else who damaged you in that fight is in it too, as an assist
+//! (your party never can).
+//!
 //! What it is made from stays here until then: a recap is the only thing
 //! that leaves, and only after a death. Plugins get it with the
 //! `events:death-recap` permission.
@@ -26,11 +29,15 @@ const FIGHT_GAP_MS: i64 = 15_000;
 const SAME_DEATH_MS: i64 = 10_000;
 /// Recaps kept for plugins whose window opens later.
 const MAX_RECAPS: usize = 20;
+/// Assists in one recap, the most damage first.
+const MAX_ASSISTS: usize = 10;
 
 /// What a player's record says of them. Each part is `None` when the record
 /// did not give it plainly.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Profile {
+    /// Set by the caller, from the record's name field.
+    pub name: Option<String>,
     pub class: Option<JobClass>,
     pub level: Option<u32>,
     pub gear_score: Option<u32>,
@@ -62,6 +69,7 @@ pub fn profile(rest: &[u8]) -> Profile {
         ((1..=99).contains(&level) && (1..=10_000).contains(&gs)).then_some((level, gs))
     });
     Profile {
+        name: None,
         class,
         level: level_gs.map(|(l, _)| l),
         gear_score: level_gs.map(|(_, g)| g),
@@ -123,6 +131,22 @@ pub struct DeathRecap {
     pub dps: Option<i64>,
     /// Their skills, the most damage first.
     pub skills: Vec<SkillDamage>,
+    /// The other players who damaged you in the fight, the most first.
+    pub assists: Vec<Assist>,
+}
+
+/// A player who damaged you in the fight that killed you, other than the
+/// killer. What their record gave; null where it gave nothing.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Assist {
+    pub name: Option<String>,
+    pub class: Option<&'static str>,
+    pub level: Option<u32>,
+    pub gear_score: Option<u32>,
+    pub combat_power: Option<u64>,
+    pub damage: i64,
+    pub hits: u32,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -146,6 +170,20 @@ pub struct SkillDamage {
     pub name: Option<String>,
     pub damage: i64,
     pub hits: u32,
+}
+
+/// One attacker's hits in the fight that ended at `at`: up to the death, back
+/// to the first after a long gap; the latest first.
+fn fight_hits(hits: Option<VecDeque<Hit>>, at: i64) -> Vec<Hit> {
+    let mut fight: Vec<Hit> = Vec::new();
+    for hit in hits.map(Vec::from).unwrap_or_default().into_iter().rev().filter(|h| h.at <= at + 1_000) {
+        let next = fight.last().map_or(at, |h| h.at);
+        if next - hit.at > FIGHT_GAP_MS {
+            break;
+        }
+        fight.push(hit);
+    }
+    fight
 }
 
 fn class_key(class: JobClass) -> &'static str {
@@ -197,23 +235,36 @@ impl DeathRecaps {
     }
 
     /// You were killed by `killer` at `at`: the recap, unless this death was
-    /// already told. Skill names are for the caller to fill in.
-    pub fn died(&mut self, killer: Killer, at: i64) -> Option<DeathRecap> {
+    /// already told. `party` names your party, whose records are not
+    /// assists. Skill names are for the caller to fill in.
+    pub fn died(&mut self, killer: Killer, at: i64, party: &[String]) -> Option<DeathRecap> {
         if self.last_death.is_some_and(|(id, when)| id == killer.id && (at - when).abs() < SAME_DEATH_MS) {
             return None;
         }
         self.last_death = Some((killer.id, at));
-        // Their hits up to the death, back to the first after a long gap.
-        let theirs: Vec<Hit> = self.hits.remove(&killer.id).map(Vec::from).unwrap_or_default();
-        let mut fight: Vec<Hit> = Vec::new();
-        for hit in theirs.into_iter().rev().filter(|h| h.at <= at + 1_000) {
-            let next = fight.last().map_or(at, |h| h.at);
-            if next - hit.at > FIGHT_GAP_MS {
-                break;
-            }
-            fight.push(hit);
-        }
-        self.hits.clear();
+        let fight = fight_hits(self.hits.remove(&killer.id), at);
+        let mut assists: Vec<Assist> = std::mem::take(&mut self.hits)
+            .into_iter()
+            .filter_map(|(id, hits)| {
+                let theirs = fight_hits(Some(hits), at);
+                let profile = self.profiles.get(&id).cloned().unwrap_or_default();
+                if theirs.is_empty() || profile.name.as_ref().is_some_and(|n| party.contains(n)) {
+                    return None;
+                }
+                Some(Assist {
+                    name: profile.name,
+                    class: profile.class.map(class_key),
+                    level: profile.level,
+                    gear_score: profile.gear_score,
+                    combat_power: profile.combat_power,
+                    damage: theirs.iter().map(|h| h.damage).sum(),
+                    hits: theirs.len() as u32,
+                })
+            })
+            .filter(|a| a.damage > 0)
+            .collect();
+        assists.sort_by_key(|a| -a.damage);
+        assists.truncate(MAX_ASSISTS);
         let damage: i64 = fight.iter().map(|h| h.damage).sum();
         let duration_ms = fight.last().map(|first| (at - first.at).max(0));
         let mut skills: Vec<SkillDamage> = Vec::new();
@@ -244,6 +295,7 @@ impl DeathRecaps {
             duration_ms,
             dps: duration_ms.map(|ms| damage * 1000 / ms.max(1000)),
             skills,
+            assists,
         })
     }
 
@@ -319,20 +371,34 @@ mod tests {
         d.note_hit(15191, 21_000, 4_000, 11_190_340);
         d.note_hit(15191, 21_500, 1_000, 11_200_000);
         d.note_hit(15191, 22_000, 2_000, 11_190_340);
-        // Someone else's hit is not theirs.
+        // Someone else's hit is not theirs: an assist.
+        d.note_profile(777, Profile { name: Some("Tewy".into()), ..Profile::default() });
         d.note_hit(777, 22_000, 50_000, 1);
-        let r = d.died(killer(), 23_000).unwrap();
+        let r = d.died(killer(), 23_000, &[]).unwrap();
         assert_eq!((r.damage, r.hits, r.duration_ms, r.dps), (7_000, 3, Some(2_000), Some(3_500)));
         assert_eq!(r.skills.iter().map(|s| (s.id, s.damage, s.hits)).collect::<Vec<_>>(), [(11_190_340, 6_000, 2), (11_200_000, 1_000, 1)]);
         assert_eq!((r.killer.class, r.killer.gear_score, r.killer.combat_power), (Some("gladiator"), Some(2783), Some(170_738)));
+        assert_eq!(r.assists.iter().map(|a| (a.name.as_deref(), a.damage, a.hits)).collect::<Vec<_>>(), [(Some("Tewy"), 50_000, 1)]);
         // The same record read again is the same death.
-        assert!(d.died(killer(), 23_050).is_none());
+        assert!(d.died(killer(), 23_050, &[]).is_none());
+    }
+
+    #[test]
+    fn your_party_and_old_hits_are_no_assists() {
+        let mut d = DeathRecaps::default();
+        d.note_profile(5, Profile { name: Some("Healer".into()), ..Profile::default() });
+        d.note_hit(5, 9_000, 3_000, 1);
+        // Forty seconds before: another fight.
+        d.note_hit(6, -30_000, 3_000, 1);
+        d.note_hit(7, 9_500, 1_200, 1);
+        let r = d.died(killer(), 10_000, &["Healer".to_string()]).unwrap();
+        assert_eq!(r.assists.iter().map(|a| (a.name.as_deref(), a.damage)).collect::<Vec<_>>(), [(None, 1_200)]);
     }
 
     #[test]
     fn a_killer_never_seen_hitting_gives_no_fight_time() {
         let mut d = DeathRecaps::default();
-        let r = d.died(killer(), 5_000).unwrap();
+        let r = d.died(killer(), 5_000, &[]).unwrap();
         assert_eq!((r.damage, r.duration_ms, r.dps, r.killer.class), (0, None, None, None));
     }
 
@@ -340,7 +406,7 @@ mod tests {
     fn plugins_get_each_recap_once() {
         let mut d = DeathRecaps::default();
         assert!(d.since(0).is_none());
-        let r = d.died(killer(), 5_000).unwrap();
+        let r = d.died(killer(), 5_000, &[]).unwrap();
         d.push(r);
         let (seq, new) = d.since(0).unwrap();
         assert_eq!(new.len(), 1);

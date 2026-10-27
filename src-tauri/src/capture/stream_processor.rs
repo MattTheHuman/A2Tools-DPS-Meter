@@ -1212,7 +1212,8 @@ impl StreamProcessor {
         let Some((actor_id, sanitized, field)) = player_spawn_at(data, offset_after_opcode) else {
             return;
         };
-        self.data_storage.note_player_profile(actor_id, death_recap::profile(&data[field.end..]));
+        let profile = death_recap::Profile { name: Some(sanitized.clone()), ..death_recap::profile(&data[field.end..]) };
+        self.data_storage.note_player_profile(actor_id, profile);
         // 45/44 36 player spawn is an authoritative id↔name source.
         self.data_storage.note_low_id_entity(actor_id);
         self.data_storage.note_player_spawn(actor_id);
