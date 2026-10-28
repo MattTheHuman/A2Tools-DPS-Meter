@@ -38,6 +38,9 @@ pub fn set_size_and_position(window: &tauri::WebviewWindow, size: tauri::Size, p
     let _ = window.set_position(tauri::Position::Physical(pos));
 }
 
+/// Linux only: there tao's edge band and the pinned size need it.
+pub fn resizable_edges(_window: &tauri::WebviewWindow, _min: tauri::LogicalSize<f64>) {}
+
 pub fn release_size(_window: &tauri::WebviewWindow, _min: tauri::LogicalSize<f64>) {}
 
 pub fn primary_button_down() -> Option<bool> {

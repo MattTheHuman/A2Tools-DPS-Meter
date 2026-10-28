@@ -192,6 +192,9 @@ pub fn meter_anchor_available() -> bool {
     true
 }
 
+/// Linux only: there tao's edge band and the pinned size need it.
+pub fn resizable_edges(_window: &tauri::WebviewWindow, _min: tauri::LogicalSize<f64>) {}
+
 pub fn release_size(_window: &tauri::WebviewWindow, _min: tauri::LogicalSize<f64>) {}
 
 pub fn primary_button_down() -> Option<bool> {
