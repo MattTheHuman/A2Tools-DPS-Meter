@@ -1530,10 +1530,16 @@
   }, 10000);
 
   // ===== Overlay resize handle =====
+  // The window grows to the room right of and below the meter for the drag,
+  // without moving it, and the edge is kept from wherever the player leaves
+  // it (app.rs resize_window).
   const expandViewport = () => {
     resizeActive = true;
     const space = spaceRightBelow();
-    invoke("resize_window", { width: Math.min(space.w, 2000), height: Math.min(space.h, 1200), scale: window.devicePixelRatio || 1 }).catch(() => {});
+    invoke("resize_window", {
+      width: Math.min(space.w, 2000), height: Math.min(space.h, 1200), scale: window.devicePixelRatio || 1,
+      preserveAnchor: false, playerResize: true,
+    }).catch(() => {});
   };
   const shrinkViewport = () => {
     if (nativeResize) return;

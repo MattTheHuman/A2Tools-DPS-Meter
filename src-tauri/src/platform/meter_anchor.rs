@@ -99,15 +99,16 @@ fn anchored_y(anchor: Anchor, x: i32, width: i32, old_y: i32, old_height: i32, n
 }
 
 /// Resize the meter to `size`, keeping `anchor`, from the height it last had
-/// when anchored. The height it is anchored at now, or None when it was only
-/// resized (minimized, its place or size unknown).
+/// when anchored. With none (`last_height` None: no `window.h` saved yet, or
+/// the player just sized the meter), it keeps its top, and its new height is
+/// the one the edge is kept from. The height it is anchored at now, or None
+/// when it was only resized (minimized, its place or size unknown).
 pub fn resize(window: &tauri::WebviewWindow, size: tauri::Size, anchor: Anchor, last_height: Option<i32>) -> Option<i32> {
     let old_pos = window.outer_position().ok();
     let new_size = physical_size(window, &size);
-    let outer = window.outer_size().ok();
     // A minimized window's place is not its place (-32000 on Windows).
     let parked = window.is_minimized().unwrap_or(false) || old_pos.is_some_and(|p| p.x <= -10000 || p.y <= -10000);
-    let (Some(old_pos), Some(new_size), Some(outer)) = (old_pos, new_size, outer) else {
+    let (Some(old_pos), Some(new_size)) = (old_pos, new_size) else {
         window::set_size(window, size);
         return None;
     };
@@ -116,7 +117,7 @@ pub fn resize(window: &tauri::WebviewWindow, size: tauri::Size, anchor: Anchor, 
         return None;
     }
     let new_height = new_size.height as i32;
-    let old_height = last_height.filter(|h| *h > 0).unwrap_or(outer.height as i32);
+    let old_height = last_height.filter(|h| *h > 0).unwrap_or(new_height);
     let areas: Vec<Area> = window
         .available_monitors()
         .unwrap_or_default()

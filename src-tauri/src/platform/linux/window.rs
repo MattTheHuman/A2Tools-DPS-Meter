@@ -385,8 +385,8 @@ pub fn set_main_anchor(anchor: crate::platform::meter_anchor::Anchor) {
 
 /// Whether the overlay's next resize keeps its edge, or grows it for a moment
 /// (a panel, the promo): the KWin script has it before the resize.
-pub fn anchor_next_resize(anchored: bool) {
-    super::focus::anchor_next_resize(anchored);
+pub async fn anchor_next_resize(anchored: bool) {
+    super::focus::anchor_next_resize(anchored).await;
 }
 
 /// Whether `hide_in_place` has this window hidden.

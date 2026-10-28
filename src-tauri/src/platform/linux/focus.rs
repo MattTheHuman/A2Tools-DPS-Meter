@@ -154,6 +154,8 @@ function place(w) {
                 var now = w.frameGeometry;
                 seen = Math.round(now.height);
                 top = Math.round(now.y);
+                // The player sized it: its edge is kept from this height.
+                if (main && !mainGrown) keptHeight = overlayHeight = seen;
             });
         }
         w.frameGeometryChanged.connect(function () {
@@ -281,8 +283,8 @@ const ANCHOR_HOLD: std::time::Duration = std::time::Duration::from_secs(20);
 /// itself (`meter_anchor::resize`).
 static MAIN_GROWN: AtomicBool = AtomicBool::new(false);
 /// What the script last said it has (`Focus::anchor`), for `tell_grown`.
-static HEARD: std::sync::LazyLock<(std::sync::Mutex<String>, std::sync::Condvar)> =
-    std::sync::LazyLock::new(Default::default);
+static HEARD: std::sync::LazyLock<tokio::sync::watch::Sender<String>> =
+    std::sync::LazyLock::new(|| tokio::sync::watch::Sender::new(String::new()));
 /// How long `tell_grown` waits for the script: a D-Bus round trip, a frame or
 /// two of KWin's.
 const HEARD_WAIT: std::time::Duration = std::time::Duration::from_millis(200);
@@ -340,16 +342,16 @@ fn main_state() -> String {
 
 /// Whether the overlay's next resize keeps its edge, or grows it for a moment
 /// (a panel, the promo). On KDE Wayland the script is told before the resize.
-pub fn anchor_next_resize(anchored: bool) {
+pub async fn anchor_next_resize(anchored: bool) {
     if kwin_places_windows() {
-        tell_grown(!anchored);
+        tell_grown(!anchored).await;
     }
 }
 
 /// The script must have it before the resize reaches KWin, or with Bottom a
 /// panel would open upwards and close a round trip late: the meter waits until
 /// the script asks again with it.
-fn tell_grown(grown: bool) {
+async fn tell_grown(grown: bool) {
     if MAIN_GROWN.swap(grown, Ordering::SeqCst) == grown {
         return;
     }
@@ -360,9 +362,8 @@ fn tell_grown(grown: bool) {
         return;
     }
     let want = main_state();
-    let (heard, told) = &*HEARD;
-    let heard = heard.lock().unwrap_or_else(|p| p.into_inner());
-    let _ = told.wait_timeout_while(heard, HEARD_WAIT, |heard| *heard != want);
+    let mut heard = HEARD.subscribe();
+    let _ = tokio::time::timeout(HEARD_WAIT, heard.wait_for(|heard| *heard == want)).await;
 }
 
 /// 0: not known (no report yet, or not KDE). 1: the game or one of the
@@ -493,11 +494,7 @@ impl Focus {
     /// to ask again. So the script hears of a change as it is made, rather
     /// than asking at each resize.
     async fn anchor(&self, known: String) -> String {
-        {
-            let (heard, told) = &*HEARD;
-            *heard.lock().unwrap_or_else(|p| p.into_inner()) = known.clone();
-            told.notify_all();
-        }
+        HEARD.send_replace(known.clone());
         let changed = ANCHOR_CHANGED.notified();
         if main_state() == known {
             // zbus runs this on its own executor, which has no timer.
@@ -617,12 +614,12 @@ mod tests {
             }
         });
         let told = std::time::Instant::now();
-        tell_grown(true);
+        block_on(tell_grown(true));
         assert!(told.elapsed() < HEARD_WAIT);
-        assert_eq!(*HEARD.0.lock().unwrap(), "bottom grown");
+        assert_eq!(*HEARD.borrow(), "bottom grown");
         let told = std::time::Instant::now();
-        tell_grown(false);
+        block_on(tell_grown(false));
         assert!(told.elapsed() < HEARD_WAIT);
-        assert_eq!(*HEARD.0.lock().unwrap(), "bottom");
+        assert_eq!(*HEARD.borrow(), "bottom");
     }
 }

@@ -2060,18 +2060,42 @@ fn meter_anchor(state: &tauri::State<'_, AppState>) -> platform::meter_anchor::A
     platform::meter_anchor::Anchor::from_setting(state.settings.get(METER_ANCHOR_KEY).as_deref())
 }
 
+/// `async`: on KDE Wayland it waits for the KWin script to hear whether the
+/// resize keeps the edge (`anchor_next_resize`, a round trip), which must not
+/// hold the main thread. The resize itself is still made there, and the
+/// command answers once it is made, so the page's sizes keep their order.
 #[tauri::command]
-fn resize_window(
+async fn resize_window(
     app: tauri::AppHandle,
-    state: tauri::State<'_, AppState>,
     width: f64,
     height: f64,
     scale: Option<f64>,
     preserve_anchor: Option<bool>,
+    player_resize: Option<bool>,
 ) {
+    // A resize keeps the edge only when it says so (the page fitting the
+    // window to the meter): a tooltip, the details panel, the promo or the
+    // resize handle grows it for a moment without moving it.
+    let anchored = preserve_anchor.unwrap_or(false);
+    // Where the meter does not place its own windows, the KWin script keeps
+    // the edge (KDE Wayland), told first whether this resize keeps it.
+    if !platform::window::places_own_windows() {
+        platform::window::anchor_next_resize(anchored).await;
+    }
+    let (done, resized) = tokio::sync::oneshot::channel();
+    let handle = app.clone();
+    let _ = app.run_on_main_thread(move || {
+        resize_overlay(&handle, width, height, scale, anchored, player_resize == Some(true));
+        let _ = done.send(());
+    });
+    let _ = resized.await;
+}
+
+fn resize_overlay(app: &tauri::AppHandle, width: f64, height: f64, scale: Option<f64>, anchored: bool, player_resize: bool) {
     // Only the overlay auto-sizes itself. The details window is sized to a
     // whole monitor by open_details_window and must never be resized from JS.
     let Some(window) = app.get_webview_window("main") else { return };
+    let state = app.state::<AppState>();
     // `width`/`height` are the page's CSS pixels and `scale` its
     // devicePixelRatio. WebView2 draws a CSS pixel at the display scale TIMES
     // Windows' Accessibility "Text size", while a logical size here covers the
@@ -2084,17 +2108,13 @@ fn resize_window(
         }),
         None => tauri::Size::Logical(tauri::LogicalSize { width, height }),
     };
-    // A tooltip, the details panel or the promo grows the window for a moment
-    // without moving it (`preserve_anchor` false).
-    let anchored = preserve_anchor.unwrap_or(true);
-    // Where the meter does not place its own windows, the KWin script keeps
-    // the edge (KDE Wayland), told first whether this resize keeps it.
-    if !platform::window::places_own_windows() {
-        platform::window::anchor_next_resize(anchored);
-        platform::window::set_size(&window, size);
-        return;
+    // The player grabbed the resize handle: the edge is kept from wherever
+    // they leave the meter. The next anchored resize, fitting the window to
+    // it, keeps its top and goes from its new height (`meter_anchor::resize`).
+    if player_resize {
+        state.anchored_height.store(0, std::sync::atomic::Ordering::Relaxed);
     }
-    if !anchored {
+    if !anchored || !platform::window::places_own_windows() {
         platform::window::set_size(&window, size);
         return;
     }
@@ -3175,13 +3195,18 @@ async fn begin_window_resize(
 }
 
 #[tauri::command]
-fn finish_window_resize(window: tauri::WebviewWindow, cancel: bool) -> Result<bool, String> {
+fn finish_window_resize(window: tauri::WebviewWindow, state: tauri::State<'_, AppState>, cancel: bool) -> Result<bool, String> {
     if platform::window::compositor_resize_supported(&window) {
         if !cancel && platform::window::resize_pointer_down(&window) != Some(false) {
             return Ok(false);
         }
         let size = window.inner_size().map_err(|e| e.to_string())?;
         platform::window::set_size(&window, tauri::Size::Physical(size));
+        // The player sized the overlay: its edge is kept from this height, not
+        // the one it had before.
+        if window.label() == "main" {
+            state.anchored_height.store(size.height as i32, std::sync::atomic::Ordering::Relaxed);
+        }
     }
     Ok(true)
 }

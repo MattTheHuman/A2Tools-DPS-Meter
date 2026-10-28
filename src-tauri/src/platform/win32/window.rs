@@ -184,7 +184,7 @@ pub fn set_main_anchor(_anchor: crate::platform::meter_anchor::Anchor) {}
 
 /// Whether the overlay's next resize keeps its edge: for KWin on KDE Wayland
 /// only; here `resize_window` moves it itself.
-pub fn anchor_next_resize(_anchored: bool) {}
+pub async fn anchor_next_resize(_anchored: bool) {}
 
 /// Whether Settings offers "Meter stays fixed at": always here, where the
 /// meter places its own windows.
